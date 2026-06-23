@@ -44,6 +44,8 @@ export type {
   CardStatus,
   CreateCardInput,
   CardBalance,
+  RevealCardInput,
+  RevealedCard,
 } from "./resources/cards.js";
 export type { Balance } from "./resources/balance.js";
 

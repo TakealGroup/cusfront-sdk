@@ -183,21 +183,37 @@ describe("CardsResource", () => {
     );
   });
 
-  it("exposes ownership-gated lifecycle methods (but not reveal)", async () => {
+  it("exposes ownership-gated lifecycle methods", async () => {
     const { captured, http } = rig(CARD);
     const cards = new CardsResource(http);
     expect(typeof cards.freeze).toBe("function");
     expect(typeof cards.unfreeze).toBe("function");
     expect(typeof cards.terminate).toBe("function");
-    // PAN/CVV reveal is a separate security-gated flow — deliberately still absent.
-    expect(
-      (cards as unknown as Record<string, unknown>).reveal,
-    ).toBeUndefined();
 
     await cards.freeze("card_1", "lost");
     expect(captured[0]!.url).toBe("https://api.test/me/cards/card_1/freeze");
     expect(captured[0]!.init.method).toBe("POST");
     expect(bodyOf(captured[0]!)).toEqual({ reason: "lost" });
+  });
+
+  it("reveal POSTs /me/cards/{id}/reveal with the re-auth body", async () => {
+    const revealed = {
+      pan: "4111111111111111",
+      cvv: "123",
+      expiry_month: 6,
+      expiry_year: 2028,
+      holder_name: "Alice Tester",
+      expires_in_seconds: 30,
+    };
+    const { captured, http } = rig(revealed);
+    const out = await new CardsResource(http).reveal("card_1", {
+      password: "pw",
+      totpCode: "123456",
+    });
+    expect(out).toEqual(revealed);
+    expect(captured[0]!.url).toBe("https://api.test/me/cards/card_1/reveal");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({ password: "pw", totp_code: "123456" });
   });
 });
 

@@ -105,6 +105,29 @@ export interface CardBalance {
   currency: string;
 }
 
+/** Re-auth gate for {@link CardsResource.reveal}. */
+export interface RevealCardInput {
+  /** The user's account password — mandatory re-auth. */
+  password: string;
+  /** TOTP code; required only when the user has TOTP enrolled. */
+  totpCode?: string;
+}
+
+/**
+ * Full card data from a successful reveal. **Security**: never persist this —
+ * keep it in volatile memory only, clear it within `expires_in_seconds`, and
+ * never write it to localStorage / logs (the API marks the response no-store).
+ */
+export interface RevealedCard {
+  pan: string;
+  cvv: string;
+  expiry_month: number;
+  expiry_year: number;
+  holder_name: string;
+  /** Display window before the client should auto-clear the data. */
+  expires_in_seconds: number;
+}
+
 export class CardsResource {
   constructor(private readonly http: HttpClient) {}
 
@@ -152,6 +175,26 @@ export class CardsResource {
     return this.http.post<Card>(
       `/me/cards/${encodeURIComponent(id)}/freeze`,
       { body: { reason } },
+    );
+  }
+
+  /**
+   * Reveal the FULL PAN + CVV for the caller's own card. Re-auth gated
+   * (password, + TOTP when the user has it enrolled) and rate-limited
+   * server-side. The Takeal API never persists this data and marks the
+   * response no-store; the SDK returns it verbatim and holds nothing.
+   *
+   * **Consumer security duties** (the SDK can't enforce these for you):
+   * keep the result in volatile memory only, never write it to
+   * localStorage / logs, and clear it within `expires_in_seconds`.
+   *
+   * 401 bad re-auth · 403 not your card · 429 rate-limited · 501 connector
+   * has no sensitive-data endpoint · 503 provider error.
+   */
+  async reveal(id: string, input: RevealCardInput): Promise<RevealedCard> {
+    return this.http.post<RevealedCard>(
+      `/me/cards/${encodeURIComponent(id)}/reveal`,
+      { body: { password: input.password, totp_code: input.totpCode } },
     );
   }
 
