@@ -45,6 +45,55 @@ if (result.stage === "jwt") {
 }
 ```
 
+## Telegram Mini App
+
+Run inside a Telegram Mini App? Exchange the Telegram-signed `initData` for a
+session in one call — no password:
+
+```ts
+import { fromTelegramWebApp } from "@takeal/cusfront-sdk/telegram";
+
+// Reads window.Telegram.WebApp.initData, exchanges it, returns a ready client.
+const client = await fromTelegramWebApp({
+  baseUrl: "https://api.your-deployment.example.com",
+});
+
+const me = await client.auth.me();
+if (me.email_pending) {
+  // First-time Telegram users are auto-provisioned without an email.
+  // Collect a real address and attach it:
+  await client.auth.linkEmail({ email: "user@example.com" });
+}
+```
+
+Already hold the raw string (e.g. from a custom launch)? Use `fromInitData`:
+
+```ts
+import { fromInitData, parseInitData } from "@takeal/cusfront-sdk/telegram";
+
+const client = await fromInitData(initData, {
+  baseUrl: "https://api.your-deployment.example.com",
+});
+```
+
+How it works end-to-end:
+
+1. **Telegram** signs `initData` with the bot token when it launches your Mini App.
+2. The SDK does a fast **structural** check (`hash` + `auth_date` present, not
+   stale) and POSTs the raw string to the API's exchange endpoint. The SDK
+   **cannot** verify the cryptographic signature — only the server holds the bot
+   token, so the API performs the authoritative HMAC check. A forged or stale
+   payload is rejected there with a `401 ApiError`.
+3. On success the JWT is stored in the configured token store; the returned
+   client is authenticated for all `client.*` calls.
+4. First-time Telegram users are **auto-provisioned**. They have no email yet, so
+   `me.email_pending === true` — prompt for an address and call
+   `client.auth.linkEmail` to clear it.
+
+For the lower-level call returning the raw session envelope (including
+`email_pending`), use `client.auth.exchangeTelegram({ initData })` on a client
+you built yourself.
+
 ## Brand config
 
 Whitelabel-friendly by design — the SDK ships no embedded brand. Pass `brand` at runtime and the consumer Cusfront reads it back via `client.brand`:
@@ -77,10 +126,7 @@ Available now:
 - `@takeal/cusfront-sdk/balance` — `BalanceResource` (per-currency master balance).
 - `@takeal/cusfront-sdk/webhooks` — HMAC-SHA256 signature verifier (no network, isomorphic).
 - `@takeal/cusfront-sdk/react` — optional React hooks layer (`ClientProvider` + `useMe` / `useDeposits` / `useCards` / `useBalance`). React is a `peerDependency`, never bundled.
-
-Planned in subsequent releases:
-
-- `./telegram` — Telegram Mini App `initData` → auth bridge.
+- `@takeal/cusfront-sdk/telegram` — Telegram Mini App `initData` → authenticated client bridge.
 
 ### Verifying webhooks
 

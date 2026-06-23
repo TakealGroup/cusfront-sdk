@@ -22,6 +22,10 @@ export interface User {
   email: string;
   role: string;
   is_active: boolean;
+  /** True for users auto-provisioned via the Telegram Mini App who still hold
+   *  a synthetic placeholder email. The client should prompt for a real email
+   *  and attach it via `auth.linkEmail` — this flips the flag to false. */
+  email_pending?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -142,6 +146,31 @@ export class AuthResource {
       body: input,
       skipAuth: true,
     });
+  }
+
+  /** Exchange a signed Telegram Mini App `initData` payload for a session
+   *  JWT. The server validates the initData HMAC against the deployment's bot
+   *  token, then find-or-creates the end-user. First-time Telegram users are
+   *  auto-provisioned with `user.email_pending === true` — prompt them for a
+   *  real email and call {@link linkEmail}. Stores the JWT on success.
+   *
+   *  Most consumers use the higher-level `fromInitData` / `fromTelegramWebApp`
+   *  helpers in `@takeal/cusfront-sdk/telegram`; reach for this directly when
+   *  you already hold a configured client. */
+  async exchangeTelegram(input: { initData: string }): Promise<JwtIssued> {
+    const resp = await this.http.post<JwtIssued>("/auth/telegram/exchange", {
+      body: { init_data: input.initData },
+      skipAuth: true,
+    });
+    await Promise.resolve(this.tokens.set(resp.access_token));
+    return resp;
+  }
+
+  /** Attach a real email to the current user (and clear `email_pending`).
+   *  Used after a Telegram exchange to satisfy the email requirement; also
+   *  works for a password user changing their address. 409 if taken. */
+  async linkEmail(input: { email: string }): Promise<User> {
+    return this.http.post<User>("/me/email", { body: { email: input.email } });
   }
 
   /** Current user — fails 401 when the stored JWT is expired or

@@ -4,6 +4,7 @@ import { inMemoryStore } from "../token-store.js";
 import { DepositsResource, type Deposit, type Refund } from "./deposits.js";
 import { CardsResource, type Card, type CardBalance } from "./cards.js";
 import { BalanceResource, type Balance } from "./balance.js";
+import { AuthResource, type JwtIssued, type User } from "./auth.js";
 
 /**
  * Resource-level wire-shape tests. A captured fake `fetch` asserts the SDK
@@ -225,5 +226,59 @@ describe("BalanceResource", () => {
     expect(out).toEqual(bal);
     expect(captured[0]!.url).toBe("https://api.test/me/balance?currency=EUR");
     expect(captured[0]!.init.method).toBe("GET");
+  });
+});
+
+describe("AuthResource (telegram + email)", () => {
+  const TG_SESSION: JwtIssued = {
+    stage: "jwt",
+    access_token: "jwt-tg",
+    expires_at: "2026-06-24T00:00:00Z",
+    user: {
+      id: "usr_tg",
+      email: "tg-777000@telegram.local",
+      role: "user",
+      is_active: true,
+      email_pending: true,
+      created_at: "2026-06-23T00:00:00Z",
+      updated_at: "2026-06-23T00:00:00Z",
+    },
+    hub_access: false,
+  };
+
+  it("exchangeTelegram POSTs /auth/telegram/exchange unauthenticated + stores the JWT", async () => {
+    const { captured, http } = rig(TG_SESSION);
+    const store = inMemoryStore();
+    const out = await new AuthResource(http, store).exchangeTelegram({
+      initData: "user=%7B%22id%22%3A777000%7D&auth_date=1700000000&hash=abc",
+    });
+    expect(out.user.email_pending).toBe(true);
+    expect(captured[0]!.url).toBe("https://api.test/auth/telegram/exchange");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({
+      init_data: "user=%7B%22id%22%3A777000%7D&auth_date=1700000000&hash=abc",
+    });
+    expect(headersOf(captured[0]!)["Authorization"]).toBeUndefined();
+    expect(await store.get()).toBe("jwt-tg");
+  });
+
+  it("linkEmail POSTs /me/email and returns the updated user", async () => {
+    const updated: User = {
+      id: "usr_tg",
+      email: "alice@example.com",
+      role: "user",
+      is_active: true,
+      email_pending: false,
+      created_at: "2026-06-23T00:00:00Z",
+      updated_at: "2026-06-23T00:01:00Z",
+    };
+    const { captured, http } = rig(updated);
+    const out = await new AuthResource(http, inMemoryStore()).linkEmail({
+      email: "alice@example.com",
+    });
+    expect(out.email_pending).toBe(false);
+    expect(captured[0]!.url).toBe("https://api.test/me/email");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({ email: "alice@example.com" });
   });
 });
