@@ -37,6 +37,11 @@
       "import": "./dist/resources/balance.js",
       "require": "./dist/resources/balance.cjs"
     },
+    "./branding": {
+      "types": "./dist/resources/branding.d.ts",
+      "import": "./dist/resources/branding.js",
+      "require": "./dist/resources/branding.cjs"
+    },
     "./webhooks": {
       "types": "./dist/webhooks.d.ts",
       "import": "./dist/webhooks.js",

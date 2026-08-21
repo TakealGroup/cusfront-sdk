@@ -5,7 +5,7 @@ import type { CustomerInfo } from "../types/customer.js";
  * Cards resource — `client.cards.*`.
  *
  * The end-user "money OUT" surface: a user issues themselves a card backed by
- * their master balance via an issuer connector. Mirrors the Takeal API's
+ * their wallet balance via an issuer connector. Mirrors the Takeal API's
  * `/me/cards` routes:
  *
  *   POST   /me/cards                 → create
@@ -79,7 +79,7 @@ export interface Card {
 export interface CreateCardInput {
   /** `prepaid` (the only fully-wired type today), `credit`, or `gift`. */
   type: CardType;
-  /** Decimal as a string. The prepaid load amount drained from master balance. */
+  /** Decimal as a string. The prepaid load amount drained from wallet balance. */
   initial_amount?: string;
   /** ISO 4217 code, e.g. `"USD"`. */
   currency: string;
@@ -132,7 +132,7 @@ export class CardsResource {
   constructor(private readonly http: HttpClient) {}
 
   /**
-   * Issue a card backed by the user's master balance. Resolves to the new
+   * Issue a card backed by the user's wallet balance. Resolves to the new
    * `Card`. On a ledger failure after provider creation, the Takeal API rolls the row
    * to `failed` (never an orphaned active card); inspect `status` /
    * `failure_reason` on the result.

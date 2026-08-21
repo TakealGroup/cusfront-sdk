@@ -19,4 +19,7 @@ export interface BrandConfig {
   /** Deep link to a support channel (Telegram, email, etc.). When set
    *  the Cusfront's footer renders a "Need help?" link. */
   supportUrl?: string;
+  /** Label for the end-user's balance ("Wallet", "Acme Wallet").
+   *  Build-time fallback; `client.branding.get()` returns the live value. */
+  walletLabel?: string;
 }

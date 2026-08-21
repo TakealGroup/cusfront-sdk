@@ -6,6 +6,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `client.branding.get()` — fetches the deployment's public runtime brand
+  config (`GET /branding`): platform / portal names, logo, favicon and the new
+  `wallet_label` (how the end-user's balance is called, e.g. "Acme Wallet").
+- `BrandConfig.walletLabel` — build-time fallback for the same label.
+
+### Changed
+
+- Docs: "master balance" wording replaced by "wallet balance" everywhere. No
+  API field names changed.
+
 ## [0.1.0] — first public release
 
 Initial release of the typed client for the Takeal end-user API.
@@ -21,7 +33,7 @@ Initial release of the typed client for the Takeal end-user API.
 - **Cards** (`client.cards`) — `create` / `get` / `list` / `balance` plus the
   ownership-gated `freeze` / `unfreeze` / `terminate`, and the security-gated
   `reveal` (re-auth with password + optional TOTP).
-- **Balance** (`client.balance`) — per-currency master balance lookup.
+- **Balance** (`client.balance`) — per-currency wallet balance lookup.
 - **Telegram Mini App** (`@takeal/cusfront-sdk/telegram`) — `fromTelegramWebApp`
   / `fromInitData` exchange a Telegram-signed `initData` for an authenticated
   client; `parseInitData` / `assertWellFormed` helpers; `client.auth.exchangeTelegram`

@@ -104,10 +104,18 @@ type BrandConfig = {
   logoUrl?: string;
   primaryColor?: string;
   supportUrl?: string;
+  walletLabel?: string; // how the user's balance is called, e.g. "Acme Wallet"
 };
 ```
 
 Switching brands does **not** require forking or re-publishing the SDK.
+
+The deployment also publishes its live brand config at `GET /branding` (public,
+no login needed) — `client.branding.get()` returns `platform_name`,
+`merchant_portal_name`, `logo_url`, `favicon_url` and `wallet_label`, so a
+Cusfront can re-theme itself at runtime and call the balance whatever the
+operator configured. Server values win over the build-time `brand` when both
+are present.
 
 ## Sub-exports
 
@@ -202,7 +210,7 @@ Every hook returns the same shape — `{ data, error, loading, refetch }`:
 - `useMe()` — current authenticated user (`client.auth.me()`).
 - `useDeposits()` — the user's deposits (`client.deposits.list()`).
 - `useCards()` — the user's cards (`client.cards.list()`).
-- `useBalance(currency)` — master balance for one currency
+- `useBalance(currency)` — wallet balance for one currency
   (`client.balance.get(currency)`); re-fetches when `currency` changes.
 
 `useClient()` exposes the raw client from context for one-off writes

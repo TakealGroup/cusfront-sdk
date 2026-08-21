@@ -4,6 +4,7 @@ import { inMemoryStore } from "../token-store.js";
 import { DepositsResource, type Deposit, type Refund } from "./deposits.js";
 import { CardsResource, type Card, type CardBalance } from "./cards.js";
 import { BalanceResource, type Balance } from "./balance.js";
+import { BrandingResource, type Branding } from "./branding.js";
 import { AuthResource, type JwtIssued, type User } from "./auth.js";
 
 /**
@@ -226,6 +227,25 @@ describe("BalanceResource", () => {
     expect(out).toEqual(bal);
     expect(captured[0]!.url).toBe("https://api.test/me/balance?currency=EUR");
     expect(captured[0]!.init.method).toBe("GET");
+  });
+});
+
+describe("BrandingResource", () => {
+  it("get GETs /branding without an Authorization header", async () => {
+    const brand: Branding = {
+      platform_name: "Acme",
+      merchant_portal_name: "Acme Partners",
+      logo_url: "",
+      favicon_url: "",
+      wallet_label: "Acme Wallet",
+    };
+    const { captured, http } = rig(brand);
+    const out = await new BrandingResource(http).get();
+    expect(out).toEqual(brand);
+    expect(captured[0]!.url).toBe("https://api.test/branding");
+    expect(captured[0]!.init.method).toBe("GET");
+    const headers = new Headers(captured[0]!.init.headers);
+    expect(headers.get("authorization")).toBeNull();
   });
 });
 

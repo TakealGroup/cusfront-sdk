@@ -4,7 +4,7 @@ import type { CustomerInfo } from "../types/customer.js";
 /**
  * Deposits resource — `client.deposits.*`.
  *
- * The "money IN" surface: an end user tops up their master balance via a
+ * The "money IN" surface: an end user tops up their wallet balance via a
  * funder connector. Mirrors the Takeal API's `/me/deposits` routes:
  *
  *   POST   /me/deposits              → initiate

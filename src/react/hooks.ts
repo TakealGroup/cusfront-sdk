@@ -125,7 +125,7 @@ export function useCards(): AsyncState<Card[]> {
 }
 
 /**
- * The user's master balance for one currency
+ * The user's wallet balance for one currency
  * (`client.balance.get(currency)`). Re-fetches when `currency`
  * changes.
  */
