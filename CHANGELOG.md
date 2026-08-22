@@ -17,6 +17,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Docs: "master balance" wording replaced by "wallet balance" everywhere. No
   API field names changed.
+- Generated types refreshed from the current API spec (card-transaction
+  billing fields, issuing metrics, branding). `refresh-types` now scrubs
+  internal references from doc comments before generating.
 
 ## [0.1.0] — first public release
 

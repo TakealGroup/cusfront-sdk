@@ -7,6 +7,27 @@
 /* eslint-disable */
 /* prettier-ignore */
 export type paths = {
+    "/admin/card-transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cross-card VCI spend feed, newest first, served from `card_transactions`.
+         *     Optional filters: `card_id`, `user_id`, `connector_slug`. Paginated via
+         *     `limit` (≤500, default 100) + `offset`.
+         */
+        get: operations["list_card_transactions_all"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/cards": {
         parameters: {
             query?: never;
@@ -14,8 +35,34 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** List cards across all users. Operator-only. */
+        /** List cards across all users. Operator-only. ADR-0015. */
         get: operations["list_cards"];
+        put?: never;
+        /**
+         * Issue a card for an end-user (operator action). Operator-only.
+         * @description **Idempotency:** honors the `Idempotency-Key` header when present; otherwise
+         *     a fresh key is generated server-side (operator-initiated issuance).
+         */
+        post: operations["create_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cards/orphans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List suspected orphaned cards: `failed` rows that still carry a
+         *     `provider_reference` — the provider likely created + funded the card before
+         *     a later Takeal step failed, so it may be live + spendable off our float.
+         */
+        get: operations["list_orphans"];
         put?: never;
         post?: never;
         delete?: never;
@@ -31,10 +78,38 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get a single card's full detail. Operator-only. */
+        /** Get a single card's full detail. Operator-only. ADR-0015. */
         get: operations["get_card"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cards/{id}/debit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Manually debit a SHARED card — lowers its cumulative limit by `amount`
+         *     (floored at the provider minimum). The mirror of "Manual top up". No ledger
+         *     move: shared cards draw from the connector's pooled wallet, so there's
+         *     nothing to reclaim. STANDARD/prepaid cards return 501 (limit not editable).
+         * @description **Shared-gating source of truth:** the *connector* is the single
+         *     authority — a non-shared card's connector returns 501 here, fail-safe,
+         *     regardless of what `cards.funding_mode` says. The persisted `funding_mode`
+         *     (and the the operator console button that keys off it) is an **informational** hint only;
+         *     it can lag the live connector (lazy backfill / COALESCE-on-refresh) and is
+         *     never the enforcement point.
+         */
+        post: operations["debit_card"];
         delete?: never;
         options?: never;
         head?: never;
@@ -61,6 +136,27 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/admin/cards/{id}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reconcile a suspected orphan. `close` terminates it at the provider;
+         *     `adopt` charges the still-unpaid load and activates it (402 if the user
+         *     can't cover it).
+         */
+        post: operations["reconcile_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/cards/{id}/refresh-from-connector": {
         parameters: {
             query?: never;
@@ -74,8 +170,7 @@ export type paths = {
          * Re-pull last4 + expiry + status from the card's issuer connector and
          *     mirror the answer into our local row. Recovery path for the cases where
          *     the original `CreateCard` left fields blank (PENDING-fallback, missing
-         *     `maskedCardNo` on first response, etc.). Idempotent. (PCI rule
-         *     still applies: the connector never returns full PAN — only last4.)
+         *     `maskedCardNo` on first response, etc.). Idempotent.
          */
         post: operations["refresh_card_from_connector"];
         delete?: never;
@@ -188,6 +283,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/admin/connectors/breakers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Per-connector circuit-breaker + rate-limiter metrics. Operator-only. */
+        get: operations["list_breakers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/connectors/{slug}": {
         parameters: {
             query?: never;
@@ -210,6 +322,26 @@ export type paths = {
          *     field can be omitted; the request is a no-op if both are.
          */
         patch: operations["patch_connector"];
+        trace?: never;
+    };
+    "/admin/connectors/{slug}/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Master/account balances for an issuer connector (e.g. OKCard channel
+         *     wallets). Empty for connectors without a wallet concept. Operator-only.
+         */
+        get: operations["connector_balances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/admin/connectors/{slug}/configuration": {
@@ -251,7 +383,27 @@ export type paths = {
         patch: operations["patch_configuration_key"];
         trace?: never;
     };
-    "/admin/connectors/{slug}/pricing": {
+    "/admin/connectors/{slug}/programs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the per-program catalogue + pricing for an issuer. Powers the the operator console
+         *     pricing UI + the "Add card" picker. Empty until `POST .../programs/sync`.
+         */
+        get: operations["list_programs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/connectors/{slug}/programs/sync": {
         parameters: {
             query?: never;
             header?: never;
@@ -259,8 +411,32 @@ export type paths = {
             cookie?: never;
         };
         get?: never;
-        /** Replace or wipe the per-card issuance pricing on a connector. */
-        put: operations["put_pricing"];
+        put?: never;
+        /**
+         * Sync the program catalogue from the connector's advertised list (option (c):
+         *     the spool knows its BINs, we own the pricing). Upserts catalogue fields
+         *     (label / card_type / currency / bin) and **preserves** operator-set pricing.
+         */
+        post: operations["sync_programs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/connectors/{slug}/programs/{program_code}/pricing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set price / priority / status on one program. The program row must
+         *     exist (run sync first). Currency is required whenever a sell_price is set.
+         */
+        put: operations["put_program_pricing"];
         post?: never;
         delete?: never;
         options?: never;
@@ -281,10 +457,30 @@ export type paths = {
          * Generate new secrets for an existing connector. Both `signing_secret` and
          *     `outbound_auth_secret` are replaced atomically; previous values stop
          *     working immediately. Plaintext one-shot return.
-         * @description **No grace window in MVP** — coordinate the rotation with the connector
+         * @description **No grace window in MVP** — coordinate the rotation with the slave
          *     operator (update both sides). TODO(phase-2): dual-secret window.
          */
         post: operations["rotate_connector"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/connectors/{slug}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Per-connector aggregate stats (count + summed amount, grouped by
+         *     status + currency) from the platform own tables. Operator-only.
+         */
+        get: operations["connector_stats"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -298,7 +494,7 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** List all merchants. Operator-only. Used by Hub's merchants page. */
+        /** List all merchants. Operator-only. Used by the operator console's merchants page. */
         get: operations["list_merchants"];
         put?: never;
         /** Onboard a new merchant. Operator-only. */
@@ -317,7 +513,7 @@ export type paths = {
             cookie?: never;
         };
         /**
-         * Fetch one merchant. Operator-only. Hub's `/merchants/{id}` detail page
+         * Fetch one merchant. Operator-only. the operator console's `/merchants/{id}` detail page
          *     and the cascade-management UI both call this.
          */
         get: operations["get_merchant"];
@@ -338,7 +534,7 @@ export type paths = {
         };
         /**
          * List the merchant's cascade priorities, ASC by priority (lower first).
-         *     Backs Hub's drag-to-reorder UI — paired with `assign_acquirer` for save.
+         *     Backs the operator console's drag-to-reorder UI — paired with `assign_acquirer` for save.
          */
         get: operations["list_acquirers"];
         put?: never;
@@ -528,6 +724,70 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/admin/merchants/{id}/shops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_list_shops"];
+        put?: never;
+        post: operations["admin_create_shop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/merchants/{id}/shops/{shop_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_get_shop"];
+        put?: never;
+        post?: never;
+        delete: operations["admin_archive_shop"];
+        options?: never;
+        head?: never;
+        patch: operations["admin_patch_shop"];
+        trace?: never;
+    };
+    "/admin/merchants/{id}/shops/{shop_id}/secrets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_list_secrets"];
+        put?: never;
+        post: operations["admin_create_secret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/merchants/{id}/shops/{shop_id}/secrets/{key_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["admin_revoke_secret"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/merchants/{id}/users": {
         parameters: {
             query?: never;
@@ -541,10 +801,10 @@ export type paths = {
         /**
          * Operator-side: create a new merchant user with a one-shot temporary
          *     password. The plaintext password is returned in this response **once**
-         *     and is unrecoverable thereafter — Hub renders a copy-to-clipboard
+         *     and is unrecoverable thereafter — the operator console renders a copy-to-clipboard
          *     banner exactly like the API-key reveal flow. The operator hands the
          *     temp password to the human out-of-band (Slack, in person, etc.). On
-         *     first login Merphy will prompt for a change (phase-2; not enforced
+         *     first login the merchant portal will prompt for a change (phase-2; not enforced
          *     server-side yet).
          */
         post: operations["create_merchant_user"];
@@ -640,6 +900,143 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/admin/metrics/issuing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * VCI/issuing metrics over `card_transactions` for the last `window_days`
+         *     (default 7, max 90), optionally filtered to one `currency`. Powers the the operator console
+         *     dashboard KPIs + the /card-spend breakdown without a client-side scan.
+         */
+        get: operations["issuing_metrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_organizations"];
+        put?: never;
+        post: operations["create_organization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/organizations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_organization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["patch_organization"];
+        trace?: never;
+    };
+    "/admin/organizations/{id}/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["mint_key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/organizations/{id}/pricing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_pricing"];
+        put: operations["put_pricing"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/organizations/{id}/pricing/{card_type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_pricing"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/organizations/{id}/topup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Credit the org prepay balance (`world -> orgs:<id>:available`). Operator
+         *     manual top-up; a future the connector deposit path can reuse the same account.
+         */
+        post: operations["topup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/organizations/{id}/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_users"];
+        put?: never;
+        post: operations["create_user"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/payments": {
         parameters: {
             query?: never;
@@ -649,7 +1046,7 @@ export type paths = {
         };
         /**
          * List the most recent payments across all merchants. Operator-only. Used by
-         *     Hub's payments page. Joined with merchants for the legal_name.
+         *     the operator console's payments page. Joined with merchants for the legal_name.
          */
         get: operations["list_payments"];
         put?: never;
@@ -668,7 +1065,7 @@ export type paths = {
             cookie?: never;
         };
         /**
-         * List the permission catalogue — the finite set of keys the Hub role
+         * List the permission catalogue — the finite set of keys the the operator console role
          *     editor renders as toggles. No data, just the schema.
          */
         get: operations["list_permissions"];
@@ -706,7 +1103,7 @@ export type paths = {
         };
         /**
          * List every role, system roles first. Permissions arrays included so
-         *     the Hub editor can render the matrix without a second fetch.
+         *     the the operator console editor can render the matrix without a second fetch.
          */
         get: operations["list_roles"];
         put?: never;
@@ -832,7 +1229,7 @@ export type paths = {
         put?: never;
         /**
          * Close the cycle — freezes the window, computes payable, moves to
-         *     `posted`. Audited. (Settler dispatch lands in the follow-up; today
+         *     `posted`. Audited. (the connector dispatch lands in the follow-up; today
          *     the operator handles the actual money-move and then calls
          *     `mark-completed`.)
          */
@@ -880,6 +1277,38 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/admin/subscriptions/tiers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_tiers"];
+        put?: never;
+        post: operations["create_tier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/subscriptions/tiers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_tier"];
+        options?: never;
+        head?: never;
+        patch: operations["patch_tier"];
+        trace?: never;
+    };
     "/admin/users": {
         parameters: {
             query?: never;
@@ -888,7 +1317,7 @@ export type paths = {
             cookie?: never;
         };
         /** List end-users for the operator. Operator-only. */
-        get: operations["list_users"];
+        get: operations["admin_list_users"];
         put?: never;
         post?: never;
         delete?: never;
@@ -904,8 +1333,29 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** User detail. Used by Hub's `/users/[id]` page. */
+        /** User detail. Used by the operator console's `/users/[id]` page. */
         get: operations["get_user"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current internal (Formance ledger) balance for a user, in one currency.
+         *     Backs the operator console's "Ledger Balance" card — the real balance Takeal holds for
+         *     this user, which the manual adjust endpoint credits / debits.
+         */
+        get: operations["get_user_balance"];
         put?: never;
         post?: never;
         delete?: never;
@@ -958,6 +1408,22 @@ export type paths = {
         patch: operations["patch_user_role"];
         trace?: never;
     };
+    "/admin/users/{id}/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_user_subscription"];
+        put: operations["assign_user_subscription"];
+        post?: never;
+        delete: operations["cancel_user_subscription"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/users/{id}/totp": {
         parameters: {
             query?: never;
@@ -970,7 +1436,7 @@ export type paths = {
         post?: never;
         /**
          * Operator-only TOTP reset. Deletes the user's `user_totp` row so that
-         *     their next login restarts at `totp_setup_required`.
+         *     their next login restarts at `totp_setup_required` (per the API contract).
          * @description Idempotent — returns 200 with `removed: false` when the user wasn't
          *     enrolled. Always emits an audit event so the trail is preserved
          *     regardless of whether a row was actually removed.
@@ -1107,7 +1573,7 @@ export type paths = {
         };
         /**
          * Current authenticated user. The "do I still have a session"
-         *     probe Cusfront calls on app boot — login returns the user inline,
+         *     probe the client app calls on app boot — login returns the user inline,
          *     but consumers need a way to re-validate without re-running the
          *     password flow. 401 → token expired / invalidated → consumer
          *     kicks back to /login.
@@ -1142,6 +1608,51 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/auth/telegram/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exchange a signed Telegram Mini App `initData` payload for a session JWT.
+         * @description The bot token is the shared secret, so validation is authoritative here.
+         *     First-time Telegram users are **auto-provisioned**: a fresh end-user is
+         *     created keyed by the Telegram id, with a synthetic placeholder email and
+         *     `email_pending = true`. The client must then collect a real email from the
+         *     user and attach it via `POST /me/email` (which clears the flag).
+         *
+         *     Returns the same `{"stage":"jwt", access_token, expires_at, user, …}`
+         *     envelope as `/auth/login`; `user.email_pending` tells the client whether to
+         *     prompt for an email.
+         */
+        post: operations["telegram_exchange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/branding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public white-label brand config. **No auth** — consumed on pre-login screens. */
+        get: operations["get_branding"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1166,7 +1677,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** User's master balance for a given currency. */
+        /**
+         * User's wallet balance for a given currency. (Display name is brandable via
+         *     `GET /branding` → `wallet_label`; this field set never changes.)
+         */
         get: operations["get_balance"];
         put?: never;
         post?: never;
@@ -1191,7 +1705,7 @@ export type paths = {
          *     GIFT return 400 `not yet implemented`.
          * @description **Idempotency:** the `Idempotency-Key` header is required.
          */
-        post: operations["create_card"];
+        post: operations["me_create_card"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1232,6 +1746,77 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/me/cards/{id}/freeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Freeze the caller's **own** card. Ownership-gated (404/403 if it isn't
+         *     theirs). Idempotent; 501 if the connector doesn't support freeze.
+         */
+        post: operations["me_freeze_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/cards/{id}/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reveal full PAN + CVV for the caller's OWN card. */
+        post: operations["reveal_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/cards/{id}/terminate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Terminate the caller's **own** card. One-way; idempotent. Ownership-gated. */
+        post: operations["me_terminate_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/cards/{id}/unfreeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unfreeze the caller's **own** card. Ownership-gated. Idempotent. */
+        post: operations["me_unfreeze_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/deposits": {
         parameters: {
             query?: never;
@@ -1243,8 +1828,8 @@ export type paths = {
         get: operations["list_deposits"];
         put?: never;
         /**
-         * Initiate a deposit. The Takeal API calls the configured funder connector; on
-         *     immediate `confirmed` the user's master balance is credited synchronously.
+         * Initiate a deposit. the platform calls the configured the connector connector; on
+         *     immediate `confirmed` the user's wallet balance is credited synchronously.
          * @description **Idempotency:** the `Idempotency-Key` header is required. Replay returns the
          *     original deposit; a different body with the same key returns 409.
          */
@@ -1282,12 +1867,386 @@ export type paths = {
         get?: never;
         put?: never;
         /**
-         * Refund a previously-confirmed deposit. Synchronous if the
+         * Refund a previously-confirmed deposit. the API contract. Synchronous if the
          *     connector settles inline; otherwise the row stays `pending` and flips later
          *     via the inbound `deposit.refunded` event.
          * @description **Idempotency:** `Idempotency-Key` header required.
          */
         post: operations["refund_deposit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Attach a real email to the current user and clear `email_pending`.
+         * @description Telegram Mini App users are auto-provisioned with a synthetic placeholder
+         *     email (`email_pending = true`, the API contract / #6); the client calls this once
+         *     it has collected the user's real address. Password-registered users may
+         *     also use it to change their email. The new address must be unique (409).
+         *
+         *     Note: email *ownership verification* (a confirmation OTP) is a follow-up —
+         *     this records the attached address and lifts the pending flag.
+         */
+        post: operations["set_email"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_keys"];
+        put?: never;
+        post: operations["create_key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/api-keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_key"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Organization-user login. Returns a scoped JWT for the merchant portal's VCI admin. */
+        post: operations["org_login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current org-user (whoami) — the merchant portal bootstraps its session from this. */
+        get: operations["org_me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current prepay balance in the org's billing currency. */
+        get: operations["org_balance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all cards this organization has issued. */
+        get: operations["org_list_cards"];
+        put?: never;
+        /**
+         * Issue a prepaid card for an end-user holder, funded from the org prepay
+         *     balance. The resale fee (per-org, per-card-type) is debited first; then the
+         *     card load. Connector is chosen by Takeal and not revealed.
+         */
+        post: operations["org_create_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/cards/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["org_get_card"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/cards/{id}/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["card_balance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/cards/{id}/freeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["org_freeze_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/cards/{id}/reload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["org_reload_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/cards/{id}/terminate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["org_terminate_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/cards/{id}/unfreeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["org_unfreeze_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Organization info + current prepay balance. Whoami for the resale client. */
+        get: operations["org_org_me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the org's active employee roster. */
+        get: operations["list_members"];
+        put?: never;
+        /**
+         * Invite one end-user (employee) by email. Find-or-creates a passwordless
+         *     Takeal user and rosters them under the org. Idempotent per email.
+         */
+        post: operations["invite_member"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/members/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk-invite employees (CSV-style upload from the merchant portal). Per-row errors are
+         *     returned alongside the successes rather than failing the whole batch.
+         */
+        post: operations["bulk_invite_members"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/members/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove an employee from the roster (soft). Their already-issued cards keep
+         *     working — this only stops them appearing in future payroll runs.
+         */
+        delete: operations["remove_member"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/payroll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a salary batch: issue a prepaid card to each listed member, funded from
+         *     the org prepay balance (per-org resale fee + load). Per-member results;
+         *     one failure doesn't abort the batch.
+         */
+        post: operations["run_payroll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/webhook-endpoints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_webhooks"];
+        put?: never;
+        post: operations["create_webhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/org/webhook-endpoints/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_webhook"];
+        options?: never;
+        head?: never;
+        patch: operations["update_webhook"];
+        trace?: never;
+    };
+    "/org/webhook-endpoints/{id}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["rotate_webhook"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1351,9 +2310,75 @@ export type components = {
             /** Format: uuid */
             user_id: string;
         };
+        AdminCreateCardBody: {
+            /** @description Chosen card BIN; threaded as `metadata["issuer_bin"]`. */
+            bin?: string | null;
+            /** @description ISO 4217 currency, e.g. `USD`. */
+            currency: string;
+            customer?: null | components["schemas"]["CustomerInfo"];
+            /**
+             * @description Prepaid load amount (debited from the target user's wallet balance).
+             * @example 1.00
+             */
+            initial_amount?: string | null;
+            /** @description Issuer connector slug, e.g. `spool-okcard`. */
+            issuer_slug: string;
+            /**
+             * @description Extra connector metadata. `issuer_program_id`/`issuer_bin` are set from
+             *     the fields above and override any same-named keys here.
+             */
+            metadata?: {
+                [key: string]: string;
+            };
+            /**
+             * @description Chosen program/product id from `GET /admin/connectors/{slug}/programs`.
+             *     Threaded to the connector as `metadata["issuer_program_id"]`.
+             */
+            program_id?: string | null;
+            /** @description Card type. Only `prepaid` is wired end-to-end today; defaults to prepaid. */
+            type?: components["schemas"]["CardType"];
+            /**
+             * Format: uuid
+             * @description End-user the card is issued for.
+             */
+            user_id: string;
+        };
+        /**
+         * @description What we return for an API key on the listing endpoint. `key` is the
+         *     public-ish identifier (safe to display); the secret was captured
+         *     exactly once at creation time.
+         */
+        ApiKeyRow: {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            id: string;
+            key: string;
+            /** Format: date-time */
+            last_used_at?: string | null;
+            /** Format: uuid */
+            shop_id: string;
+            status: string;
+        };
+        ApiKeySecretView: {
+            api_key: components["schemas"]["ApiKeyView"];
+            /** @description One-shot plaintext secret (X-Organization-Secret). */
+            secret: string;
+        };
+        ApiKeyView: {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            id: string;
+            key: string;
+            label: string;
+            /** Format: date-time */
+            last_used_at?: string | null;
+            status: string;
+        };
         AssignAcquirerBody: {
             /**
-             * @description Slug matching a `ConnectorBinding` registered at the Takeal API startup
+             * @description Slug matching a `ConnectorBinding` registered at meister-api startup
              *     (today: `mock-gator`).
              */
             connector_slug: string;
@@ -1363,10 +2388,14 @@ export type components = {
              */
             priority?: number;
         };
+        AssignBody: {
+            /** Format: uuid */
+            tier_id: string;
+        };
         /**
-         * @description One entry per second-factor method available to the
+         * @description the API contract — one entry per second-factor method available to the
          *     user in this deployment. Only sent when [`AvailableMethodKind::Totp`]
-         *     is in the set AND at least one other method (else Hub hides the
+         *     is in the set AND at least one other method (else the operator console hides the
          *     "Try another way" link entirely).
          */
         AvailableMethod: {
@@ -1376,14 +2405,14 @@ export type components = {
              */
             hint?: string | null;
             /**
-             * @description True when this is the server-suggested default — Hub renders the
+             * @description True when this is the server-suggested default — the operator console renders the
              *     input for THIS method on first paint. Priority TOTP > Telegram >
-             *     email.
+             *     email — per the API contract §"Server: enumerate methods".
              */
             is_default?: boolean;
             /** @description `"totp"` | `"telegram_otp"` | `"email_otp"`. Frozen wire shape. */
             kind: string;
-            /** @description Short label Hub renders in the picker modal. */
+            /** @description Short label the operator console renders in the picker modal. */
             label: string;
         };
         BackupCodesResult: {
@@ -1401,7 +2430,18 @@ export type components = {
             /** Format: uuid */
             user_id: string;
         };
+        BalanceDto: {
+            account: string;
+            /** @example 168.30 */
+            amount: string;
+            currency: string;
+            label: string;
+        };
         BalanceResponse: {
+            amount: string;
+            currency: string;
+        };
+        BalanceView: {
             amount: string;
             currency: string;
         };
@@ -1441,8 +2481,66 @@ export type components = {
             routing_number?: string | null;
             swift_bic?: string | null;
         };
+        Branding: {
+            /**
+             * @description Favicon (absolute URL or `data:` URI). Empty → the client's bundled
+             *     default favicon.
+             */
+            favicon_url: string;
+            /**
+             * @description Logo image (absolute URL or `data:` URI). Empty → the client's bundled
+             *     default logo.
+             */
+            logo_url: string;
+            /**
+             * @description Operator-chosen merchant/tenant portal name. Replaces "the merchant portal" in
+             *     the merchant portal. Default "the merchant portal".
+             */
+            merchant_portal_name: string;
+            /** @description Operator-chosen platform name. Replaces "Takeal" in the operator console. Default "Takeal". */
+            platform_name: string;
+            /**
+             * @description User-facing name of the end-user's balance (e.g. "Wallet",
+             *     "Wexel Wallet"). Display-only — JSON field names such as `balance`
+             *     never change. Default "Wallet".
+             */
+            wallet_label: string;
+        };
+        BreakerView: {
+            /** Format: int64 */
+            calls: number;
+            /** Format: int32 */
+            consecutive_failures: number;
+            /** Format: int64 */
+            failures: number;
+            /**
+             * Format: int64
+             * @description How many times the circuit has tripped open since boot.
+             */
+            opens: number;
+            /**
+             * Format: int64
+             * @description Calls rejected because the circuit was open.
+             */
+            rejects_open: number;
+            /**
+             * Format: int64
+             * @description Calls rejected by the per-slug rate limiter.
+             */
+            rejects_rate: number;
+            slug: string;
+            /** @description `closed` | `open` | `half_open`. */
+            state: string;
+        };
+        BulkInviteBody: {
+            members: components["schemas"]["InviteBody"][];
+        };
+        BulkInviteResult: {
+            errors: components["schemas"]["RowError"][];
+            invited: components["schemas"]["MemberView"][];
+        };
         /**
-         * @description Persisted card record as it lives in `cards`. The `id` is server-side (assigned at
+         * @description Persisted card record as it lives in `cards`. The `id` is the platform-side (assigned at
          *     insert) and is what `IssuingConnector::create_card` carries as the connector-side
          *     idempotency key; `provider_reference` is the connector's id, populated after the
          *     connector responds. API-side replay-safety is via `(user_id, idempotency_key)`
@@ -1452,13 +2550,20 @@ export type components = {
          *     list/get responses scrub it (the user has already seen it). This is enforced in the
          *     service layer (`scrub_redemption_code`); the database keeps the code so we can
          *     resend it if genuinely needed for support, behind an explicit operator action.
+         *
+         *     **SQL column-sync invariant:** `FromRow` maps by name and has no
+         *     `#[sqlx(default)]`, so EVERY `SELECT … FROM cards` and `… RETURNING …` that
+         *     decodes into `Card` must list ALL of the columns below — a missing column is a
+         *     runtime decode error (HTTP 500), not a compile error. When you add a field
+         *     here, add the matching column to every Card-producing query in
+         *     `service.rs` (the idempotent-replay SELECTs are the easy ones to forget).
          */
         Card: {
             card_type: components["schemas"]["CardType"];
             /**
-             * @description Slug of the issuer that minted this card (e.g. `spool-mock`).
+             * @description Slug of the the connector binding that minted this card (e.g. `spool-mock`).
              *     Persisted at insert so audit + reconciliation can match cards to providers
-             *     even after the issuer config changes.
+             *     even after `SPOOLS` env config changes.
              */
             connector_slug: string;
             /** Format: date-time */
@@ -1469,10 +2574,23 @@ export type components = {
             /** Format: int32 */
             expiry_year?: number | null;
             failure_reason?: string | null;
+            /**
+             * @description #34: provider-driven funding model, lower-case (`shared` | `standard`).
+             *     `shared` = master-account (draws from a pooled wallet up to a per-card
+             *     cumulative limit — the opposite of prepaid); `standard` = prepaid/recharge.
+             *     NULL until the connector reports it (on create or refresh-from-connector).
+             */
+            funding_mode?: string | null;
             /** Format: uuid */
             id: string;
             initial_amount?: string | null;
             last4?: string | null;
+            /**
+             * @description #34: the resolved issuer program/plan this card was minted against
+             *     (the `issuer_program_id` sent to the connector). NULL for cards issued
+             *     before #34 or against connectors without a program catalogue.
+             */
+            program_code?: string | null;
             provider_reference?: string | null;
             /**
              * @description Set on creation for Gift cards only. Scrubbed before returning to the client on
@@ -1485,12 +2603,34 @@ export type components = {
             /** Format: uuid */
             user_id: string;
         };
+        /** @description Live balance/limit, nested under the card detail's `live_balance`. */
+        CardBalance: {
+            /**
+             * @description Live amount; `null` when the connector doesn't report a balance.
+             * @example 21.00
+             */
+            amount?: string | null;
+            currency?: string | null;
+        };
+        /**
+         * @description Single card's full detail + a best-effort live balance/limit from the
+         *     connector. The card fields are flattened (so the JSON is the `Card` shape
+         *     plus a nested `live_balance`).
+         */
+        CardDetail: components["schemas"]["Card"] & {
+            live_balance?: null | components["schemas"]["CardBalance"];
+        };
         CardRow: {
             card_type: string;
             connector_slug: string;
             /** Format: date-time */
             created_at: string;
             currency: string;
+            /**
+             * @description #34: provider-driven funding model (`shared` | `standard`). `null` for
+             *     cards issued before #34 / connectors that don't distinguish.
+             */
+            funding_mode?: string | null;
             /** Format: uuid */
             id: string;
             /** @example 50.00 */
@@ -1503,6 +2643,50 @@ export type components = {
         };
         /** @enum {string} */
         CardStatus: "pending_payment" | "active" | "frozen" | "terminated" | "redeemed" | "failed";
+        CardTxnRow: {
+            /**
+             * @description Signed decimal-as-string; negative = spend.
+             * @example -10.32
+             */
+            amount: string;
+            /** Format: date-time */
+            authorised_at?: string | null;
+            /** @description What the card was actually charged (billing leg), decimal-as-string. */
+            billing_amount?: string | null;
+            billing_currency?: string | null;
+            /** @description The billing leg in USD (the ledger currency), decimal-as-string. */
+            billing_usd_amount?: string | null;
+            /** Format: uuid */
+            card_id: string;
+            /** Format: date-time */
+            cleared_at?: string | null;
+            connector_slug: string;
+            currency: string;
+            decline_reason?: string | null;
+            /** Format: uuid */
+            id: string;
+            last4?: string | null;
+            merchant_country?: string | null;
+            merchant_mcc?: string | null;
+            merchant_name?: string | null;
+            /** Format: date-time */
+            occurred_at: string;
+            /** @description Provider's raw status (e.g. OKCard txnStatus "SUCCESS") — panel parity. */
+            provider_status?: string | null;
+            provider_txn_id: string;
+            /**
+             * @description Normalised status: `pending` | `cleared` | `reversed` | `declined` |
+             *     `unknown`. Provider-specific values are mapped by the connector
+             *     (e.g. OKCard `SUCCESS` → `cleared`); `unknown` = the connector
+             *     reported something outside the contract and the row is kept rather
+             *     than dropped. The raw value is in `provider_status`.
+             * @example cleared
+             */
+            status: string;
+            user_email?: string | null;
+            /** Format: uuid */
+            user_id?: string | null;
+        };
         /** @enum {string} */
         CardType: "credit" | "prepaid" | "gift";
         CheckResult: {
@@ -1529,12 +2713,26 @@ export type components = {
             issuers: number;
             settlers: number;
         };
+        ConnectorStats: {
+            /** @description What `amount` sums for this role (e.g. "payment amount", "card load"). */
+            amount_basis: string;
+            buckets: components["schemas"]["StatBucket"][];
+            /** @description `funder` | `issuer` | `acquirer` | `settler`. */
+            role: string;
+        };
         /**
          * @description Redacted connector view — what the operator sees on every read. Secrets
          *     are shown only as `sk_<prefix>…<suffix>` previews so an operator can
          *     recognise the row they just created but can't recover the value.
          */
         ConnectorView: {
+            /**
+             * Format: int32
+             * @description #25 point 4 — issuer cascade order (lower wins). Per-program pricing
+             *     (the `connector_card_programs` table) replaced the ADR-0013 per-connector
+             *     pricing block in #22.
+             */
+            cascade_priority: number;
             /**
              * @description Redacted preview of `configuration_variables` — keys present + each
              *     value redacted as `sk_<prefix>…<suffix>`. Empty `{}` on rows that
@@ -1548,7 +2746,6 @@ export type components = {
             created_at: string;
             grpc_url: string;
             outbound_auth_secret_preview: string;
-            pricing?: null | components["schemas"]["PricingView"];
             role: string;
             signing_secret_preview: string;
             slug: string;
@@ -1568,9 +2765,9 @@ export type components = {
             customer?: null | components["schemas"]["CustomerInfo"];
             initial_amount?: string | null;
             /**
-             * @description Optional. Slug of a configured issuer (e.g. `spool-mock`,
-             *     `spool-marqeta`). When omitted, the first configured issuer mints the card.
-             *     Unknown slug → 400 `validation`. Empty issuer list → 503.
+             * @description Optional. Slug of a configured the connector connector (e.g. `spool-mock`,
+             *     `spool-marqeta`). When omitted, the first configured the connector mints the card.
+             *     Unknown slug → 400 `validation`. Empty the connector list → 503.
              */
             issuer_slug?: string | null;
             metadata?: {
@@ -1584,7 +2781,7 @@ export type components = {
         };
         CreateConnectorBody: {
             /**
-             * @description Where the Takeal API dials the connector. `http://` for loopback dev,
+             * @description Where the platform dials the slave. `http://` for loopback dev,
              *     `https://` for prod.
              */
             grpc_url: string;
@@ -1592,20 +2789,20 @@ export type components = {
             role: string;
             /**
              * @description Stable lowercase identifier. Convention: `<role>-<provider>`,
-             *     e.g. `gator-blik_op`.
+             *     e.g. `gator-blik_op`. See CLAUDE.md "Naming Convention".
              */
             slug: string;
         };
         CreateConnectorResponse: {
             connector: components["schemas"]["ConnectorView"];
             /**
-             * @description **One-shot, plaintext.** The Takeal API presents this as `x-takeal-auth`
+             * @description **One-shot, plaintext.** the platform presents this as `x-takeal-auth`
              *     gRPC metadata on every outbound RPC.
              */
             outbound_auth_secret: string;
             /**
-             * @description **One-shot, plaintext.** The connector HMAC-signs inbound webhooks with this
-             *     secret (`X-Takeal-Connector-Signature`). Operator copies
+             * @description **One-shot, plaintext.** Slave HMAC-signs inbound webhooks with this
+             *     secret (`X-Takeal-Connector-Signature`, the API contract). Operator copies
              *     it now; subsequent reads only return the redacted preview.
              */
             signing_secret: string;
@@ -1623,9 +2820,9 @@ export type components = {
             currency: string;
             customer?: null | components["schemas"]["CustomerInfo"];
             /**
-             * @description Optional. Slug of a configured funder (e.g. `indigo-mock`,
-             *     `indigo-fireblocks`). When omitted, the first configured funder handles
-             *     the deposit. Unknown slug → 400 `validation`. Empty funder list → 503.
+             * @description Optional. Slug of a configured the connector connector (e.g. `indigo-mock`,
+             *     `indigo-fireblocks`). When omitted, the first configured the connector handles
+             *     the deposit. Unknown slug → 400 `validation`. Empty the connector list → 503.
              */
             funder_slug?: string | null;
             metadata?: {
@@ -1640,6 +2837,9 @@ export type components = {
             label: string;
             url: string;
         };
+        CreateKeyBody: {
+            label?: string | null;
+        };
         CreateMerchantBody: {
             legal_name: string;
             settlement_currency: string;
@@ -1647,6 +2847,10 @@ export type components = {
         CreateMerchantUserBody: {
             email: string;
             role: components["schemas"]["MerchantRole"];
+        };
+        CreateOrgBody: {
+            billing_currency: string;
+            legal_name: string;
         };
         /**
          * @example {
@@ -1669,6 +2873,15 @@ export type components = {
             };
             /** @description Human-readable reason. */
             reason?: string;
+        };
+        CreateUserBody: {
+            email: string;
+            role: components["schemas"]["OrganizationRole"];
+        };
+        CreateWebhookBody: {
+            event_filter?: string[];
+            label: string;
+            url: string;
         };
         /**
          * @example {
@@ -1820,7 +3033,7 @@ export type components = {
         /** @description One row from `settlement_cycles`. */
         Cycle: {
             /**
-             * @description Signed Hub URL for artifact download (wire_prefill etc.). NULL for
+             * @description Signed the operator console URL for artifact download (wire_prefill etc.). NULL for
              *     auto-payout methods.
              */
             artifact_url?: string | null;
@@ -1885,7 +3098,7 @@ export type components = {
              * @description Timestamp of `posted` transition.
              */
             posted_at?: string | null;
-            /** @description Settlement method (settler family) snapshotted at open. */
+            /** @description Settlement method (the connector family) snapshotted at open. */
             settlement_method: string;
             /** @description State machine position. */
             status: components["schemas"]["CycleStatus"];
@@ -1901,6 +3114,32 @@ export type components = {
          * @enum {string}
          */
         CycleStatus: "open" | "freezing" | "posted" | "completed" | "failed";
+        DayBucket: {
+            /** Format: int64 */
+            count: number;
+            /** Format: date-time */
+            day: string;
+            spend: string;
+        };
+        DebitBody: {
+            /**
+             * @description Amount to LOWER the card's cumulative limit by (shared cards only).
+             * @example 10.00
+             */
+            amount: string;
+            /** @description ISO 4217 currency code (e.g. `USD`). Must match the card's currency. */
+            currency: string;
+            /**
+             * Format: uuid
+             * @description #38: client-generated idempotency key (UUID), stable across retries of
+             *     the same intent. A replay with the same key is a no-op — protects
+             *     against double-submit lowering the limit twice.
+             */
+            idempotency_key: string;
+            metadata?: {
+                [key: string]: string;
+            };
+        };
         /** @enum {string} */
         DepositMethod: "card" | "crypto" | "bank_transfer";
         /**
@@ -1921,17 +3160,59 @@ export type components = {
             /** @description Free-text reason recorded on the card row. Empty → no reason logged. */
             reason?: string;
         };
+        GroupSpend: {
+            /** Format: int64 */
+            count: number;
+            /** @description connector_slug / funding plan / merchant name, depending on the list. */
+            key?: string | null;
+            spend: string;
+        };
         Health: {
             status: string;
             version: string;
+        };
+        InviteBody: {
+            email: string;
+            full_name?: string | null;
+        };
+        IssuingMetrics: {
+            /** Format: int64 */
+            active_cards: number;
+            by_connector: components["schemas"]["GroupSpend"][];
+            by_plan: components["schemas"]["GroupSpend"][];
+            by_status: components["schemas"]["StatusCount"][];
+            currency?: string | null;
+            daily: components["schemas"]["DayBucket"][];
+            /** Format: int64 */
+            declined_count: number;
+            /** @description Total non-declined spend (sum of |amount|) in the window. */
+            spend: string;
+            top_merchants: components["schemas"]["GroupSpend"][];
+            /** Format: int64 */
+            txn_count: number;
+            /** Format: int64 */
+            window_days: number;
+        };
+        /** @description Body for self-service freeze / terminate — `reason` is optional. */
+        LifecycleReasonBody: {
+            reason?: string | null;
+        };
+        LoginRequest: {
+            email: string;
+            /**
+             * Format: uuid
+             * @description Optional. Disambiguates when the email belongs to more than one org.
+             */
+            organization_id?: string | null;
+            password: string;
         };
         LoginResponse: {
             access_token: string;
             /** Format: date-time */
             expires_at: string;
             /**
-             * @description True when this user can use the operator console.
-             *     JWT itself is still valid for Cusfront / Mini App calls
+             * @description the API contract follow-up — true when this user can use Takeal the operator console.
+             *     JWT itself is still valid for the client app / Mini App calls
              *     regardless; only the operator console gates on this field.
              */
             hub_access?: boolean;
@@ -1962,6 +3243,17 @@ export type components = {
         MarkFailedBody: {
             /** @description Operator-supplied human-readable cause. */
             reason: string;
+        };
+        MemberView: {
+            /** Format: date-time */
+            created_at: string;
+            email: string;
+            full_name?: string | null;
+            /** Format: uuid */
+            id: string;
+            status: string;
+            /** Format: uuid */
+            user_id: string;
         };
         Merchant: {
             /** Format: date-time */
@@ -1997,6 +3289,14 @@ export type components = {
             last_used_at?: string | null;
             /** Format: uuid */
             merchant_id: string;
+            /**
+             * Format: uuid
+             * @description an earlier release — every key belongs to exactly one shop under its
+             *     merchant. Backfill seeded existing keys onto each merchant's
+             *     "Default" shop; new keys carry whichever shop the operator /
+             *     merchant_user chose at create time.
+             */
+            shop_id: string;
             status: components["schemas"]["MerchantApiKeyStatus"];
             /** Format: date-time */
             updated_at: string;
@@ -2004,7 +3304,7 @@ export type components = {
         /** @enum {string} */
         MerchantApiKeyStatus: "active" | "revoked";
         /**
-         * @description Three-tier role. Serialised lowercase for both DB +
+         * @description Three-tier role per the API contract. Serialised lowercase for both DB +
          *     JSON. Comparison is case-insensitive at the DB CHECK constraint.
          * @enum {string}
          */
@@ -2031,7 +3331,18 @@ export type components = {
             /** Format: date-time */
             updated_at: string;
         };
-        /** @description Create payload — operator-supplied via Hub. */
+        MintKeyBody: {
+            label?: string | null;
+        };
+        MintKeyResponse: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+            label: string;
+            /** @description One-shot plaintext secret (X-Organization-Secret). */
+            secret: string;
+        };
+        /** @description Create payload — operator-supplied via the operator console. */
         NewBankAccount: {
             account_number?: string;
             bank_country?: string;
@@ -2062,7 +3373,7 @@ export type components = {
         NewMerchantUser: {
             /**
              * @description Plaintext temp password. Operator delivers this to the human
-             *     out-of-band; on first login Merphy should prompt for change
+             *     out-of-band; on first login the merchant portal should prompt for change
              *     (phase-2; not enforced yet).
              */
             temporary_password: string;
@@ -2072,6 +3383,33 @@ export type components = {
             description?: string;
             name: string;
             permissions?: string[];
+        };
+        /**
+         * @description Create-shop payload — both operator (`/admin/.../shops`) and
+         *     merchant-self (`/merchants/me/shops`) surfaces accept this.
+         */
+        NewShop: {
+            brand_color?: string | null;
+            currency_hint?: string | null;
+            name: string;
+        };
+        NewTierBody: {
+            currency: string;
+            /** Format: int32 */
+            funding_discount_bps?: number;
+            /** Format: int32 */
+            grace_window_days?: number;
+            /** Format: int32 */
+            issuance_discount_bps?: number;
+            monthly_fee: string;
+            name: string;
+            /** Format: int32 */
+            tryout_window_days?: number;
+        };
+        NewUserView: {
+            /** @description One-shot temporary password to hand the org admin out-of-band. */
+            temporary_password: string;
+            user: components["schemas"]["OrgUserView"];
         };
         OpenCycleBody: {
             /** Format: uuid */
@@ -2129,21 +3467,141 @@ export type components = {
         OpsInfoView: {
             /**
              * Format: date-time
-             * @description When the binary started (UTC). Hub computes uptime client-side.
+             * @description When the binary started (UTC). the operator console computes uptime client-side.
              */
             started_at: string;
-            /** @description Hub renders a `mailto:` chip when set. */
+            /** @description the operator console renders a `mailto:` chip when set. */
             support_email?: string | null;
-            /** @description Hub renders a `Support` button linking to this URL when set. */
+            /** @description the operator console renders a `Support` button linking to this URL when set. */
             support_url?: string | null;
             /**
              * Format: int64
-             * @description Seconds since boot. Pre-computed server-side so Hub doesn't need
+             * @description Seconds since boot. Pre-computed server-side so the operator console doesn't need
              *     to do a date subtraction on every poll.
              */
             uptime_seconds: number;
-            /** @description Takeal API package version. */
+            /** @description `meister-api` package version. */
             version: string;
+        };
+        /**
+         * @description Card as the org sees it. Deliberately omits `connector_slug` +
+         *     `provider_reference` (issuer attribution) and `redemption_code` (PCI).
+         */
+        OrgCardView: {
+            card_type: components["schemas"]["CardType"];
+            /** Format: date-time */
+            created_at: string;
+            currency: string;
+            /** Format: int32 */
+            expiry_month?: number | null;
+            /** Format: int32 */
+            expiry_year?: number | null;
+            failure_reason?: string | null;
+            /**
+             * Format: uuid
+             * @description The end-user holder this card was issued to.
+             */
+            holder_user_id: string;
+            /** Format: uuid */
+            id: string;
+            initial_amount?: string | null;
+            last4?: string | null;
+            status: components["schemas"]["CardStatus"];
+            /** Format: date-time */
+            updated_at: string;
+        };
+        OrgInfo: {
+            billing_currency: string;
+            /** Format: uuid */
+            id: string;
+            legal_name: string;
+            prepay_balance: string;
+            status: string;
+        };
+        OrgUserPublic: {
+            /** Format: date-time */
+            created_at: string;
+            email: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            last_login_at?: string | null;
+            /** Format: uuid */
+            organization_id: string;
+            organization_name: string;
+            role: components["schemas"]["OrganizationRole"];
+            /**
+             * @description Stable discriminator for the merchant portal's dual-mode login. Always
+             *     `"organization_user"` here (merchant login returns `"merchant_user"`).
+             */
+            user_type: string;
+        };
+        OrgUserView: {
+            /** Format: date-time */
+            created_at: string;
+            email: string;
+            /** Format: uuid */
+            id: string;
+            is_active: boolean;
+            /** Format: uuid */
+            organization_id: string;
+            role: components["schemas"]["OrganizationRole"];
+        };
+        OrgView: {
+            billing_currency: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            id: string;
+            legal_name: string;
+            prepay_balance: string;
+            status: components["schemas"]["OrganizationStatus"];
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /**
+         * @description Per-org, per-card-type issuance sell_price. When no row matches a card_type, org issuance is free for
+         *     that type (operator must configure it for a real reseller).
+         */
+        OrganizationCardPricing: {
+            /**
+             * @description `credit` | `prepaid` | `gift`. Kept as a String to avoid coupling this
+             *     crate to the issuing crate's CardType (layering — both are domain crates).
+             */
+            card_type: string;
+            /** Format: date-time */
+            created_at: string;
+            currency: string;
+            fee_label?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            organization_id: string;
+            /** @example 5.00 */
+            sell_price: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @enum {string} */
+        OrganizationRole: "admin" | "member" | "viewer";
+        /** @enum {string} */
+        OrganizationStatus: "active" | "suspended" | "closed";
+        OrphanRow: {
+            connector_slug: string;
+            /** Format: date-time */
+            created_at: string;
+            currency: string;
+            failure_reason?: string | null;
+            funding_mode?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @example 10.00 */
+            initial_amount?: string | null;
+            last4?: string | null;
+            provider_reference?: string | null;
+            user_email: string;
+            /** Format: uuid */
+            user_id: string;
         };
         OtpVerifyBody: {
             /** @description `otp_pending`-scope token returned by `/2fa/switch`. */
@@ -2160,27 +3618,75 @@ export type components = {
             /** @description `active` | `disabled`. */
             status?: string | null;
         };
+        PatchOrgBody: {
+            /** @description `active` | `suspended` | `closed`. */
+            status: components["schemas"]["OrganizationStatus"];
+        };
         PatchRoleBody: {
             /** @description Target role name. Must already exist in the `roles` table. */
             role: string;
         };
+        PatchTierBody: {
+            currency?: string | null;
+            /** Format: int32 */
+            funding_discount_bps?: number | null;
+            /** Format: int32 */
+            grace_window_days?: number | null;
+            /** Format: int32 */
+            issuance_discount_bps?: number | null;
+            monthly_fee?: string | null;
+            name?: string | null;
+            /** @description `active` | `disabled`. */
+            status?: string | null;
+            /** Format: int32 */
+            tryout_window_days?: number | null;
+        };
+        PayrollBody: {
+            currency: string;
+            runs: components["schemas"]["PayrollRun"][];
+        };
+        PayrollResult: {
+            amount: string;
+            /** Format: uuid */
+            card_id?: string | null;
+            email: string;
+            error?: string | null;
+            /** Format: uuid */
+            member_id: string;
+            /** @description `active` when the salary card was issued, else `failed`. */
+            status: string;
+        };
+        PayrollRun: {
+            amount: string;
+            /** Format: uuid */
+            member_id: string;
+        };
         PermissionEntry: {
             key: string;
         };
-        /** @description Subset of `connector_credentials` columns covering issuance pricing. */
-        PricingView: {
-            /**
-             * @description What Takeal pays the provider per card. Info-only, never debited.
-             *     `null` when only sell-price is configured (operator hasn't recorded
-             *     the cost yet).
-             */
+        /**
+         * @description One row of the per-program catalogue + pricing. `program_code` is the
+         *     provider product / program id (== the connector's advertised `id`); the
+         *     operator edits cost/sell/fee_label/priority/status. Pass `program_code` back
+         *     as `program_id` to POST /admin/cards.
+         */
+        ProgramView: {
+            bin?: string | null;
+            /** @description `credit` | `prepaid` | `gift`. */
+            card_type: string;
             cost_price?: string | null;
-            /** @description ISO 4217. */
-            currency: string;
-            /** @description Free-form audit/ledger label, e.g. "OKCard MasterCard issuance". */
+            currency?: string | null;
             fee_label?: string | null;
-            /** @description What Takeal charges the end-user. Debited atomically at create_card. */
-            sell_price: string;
+            label: string;
+            /**
+             * Format: int32
+             * @description Program-cascade order within the issuer (lower wins).
+             */
+            priority: number;
+            program_code: string;
+            sell_price?: string | null;
+            /** @description `active` | `disabled`. */
+            status: string;
         };
         PutConfigurationBody: {
             /** @description Replace the entire map. Pass `{}` to wipe. */
@@ -2188,18 +3694,23 @@ export type components = {
                 [key: string]: string;
             };
         };
-        /**
-         * @description Body for `PUT /admin/connectors/{slug}/pricing` — replace-or-wipe the
-         *     whole pricing block. Send `null` to wipe (all four columns NULL → card
-         *     creation becomes free again). The four-field shape mirrors PricingView.
-         *
-         *     We use PUT not PATCH because the DB CHECK couples `sell_price` and
-         *     `currency` — there's no meaningful "partial update": you either have a
-         *     coherent pricing block or none. Hub renders one Save button for the
-         *     whole block.
-         */
         PutPricingBody: {
-            pricing?: null | components["schemas"]["PricingView"];
+            /** @description `credit` | `prepaid` | `gift`. */
+            card_type: string;
+            currency: string;
+            fee_label?: string | null;
+            sell_price: string;
+        };
+        /** @description Body for `PUT /admin/connectors/{slug}/programs/{program_code}/pricing`. */
+        PutProgramPricingBody: {
+            cost_price?: string | null;
+            currency?: string | null;
+            fee_label?: string | null;
+            /** Format: int32 */
+            priority?: number | null;
+            sell_price?: string | null;
+            /** @description `active` | `disabled`. */
+            status?: string | null;
         };
         PutSettingBody: {
             value: string;
@@ -2211,6 +3722,13 @@ export type components = {
              *     dashboard's "X funders / Y issuers / …" header chips.
              */
             counts: components["schemas"]["ConnectorCounts"];
+            /**
+             * @description License kill-switch state. `mode` is one of `active`,
+             *     `grace`, `refusing`, `disabled`; `refusing` carries `reason`. the operator console
+             *     renders a banner on anything but `active`. Does NOT affect the HTTP
+             *     status of `/ready` — a refusing the platform is healthy, just closed.
+             */
+            license: Record<string, never>;
             /**
              * @description Operator-facing channels + build info read at boot from env.
              *     Immutable for the process lifetime.
@@ -2226,13 +3744,25 @@ export type components = {
             formance: components["schemas"]["CheckResult"];
             /**
              * @description NATS probe. When the deployment is unconfigured for NATS (env
-             *     `NATS_URL` unset, null-publisher path), this reports
+             *     `NATS_URL` unset, the API contract NullPublisher path), this reports
              *     `{ ok: true, error: None, skipped: true }` so the operator console renders a
              *     neutral "skipped" dot rather than a red "down" one.
              */
             nats: components["schemas"]["CheckResult"];
             postgres: components["schemas"]["CheckResult"];
             redis: components["schemas"]["CheckResult"];
+        };
+        /**
+         * @example {
+         *       "action": "close"
+         *     }
+         */
+        ReconcileBody: {
+            /**
+             * @description `close` — terminate the card at the provider (recover float), mark
+             *     `terminated`. `adopt` — charge the unpaid load, mark `active`.
+             */
+            action: string;
         };
         ReloadBody: {
             /** @example 25.00 */
@@ -2257,6 +3787,26 @@ export type components = {
             removed: boolean;
             /** Format: uuid */
             user_id: string;
+        };
+        RevealBody: {
+            /** @description Mandatory re-auth: the user's account password. */
+            password: string;
+            /** @description Required when the user has TOTP enrolled; ignored otherwise. */
+            totp_code?: string | null;
+        };
+        RevealResponse: {
+            cvv: string;
+            /**
+             * Format: int32
+             * @description Seconds the client should display before auto-clearing.
+             */
+            expires_in_seconds: number;
+            /** Format: int32 */
+            expiry_month: number;
+            /** Format: int32 */
+            expiry_year: number;
+            holder_name: string;
+            pan: string;
         };
         RevealedSetting: {
             is_set: boolean;
@@ -2290,6 +3840,22 @@ export type components = {
             outbound_auth_secret: string;
             signing_secret: string;
         };
+        RowError: {
+            email: string;
+            error: string;
+        };
+        /**
+         * @example {
+         *       "email": "alice@example.com"
+         *     }
+         */
+        SetEmailBody: {
+            /**
+             * @description The real email to attach. Validated (one '@', dotted domain, no
+             *     whitespace), lower-cased + trimmed, and must be unique deployment-wide.
+             */
+            email: string;
+        };
         SetWebhookBody: {
             /**
              * @description HMAC-SHA256 signing secret. Plaintext at rest — the worker signs each
@@ -2319,6 +3885,71 @@ export type components = {
              */
             value?: string | null;
         };
+        Shop: {
+            /**
+             * @description CSS colour token the merchant portal surfaces as per-shop accent. None →
+             *     inherit deployment-wide theme.
+             */
+            brand_color?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * @description ISO 4217 dashboard hint. Doesn't constrain transaction
+             *     currencies — that's per-acquirer / per-payment.
+             */
+            currency_hint?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            merchant_id: string;
+            name: string;
+            status: components["schemas"]["ShopStatus"];
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @enum {string} */
+        ShopStatus: "active" | "archived";
+        /** @description Partial-update payload. Omitted fields = unchanged. */
+        ShopUpdate: {
+            /** @description `Some(None)` clears `brand_color`; absent = leave as-is. */
+            brand_color?: string | null;
+            currency_hint?: string | null;
+            name?: string | null;
+            status?: null | components["schemas"]["ShopStatus"];
+        };
+        StatBucket: {
+            /** @example 1234.50 */
+            amount: string;
+            /** Format: int64 */
+            count: number;
+            currency: string;
+            status: string;
+        };
+        StatusCount: {
+            /** Format: int64 */
+            count: number;
+            status: string;
+        };
+        SubscriptionTier: {
+            /** Format: date-time */
+            created_at: string;
+            currency: string;
+            /** Format: int32 */
+            funding_discount_bps: number;
+            /** Format: int32 */
+            grace_window_days: number;
+            /** Format: uuid */
+            id: string;
+            /** Format: int32 */
+            issuance_discount_bps: number;
+            monthly_fee: string;
+            name: string;
+            status: string;
+            /** Format: int32 */
+            tryout_window_days: number;
+            /** Format: date-time */
+            updated_at: string;
+        };
         SwitchBody: {
             /**
              * @description The challenge from the prior `/auth/login` response. Must be a
@@ -2339,19 +3970,32 @@ export type components = {
          */
         SwitchResponse: {
             /**
-             * @description Echo of the available_methods set (so Hub can re-render the
+             * @description Echo of the available_methods set (so the operator console can re-render the
              *     picker if the user wants to switch again mid-flow).
              */
             available_methods?: components["schemas"]["AvailableMethod"][];
             /** Format: date-time */
             challenge_expires_at: string;
             challenge_token: string;
-            /** @description Hint text Hub renders under the code input. */
+            /** @description Hint text the operator console renders under the code input. */
             hint: string;
             /** @description `"telegram"` | `"email"` — echo of the chosen method. */
             method: string;
             /** @enum {string} */
             stage: "otp_sent";
+        };
+        /**
+         * @example {
+         *       "init_data": "query_id=AAH...&user=%7B%22id%22%3A777000%2C%22first_name%22%3A%22Alice%22%7D&auth_date=1700000000&hash=abcdef…"
+         *     }
+         */
+        TelegramExchangeBody: {
+            /**
+             * @description Raw `window.Telegram.WebApp.initData` query string handed to the Mini
+             *     App by the Telegram client. Validated server-side against the
+             *     deployment's bot token — never trust it unsigned.
+             */
+            init_data: string;
         };
         TerminateBody: {
             /** @description Provider-specific extras. Example: `{ "reason_code": "LOST_OR_STOLEN" }`. */
@@ -2359,6 +4003,11 @@ export type components = {
                 [key: string]: string;
             };
             reason?: string;
+        };
+        TopupBody: {
+            amount: string;
+            /** @description Defaults to the org's billing currency when omitted. */
+            currency?: string | null;
         };
         TotpStepBody: {
             challenge_token: string;
@@ -2373,6 +4022,15 @@ export type components = {
             amount: string;
             /** Format: date-time */
             authorised_at?: string | null;
+            /**
+             * @description What the card was actually charged (billing leg) + its currency — may
+             *     differ from the merchant `amount` (e.g. a EUR purchase billed in USD).
+             * @example 6.51
+             */
+            billing_amount?: string | null;
+            billing_currency?: string | null;
+            /** @description The billing leg in USD (the ledger currency), decimal-as-string. */
+            billing_usd_amount?: string | null;
             /** Format: date-time */
             cleared_at?: string | null;
             currency: string;
@@ -2382,6 +4040,14 @@ export type components = {
             merchant_mcc?: string | null;
             merchant_name?: string | null;
             provider_reference: string;
+            /** @description Provider's raw status (e.g. OKCard txnStatus "SUCCESS") — panel parity. */
+            provider_status?: string | null;
+            /**
+             * @description Normalised status: `pending` | `cleared` | `reversed` | `declined` |
+             *     `unknown` (see `CardTxnRow.status`). Raw provider value in
+             *     `provider_status`.
+             * @example cleared
+             */
             status: string;
         };
         TransactionsPage: {
@@ -2395,10 +4061,27 @@ export type components = {
             status?: null | components["schemas"]["EndpointStatus"];
             url?: string | null;
         };
+        UpdateWebhookBody: {
+            event_filter?: string[] | null;
+            label?: string | null;
+            status?: null | components["schemas"]["EndpointStatus"];
+            url?: string | null;
+        };
+        UserBalanceResult: {
+            /**
+             * @description Current ledger balance in `currency` (Formance), decimal-as-string.
+             *     Same representation as `/me/balance` (`money.amount.to_string()`).
+             * @example 42.50
+             */
+            amount: string;
+            currency: string;
+            /** Format: uuid */
+            user_id: string;
+        };
         UserDetail: {
             /**
              * Format: int64
-             * @description Count of unused backup codes on the user_totp row.
+             * @description the API contract — count of unused backup codes on the user_totp row.
              *     Zero on legacy rows (the operator can hit "Regenerate" to
              *     populate). Drops by 1 every time the user logs in with a backup
              *     code (which also deletes the user_totp row, so the next check
@@ -2418,12 +4101,12 @@ export type components = {
             is_active: boolean;
             role: string;
             /**
-             * @description True when the user has a confirmed `user_totp` row.
+             * @description the API contract — true when the user has a confirmed `user_totp` row.
              *     Mutually exclusive with `totp_pending`.
              */
             totp_enrolled: boolean;
             /**
-             * @description True when a `user_totp` row exists but `confirmed_at`
+             * @description the API contract — true when a `user_totp` row exists but `confirmed_at`
              *     is NULL (the user fetched a QR but hasn't entered a verification
              *     code yet). Operator UX surfaces this as "Setup in progress".
              */
@@ -2443,13 +4126,34 @@ export type components = {
              * @description True iff `password_hash IS NOT NULL` — quick signal that password
              *     login is one of this user's auth methods. Multi-auth specifics
              *     (Telegram link, OIDC, etc.) live in `identity_links` and surface
-             *     in the per-user detail endpoint (session 16).
+             *     in the per-user detail endpoint (an earlier release).
              */
             has_password: boolean;
             /** Format: uuid */
             id: string;
             is_active: boolean;
             role: string;
+        };
+        /** @description A user's subscription joined with its tier (for display + the worker). */
+        UserSubscriptionView: {
+            currency: string;
+            /** Format: date-time */
+            current_period_end?: string | null;
+            /** Format: int32 */
+            funding_discount_bps: number;
+            /** Format: uuid */
+            id: string;
+            /** Format: int32 */
+            issuance_discount_bps: number;
+            monthly_fee: string;
+            /** Format: date-time */
+            started_at: string;
+            status: string;
+            /** Format: uuid */
+            tier_id: string;
+            tier_name: string;
+            /** Format: uuid */
+            user_id: string;
         };
         WebhookConfig: {
             /** Format: uuid */
@@ -2472,9 +4176,30 @@ export type components = {
             last_error_message?: string | null;
             /** Format: uuid */
             merchant_id: string;
+            /**
+             * Format: uuid
+             * @description an earlier release — endpoints are per-shop now. Backfill seeded
+             *     existing rows onto each merchant's "Default" shop.
+             */
+            shop_id: string;
             status: components["schemas"]["EndpointStatus"];
             /** Format: date-time */
             updated_at: string;
+            url: string;
+        };
+        WebhookSecretView: {
+            endpoint: components["schemas"]["WebhookView"];
+            /** @description One-shot HMAC signing secret. Captured at create/rotate. */
+            signing_secret: string;
+        };
+        WebhookView: {
+            /** Format: date-time */
+            created_at: string;
+            event_filter: string[];
+            /** Format: uuid */
+            id: string;
+            label: string;
+            status: components["schemas"]["EndpointStatus"];
             url: string;
         };
     };
@@ -2486,6 +4211,38 @@ export type components = {
 };
 export type $defs = Record<string, never>;
 export interface operations {
+    list_card_transactions_all: {
+        parameters: {
+            query?: {
+                card_id?: string;
+                user_id?: string;
+                connector_slug?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardTxnRow"][];
+                };
+            };
+            /** @description Missing cards:read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_cards: {
         parameters: {
             query?: {
@@ -2527,6 +4284,88 @@ export interface operations {
             };
         };
     };
+    create_card: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. Same key + body replays the original card. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminCreateCardBody"];
+            };
+        };
+        responses: {
+            /** @description Card created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Card"];
+                };
+            };
+            /** @description Validation / unknown issuer_slug / card_type unimplemented */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient funds for the issuance fee or prepaid load */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing cards.lifecycle permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No issuer connectors configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_orphans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Suspected orphans */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrphanRow"][];
+                };
+            };
+            /** @description Missing cards.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     get_card: {
         parameters: {
             query?: never;
@@ -2539,13 +4378,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Card detail */
+            /** @description Card detail + live balance */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Card"];
+                    "application/json": components["schemas"]["CardDetail"];
                 };
             };
             /** @description Not an operator */
@@ -2557,6 +4396,67 @@ export interface operations {
             };
             /** @description No such card */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    debit_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DebitBody"];
+            };
+        };
+        responses: {
+            /** @description Debited card */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Card"];
+                };
+            };
+            /** @description Validation (non-active card / non-positive amount / currency mismatch) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing cards.recharge permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such card */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Connector doesn't support limit edit (non-shared card) */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Connector unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2618,6 +4518,53 @@ export interface operations {
             };
             /** @description Connector unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    reconcile_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReconcileBody"];
+            };
+        };
+        responses: {
+            /** @description Reconciled card */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Card"];
+                };
+            };
+            /** @description Bad action / no provider reference */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Adopt failed — user can't cover the load */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing cards.lifecycle permission */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2974,6 +4921,33 @@ export interface operations {
             };
         };
     };
+    list_breakers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Per-slug breaker metrics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakerView"][];
+                };
+            };
+            /** @description Missing connectors.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     disable_connector: {
         parameters: {
             query?: never;
@@ -3049,6 +5023,50 @@ export interface operations {
             };
             /** @description No such connector */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    connector_balances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Issuer connector slug */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Array of balances */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BalanceDto"][];
+                };
+            };
+            /** @description Missing connectors.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown connector slug */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Connector unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3232,7 +5250,37 @@ export interface operations {
             };
         };
     };
-    put_pricing: {
+    list_programs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Issuer connector slug, e.g. spool-okcard */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Array of programs + pricing */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramView"][];
+                };
+            };
+            /** @description Missing connectors.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    sync_programs: {
         parameters: {
             query?: never;
             header?: never;
@@ -3241,19 +5289,56 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PutPricingBody"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Pricing replaced (or wiped on null) */
+            /** @description Synced catalogue + pricing */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ConnectorView"];
+                    "application/json": components["schemas"]["ProgramView"][];
+                };
+            };
+            /** @description Missing connectors.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Connector unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    put_program_pricing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                program_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutProgramPricingBody"];
+            };
+        };
+        responses: {
+            /** @description Updated program */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramView"];
                 };
             };
             /** @description Validation */
@@ -3263,22 +5348,8 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Not an operator */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description No such connector */
+            /** @description Unknown program — sync first */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Pricing only valid on issuer-role connectors */
-            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3314,6 +5385,43 @@ export interface operations {
                 content?: never;
             };
             /** @description No such connector */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    connector_stats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Connector slug */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Aggregate stats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectorStats"];
+                };
+            };
+            /** @description Missing connectors.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown connector slug */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -3887,6 +5995,187 @@ export interface operations {
             };
         };
     };
+    admin_list_shops: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Shop"][];
+                };
+            };
+        };
+    };
+    admin_create_shop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewShop"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Shop"];
+                };
+            };
+        };
+    };
+    admin_get_shop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Shop"];
+                };
+            };
+        };
+    };
+    admin_archive_shop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archived */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_patch_shop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShopUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Shop"];
+                };
+            };
+        };
+    };
+    admin_list_secrets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyRow"][];
+                };
+            };
+        };
+    };
+    admin_create_secret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewMerchantApiKey"];
+                };
+            };
+        };
+    };
+    admin_revoke_secret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                shop_id: string;
+                key_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_merchant_users: {
         parameters: {
             query?: never;
@@ -4228,13 +6517,321 @@ export interface operations {
             };
         };
     };
+    issuing_metrics: {
+        parameters: {
+            query?: {
+                window_days?: number;
+                currency?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssuingMetrics"];
+                };
+            };
+            /** @description Missing cards:read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_organizations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgView"][];
+                };
+            };
+            /** @description Missing organizations.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_organization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOrgBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgView"];
+                };
+            };
+            /** @description Validation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_organization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgView"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patch_organization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchOrgBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgView"];
+                };
+            };
+        };
+    };
+    mint_key: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MintKeyBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MintKeyResponse"];
+                };
+            };
+        };
+    };
+    get_pricing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationCardPricing"][];
+                };
+            };
+        };
+    };
+    put_pricing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutPricingBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationCardPricing"];
+                };
+            };
+        };
+    };
+    delete_pricing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                card_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    topup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopupBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgView"];
+                };
+            };
+            /** @description Validation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_users: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgUserView"][];
+                };
+            };
+        };
+    };
+    create_user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUserBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewUserView"];
+                };
+            };
+        };
+    };
     list_payments: {
         parameters: {
             query?: {
                 /** @description Cap on rows returned. Default 100, max 500. */
                 limit?: number | null;
                 /**
-                 * @description Optional merchant filter — Hub's merchant detail page hits this with
+                 * @description Optional merchant filter — the operator console's merchant detail page hits this with
                  *     `?merchant_id=<id>` to render the per-merchant recent activity panel.
                  */
                 merchant_id?: string | null;
@@ -4920,7 +7517,115 @@ export interface operations {
             };
         };
     };
-    list_users: {
+    list_tiers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionTier"][];
+                };
+            };
+        };
+    };
+    create_tier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewTierBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionTier"];
+                };
+            };
+            /** @description Validation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_tier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Still assigned */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patch_tier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchTierBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionTier"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_list_users: {
         parameters: {
             query?: {
                 /** @description Email-substring filter (case-insensitive). Empty → no filter. */
@@ -4979,6 +7684,51 @@ export interface operations {
                 content?: never;
             };
             /** @description No such user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_user_balance: {
+        parameters: {
+            query?: {
+                /** @description ISO 4217 currency (default USD) */
+                currency?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserBalanceResult"];
+                };
+            };
+            /** @description Invalid currency */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing users:read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -5072,6 +7822,79 @@ export interface operations {
             };
             /** @description User not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_user_subscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserSubscriptionView"];
+                };
+            };
+            /** @description No subscription */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    assign_user_subscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserSubscriptionView"];
+                };
+            };
+        };
+    };
+    cancel_user_subscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5382,6 +8205,71 @@ export interface operations {
             };
         };
     };
+    telegram_exchange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelegramExchangeBody"];
+            };
+        };
+        responses: {
+            /** @description Session issued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description initData signature invalid / stale */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Account disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Telegram login not configured (no bot token) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_branding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description White-label brand config */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Branding"];
+                };
+            };
+        };
+    };
     health: {
         parameters: {
             query?: never;
@@ -5442,7 +8330,7 @@ export interface operations {
             };
         };
     };
-    create_card: {
+    me_create_card: {
         parameters: {
             query?: never;
             header: {
@@ -5486,7 +8374,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description No issuer connectors configured for this deployment */
+            /** @description No the connector connectors configured for this deployment */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -5553,6 +8441,197 @@ export interface operations {
             };
         };
     };
+    me_freeze_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LifecycleReasonBody"];
+            };
+        };
+        responses: {
+            /** @description Updated card */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such card */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Connector doesn't support freeze */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Connector unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    reveal_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevealBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevealResponse"];
+                };
+            };
+            /** @description Re-auth failed (password / TOTP) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the caller's card */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many reveals */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Connector has no sensitive-data endpoint */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider error */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    me_terminate_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LifecycleReasonBody"];
+            };
+        };
+        responses: {
+            /** @description Terminated card */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such card */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Connector doesn't support terminate */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Connector unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    me_unfreeze_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Updated card */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such card */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Connector doesn't support unfreeze */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Connector unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_deposits: {
         parameters: {
             query?: never;
@@ -5615,7 +8694,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description No funder connectors configured for this deployment */
+            /** @description No the connector connectors configured for this deployment */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -5712,6 +8791,654 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    set_email: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetEmailBody"];
+            };
+        };
+        responses: {
+            /** @description Email attached; returns the updated user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Invalid email */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Email already in use */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_keys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyView"][];
+                };
+            };
+        };
+    };
+    create_key: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateKeyBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeySecretView"];
+                };
+            };
+        };
+    };
+    delete_key: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    org_login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Authenticated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Ambiguous — email belongs to multiple orgs */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    org_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current org user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgUserPublic"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    org_balance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BalanceView"];
+                };
+            };
+        };
+    };
+    org_list_cards: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgCardView"][];
+                };
+            };
+        };
+    };
+    org_create_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCardBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgCardView"];
+                };
+            };
+            /** @description Org prepay balance insufficient */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No issuer connector configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    org_get_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgCardView"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    card_balance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BalanceView"];
+                };
+            };
+        };
+    };
+    org_freeze_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FreezeBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgCardView"];
+                };
+            };
+        };
+    };
+    org_reload_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReloadBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgCardView"];
+                };
+            };
+            /** @description Org prepay insufficient */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    org_terminate_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FreezeBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgCardView"];
+                };
+            };
+        };
+    };
+    org_unfreeze_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgCardView"];
+                };
+            };
+        };
+    };
+    org_org_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgInfo"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_members: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberView"][];
+                };
+            };
+        };
+    };
+    invite_member: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberView"];
+                };
+            };
+            /** @description Validation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    bulk_invite_members: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkInviteBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkInviteResult"];
+                };
+            };
+        };
+    };
+    remove_member: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    run_payroll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayrollBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayrollResult"][];
+                };
+            };
+            /** @description Validation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_webhooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookView"][];
+                };
+            };
+        };
+    };
+    create_webhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWebhookBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSecretView"];
+                };
+            };
+        };
+    };
+    delete_webhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archived */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_webhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWebhookBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookView"];
+                };
+            };
+        };
+    };
+    rotate_webhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSecretView"];
+                };
             };
         };
     };

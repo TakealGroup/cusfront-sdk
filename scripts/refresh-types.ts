@@ -60,6 +60,50 @@ function dedupeOperationIds(spec: unknown): void {
 }
 dedupeOperationIds(spec);
 
+// Public-repo hygiene: the API's doc comments are written for the
+// platform's own engineers and mention internal component codenames, design
+// records and issue numbers. None of that belongs in a published SDK — the
+// consumer only needs the HTTP contract. Scrub every string in the spec
+// before generating, so a refresh can never leak internals by accident.
+// Keep this list in sync with the repo's sanitisation rules.
+const SCRUB: Array<[RegExp, string]> = [
+  [/\s*\((?:ADR|see ADR)\s*\d{4}[^)]*\)/g, ""], // "(ADR 0028 PCI rule …)"
+  [/\s*\(#\d+\)/g, ""], // "(#42)"
+  [/\s*\(#\d+[^)]*\)/g, ""], // "(#22, …)"
+  [/\b(?:per|see|from)\s+ADR\s*\d{4}\b/gi, "per the API contract"],
+  [/\bADR\s*\d{4}\b/g, "the API contract"],
+  [/\bsession[- ]\d+\b/gi, "an earlier release"],
+  [/\bTakeal Meister\b|\bMeister'?s?\b/g, "the platform"],
+  [/\b(?:Indigo|Spool|Gator|Outband)(?:-[a-z0-9_]+)?\b/g, "the connector"],
+  [/\bMerphy\b/g, "the merchant portal"],
+  [/\bCusfront\b/g, "the client app"],
+  [/\bHub\b/g, "the operator console"],
+  [/\bRecanary\b|\bSmith\b/g, "the back office"],
+  [/\bmaster balance\b/gi, "wallet balance"],
+];
+function scrub(v: unknown): unknown {
+  if (typeof v === "string") {
+    let out = v;
+    for (const [re, rep] of SCRUB) out = out.replace(re, rep);
+    return out;
+  }
+  if (Array.isArray(v)) return v.map(scrub);
+  if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    for (const k of Object.keys(o)) {
+      // Never rewrite keys (paths, property names) — only descriptive values.
+      if (k === "description" || k === "summary" || k === "title" || k === "example") {
+        o[k] = scrub(o[k]);
+      } else if (o[k] && typeof o[k] === "object") {
+        scrub(o[k]);
+      }
+    }
+    return o;
+  }
+  return v;
+}
+scrub(spec);
+
 const ast = await openapiTS(spec, {
   exportType: true,
   // Drop schema names that drift in/out of the spec between API
