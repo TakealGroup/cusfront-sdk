@@ -31,7 +31,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   billing fields, issuing metrics, branding). `refresh-types` now scrubs
   internal references from doc comments before generating.
 
-## [0.1.0] — first public release
+## [0.1.0] — 2026-08-25 — first public release
 
 Initial release of the typed client for the Takeal end-user API.
 

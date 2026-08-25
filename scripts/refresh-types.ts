@@ -70,11 +70,16 @@ const SCRUB: Array<[RegExp, string]> = [
   [/\s*\((?:ADR|see ADR)\s*\d{4}[^)]*\)/g, ""], // "(ADR 0028 PCI rule …)"
   [/\s*\(#\d+\)/g, ""], // "(#42)"
   [/\s*\(#\d+[^)]*\)/g, ""], // "(#22, …)"
+  // Bare issue references: "#34: provider-driven …", "before #34", "/ #6".
+  [/\s*[/,]?\s*#\d+\s*(?:[:—–-]\s*)?/g, " "],
   [/\b(?:per|see|from)\s+ADR\s*\d{4}\b/gi, "per the API contract"],
   [/\bADR\s*\d{4}\b/g, "the API contract"],
   [/\bsession[- ]\d+\b/gi, "an earlier release"],
-  [/\bTakeal Meister\b|\bMeister'?s?\b/g, "the platform"],
-  [/\b(?:Indigo|Spool|Gator|Outband)(?:-[a-z0-9_]+)?\b/g, "the connector"],
+  [/\bTakeal Meister\b|\bmeister(?:-api)?'?s?\b/gi, "the platform"],
+  // Case-insensitive: slugs appear lowercased (`spool-mock`) as often as the
+  // family name appears capitalised. The trailing lookahead stops the
+  // replacement from producing "the connector connector".
+  [/\b(?:indigo|spool|gator|outband)(?:s|-[a-z0-9_]+)?\b(\s+connector)?/gi, "the connector"],
   [/\bMerphy\b/g, "the merchant portal"],
   [/\bCusfront\b/g, "the client app"],
   [/\bHub\b/g, "the operator console"],
@@ -83,6 +88,13 @@ const SCRUB: Array<[RegExp, string]> = [
   // Never ship a real white-label customer's name in the public SDK. Keep
   // this list in step with the deployments we actually run.
   [/\bWexel\b/g, "Acme"],
+  // Tidy-up after the substitutions above.
+  [/\bthe (\w+) the \1\b/g, "the $1"],
+  [/\bthe the\b/g, "the"],
+  // Tidy whitespace/punctuation left behind by the removals above.
+  [/ {2,}/g, " "],
+  [/\s+([.,;:)])/g, "$1"],
+  [/\(\s+/g, "("],
 ];
 function scrub(v: unknown): unknown {
   if (typeof v === "string") {

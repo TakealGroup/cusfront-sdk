@@ -64,7 +64,7 @@ export interface FundingQuote {
 export interface Deposit {
   id: string;
   user_id: string;
-  /** Slug of the funder that handled this deposit (e.g. `indigo-mock`). */
+  /** Slug of the funder that handled this deposit, as configured by the deployment. */
   connector_slug: string;
   /** The connector's own reference, populated once it responds. */
   provider_reference: string | null;

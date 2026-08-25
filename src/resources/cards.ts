@@ -57,7 +57,7 @@ export interface Card {
   id: string;
   user_id: string;
   card_type: CardType;
-  /** Slug of the issuer that minted this card (e.g. `spool-mock`). */
+  /** Slug of the issuer that minted this card, as configured by the deployment. */
   connector_slug: string;
   /** The connector's own reference, populated once it responds. */
   provider_reference: string | null;

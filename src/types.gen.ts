@@ -7,6 +7,86 @@
 /* eslint-disable */
 /* prettier-ignore */
 export type paths = {
+    "/admin/blog/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_images"];
+        put?: never;
+        /** Upload an image and get back the URL to drop into a post body. */
+        post: operations["upload_image"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/blog/posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All posts (any status), newest activity first. */
+        get: operations["list_posts"];
+        put?: never;
+        /**
+         * Create a draft. `slug` is derived from the title when omitted; a title
+         *     with no latin characters gets a generated handle instead of an error.
+         */
+        post: operations["create_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/blog/posts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_post"];
+        put?: never;
+        post?: never;
+        delete: operations["delete_post"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit a post. Changing any content field bumps `content_version`, which
+         *     re-arms the broadcast buttons; a pure status change does not.
+         */
+        patch: operations["patch_post"];
+        trace?: never;
+    };
+    "/admin/blog/posts/{id}/broadcast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fan a published post out to everyone subscribed to `channel`.
+         * @description Idempotent per (post, channel, content version): a repeat click returns
+         *     409 rather than sending twice. Editing the post afterwards makes a
+         *     re-send available again.
+         */
+        post: operations["broadcast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/card-transactions": {
         parameters: {
             query?: never;
@@ -105,7 +185,7 @@ export type paths = {
          * @description **Shared-gating source of truth:** the *connector* is the single
          *     authority — a non-shared card's connector returns 501 here, fail-safe,
          *     regardless of what `cards.funding_mode` says. The persisted `funding_mode`
-         *     (and the the operator console button that keys off it) is an **informational** hint only;
+         *     (and the operator console button that keys off it) is an **informational** hint only;
          *     it can lag the live connector (lazy backfill / COALESCE-on-refresh) and is
          *     never the enforcement point.
          */
@@ -190,7 +270,7 @@ export type paths = {
         put?: never;
         /**
          * Reload a PREPAID card. Most providers return 501 (funds flow via the
-         *     linked funding account, not via direct reload); spool-brighty included.
+         *     linked funding account, not via direct reload); the connector included.
          *     400 on non-prepaid card / non-active status / non-positive amount.
          */
         post: operations["reload_card"];
@@ -391,8 +471,8 @@ export type paths = {
             cookie?: never;
         };
         /**
-         * List the per-program catalogue + pricing for an issuer. Powers the the operator console
-         *     pricing UI + the "Add card" picker. Empty until `POST .../programs/sync`.
+         * List the per-program catalogue + pricing for an issuer. Powers the operator console
+         *     pricing UI + the "Add card" picker. Empty until `POST.../programs/sync`.
          */
         get: operations["list_programs"];
         put?: never;
@@ -414,7 +494,7 @@ export type paths = {
         put?: never;
         /**
          * Sync the program catalogue from the connector's advertised list (option (c):
-         *     the spool knows its BINs, we own the pricing). Upserts catalogue fields
+         *     the connector knows its BINs, we own the pricing). Upserts catalogue fields
          *     (label / card_type / currency / bin) and **preserves** operator-set pricing.
          */
         post: operations["sync_programs"];
@@ -562,7 +642,7 @@ export type paths = {
         /**
          * Remove a connector from the merchant's cascade. Audited.
          * @description Hard-delete: removes the row so the cascade engine stops considering it.
-         *     Reassigning via `POST .../acquirers` re-inserts cleanly thanks to the
+         *     Reassigning via `POST.../acquirers` re-inserts cleanly thanks to the
          *     ON CONFLICT upsert.
          */
         delete: operations["remove_acquirer"];
@@ -606,7 +686,7 @@ export type paths = {
         put?: never;
         /**
          * Create a new bank account for the merchant. The row is created
-         *     non-primary; promote via `POST .../{bank_id}/primary` once verified.
+         *     non-primary; promote via `POST.../{bank_id}/primary` once verified.
          */
         post: operations["create_bank_account"];
         delete?: never;
@@ -909,7 +989,7 @@ export type paths = {
         };
         /**
          * VCI/issuing metrics over `card_transactions` for the last `window_days`
-         *     (default 7, max 90), optionally filtered to one `currency`. Powers the the operator console
+         *     (default 7, max 90), optionally filtered to one `currency`. Powers the operator console
          *     dashboard KPIs + the /card-spend breakdown without a client-side scan.
          */
         get: operations["issuing_metrics"];
@@ -1065,7 +1145,7 @@ export type paths = {
             cookie?: never;
         };
         /**
-         * List the permission catalogue — the finite set of keys the the operator console role
+         * List the permission catalogue — the finite set of keys the operator console role
          *     editor renders as toggles. No data, just the schema.
          */
         get: operations["list_permissions"];
@@ -1103,7 +1183,7 @@ export type paths = {
         };
         /**
          * List every role, system roles first. Permissions arrays included so
-         *     the the operator console editor can render the matrix without a second fetch.
+         *     the operator console editor can render the matrix without a second fetch.
          */
         get: operations["list_roles"];
         put?: never;
@@ -1387,6 +1467,26 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/admin/users/{id}/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List every non-zero balance a user holds, flagging the local currency.
+         *     Powers the migration panel in the operator console.
+         */
+        get: operations["list_user_balances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/users/{id}/role": {
         parameters: {
             query?: never;
@@ -1474,6 +1574,27 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/admin/users/{id}/wallet-migrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convert a user's entire `source_currency` balance into the local currency
+         *     at the current rate + spread. Atomic; audited; idempotent on the
+         *     (user, source, amount) tuple so a double-click can't double-convert.
+         */
+        post: operations["migrate_wallet_balance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -1487,9 +1608,9 @@ export type paths = {
          * Log in with email + password. Returns one of three envelopes:
          * @description * `{"stage":"jwt", access_token, expires_at, user}` — end-user/customer roles.
          *     * `{"stage":"totp_setup_required", challenge_token, challenge_expires_at,
-         *        secret_base32, otpauth_url}` — first admin login: enroll a TOTP.
+         *      secret_base32, otpauth_url}` — first admin login: enroll a TOTP.
          *     * `{"stage":"totp_required", challenge_token, challenge_expires_at}` —
-         *        returning admin login: type the code.
+         *      returning admin login: type the code.
          *
          *     Wrong-password and unknown-email return the same 401 (no enumeration).
          */
@@ -1630,6 +1751,61 @@ export type paths = {
          *     prompt for an email.
          */
         post: operations["telegram_exchange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blog/images/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Serve an image's bytes. **No auth**. Content is immutable per id, so it
+         *     carries a long-lived cache and an ETag — a the client app can hotlink these
+         *     straight from `cover_url` / image blocks.
+         */
+        get: operations["get_image"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blog/posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Published posts, newest first. **No auth** — public content. */
+        get: operations["blog_list_posts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blog/posts/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One published post by its slug. **No auth**. */
+        get: operations["blog_get_post"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1828,12 +2004,32 @@ export type paths = {
         get: operations["list_deposits"];
         put?: never;
         /**
-         * Initiate a deposit. the platform calls the configured the connector connector; on
+         * Initiate a deposit. the platform calls the configured the connector; on
          *     immediate `confirmed` the user's wallet balance is credited synchronously.
          * @description **Idempotency:** the `Idempotency-Key` header is required. Replay returns the
          *     original deposit; a different body with the same key returns 409.
          */
         post: operations["create_deposit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/deposits/quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Price a cross-currency deposit BEFORE paying. The rate is locked for
+         *     the quote's TTL; deposits in the local currency need no quote.
+         */
+        post: operations["create_deposit_quote"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1891,7 +2087,7 @@ export type paths = {
         /**
          * Attach a real email to the current user and clear `email_pending`.
          * @description Telegram Mini App users are auto-provisioned with a synthetic placeholder
-         *     email (`email_pending = true`, the API contract / #6); the client calls this once
+         *     email (`email_pending = true`, the API contract); the client calls this once
          *     it has collected the user's real address. Password-registered users may
          *     also use it to change their email. The new address must be unique (409).
          *
@@ -1899,6 +2095,29 @@ export type paths = {
          *     this records the attached address and lifts the pending flag.
          */
         post: operations["set_email"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's announcement subscriptions. */
+        get: operations["get_subscriptions"];
+        /**
+         * Replace the caller's announcement subscriptions.
+         * @description Subscribing to a channel the account has no contact for (Telegram without
+         *     a linked account) is accepted but silently undeliverable — link the
+         *     channel first.
+         */
+        put: operations["put_subscriptions"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2321,7 +2540,7 @@ export type components = {
              * @example 1.00
              */
             initial_amount?: string | null;
-            /** @description Issuer connector slug, e.g. `spool-okcard`. */
+            /** @description Issuer connector slug, e.g. `the connector`. */
             issuer_slug: string;
             /**
              * @description Extra connector metadata. `issuer_program_id`/`issuer_bin` are set from
@@ -2342,6 +2561,18 @@ export type components = {
              * @description End-user the card is issued for.
              */
             user_id: string;
+        };
+        /**
+         * @description Everything the operator console needs to render one post row *and* decide the state of its
+         *     broadcast buttons, in a single fetch.
+         */
+        AdminPostView: components["schemas"]["BlogPost"] & {
+            /** @description Send history, newest first. */
+            broadcasts: components["schemas"]["BroadcastRow"][];
+            /** @description Per-channel button state — see [`ChannelState`]. */
+            channels: components["schemas"]["ChannelState"][];
+            /** @description Public URL of the cover image, when set. */
+            cover_url?: string | null;
         };
         /**
          * @description What we return for an API key on the listing endpoint. `key` is the
@@ -2378,8 +2609,8 @@ export type components = {
         };
         AssignAcquirerBody: {
             /**
-             * @description Slug matching a `ConnectorBinding` registered at meister-api startup
-             *     (today: `mock-gator`).
+             * @description Slug matching a `ConnectorBinding` registered at the platform startup
+             *     (today: `mock-the connector`).
              */
             connector_slug: string;
             /**
@@ -2481,6 +2712,87 @@ export type components = {
             routing_number?: string | null;
             swift_bic?: string | null;
         };
+        /** @description One renderable node of a post body. */
+        Block: {
+            /** Format: int32 */
+            level: number;
+            text: string;
+            /** @enum {string} */
+            type: "heading";
+        } | {
+            text: string;
+            /** @enum {string} */
+            type: "paragraph";
+        } | {
+            alt?: string;
+            /**
+             * @description Text on the line right after the image, if it was italic
+             *     (`*caption*`) — the conventional way to caption in Markdown.
+             */
+            caption?: string | null;
+            /** @enum {string} */
+            type: "image";
+            url: string;
+        } | {
+            items: string[];
+            ordered: boolean;
+            /** @enum {string} */
+            type: "list";
+        } | {
+            text: string;
+            /** @enum {string} */
+            type: "quote";
+        } | {
+            lang?: string;
+            text: string;
+            /** @enum {string} */
+            type: "code";
+        } | {
+            /** @enum {string} */
+            type: "divider";
+        };
+        /** @description Image metadata (bytes are streamed separately by the read endpoint). */
+        BlogImageMeta: {
+            alt: string;
+            /** Format: int32 */
+            byte_size: number;
+            content_type: string;
+            /** Format: date-time */
+            created_at: string;
+            filename: string;
+            /** Format: uuid */
+            id: string;
+        };
+        /**
+         * @description A post row as stored. Operator-facing; the public payload is
+         *     [`PublicPost`].
+         */
+        BlogPost: {
+            /** Format: uuid */
+            author_user_id?: string | null;
+            body_markdown: string;
+            /**
+             * Format: int32
+             * @description Bumped on every content edit; broadcast buttons compare against it.
+             */
+            content_version: number;
+            /** Format: uuid */
+            cover_image_id?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            excerpt: string;
+            /** Format: uuid */
+            id: string;
+            locale: string;
+            /** Format: date-time */
+            published_at?: string | null;
+            slug: string;
+            status: string;
+            tags: string[];
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
         Branding: {
             /**
              * @description Favicon (absolute URL or `data:` URI). Empty → the client's bundled
@@ -2501,7 +2813,7 @@ export type components = {
             platform_name: string;
             /**
              * @description User-facing name of the end-user's balance (e.g. "Wallet",
-             *     "Wexel Wallet"). Display-only — JSON field names such as `balance`
+             *     "Acme Wallet"). Display-only — JSON field names such as `balance`
              *     never change. Default "Wallet".
              */
             wallet_label: string;
@@ -2532,6 +2844,54 @@ export type components = {
             /** @description `closed` | `open` | `half_open`. */
             state: string;
         };
+        BroadcastBody: {
+            /** @description `email` | `telegram`. */
+            channel: string;
+        };
+        BroadcastResult: {
+            /** Format: uuid */
+            broadcast_id: string;
+            channel: string;
+            /** Format: int32 */
+            content_version: number;
+            /**
+             * Format: int32
+             * @description Subscribers we could not enqueue for (transport hiccups); they are
+             *     counted, not retried — the post is still readable on the site.
+             */
+            failures: number;
+            /**
+             * Format: int32
+             * @description Messages handed to the notification substrate.
+             */
+            recipients: number;
+        };
+        /** @description One send attempt of a post to one channel. */
+        BroadcastRow: {
+            channel: string;
+            /**
+             * Format: int32
+             * @description The post's `content_version` at request time. When the post has moved
+             *     on, the operator console offers a re-send.
+             */
+            content_version: number;
+            /** Format: date-time */
+            created_at: string;
+            error?: string | null;
+            /** Format: int32 */
+            failures: number;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            post_id: string;
+            /** Format: int32 */
+            recipients: number;
+            /** Format: uuid */
+            requested_by?: string | null;
+            status: string;
+        };
         BulkInviteBody: {
             members: components["schemas"]["InviteBody"][];
         };
@@ -2561,9 +2921,9 @@ export type components = {
         Card: {
             card_type: components["schemas"]["CardType"];
             /**
-             * @description Slug of the the connector binding that minted this card (e.g. `spool-mock`).
+             * @description Slug of the connector binding that minted this card (e.g. `the connector`).
              *     Persisted at insert so audit + reconciliation can match cards to providers
-             *     even after `SPOOLS` env config changes.
+             *     even after `the connector` env config changes.
              */
             connector_slug: string;
             /** Format: date-time */
@@ -2575,7 +2935,7 @@ export type components = {
             expiry_year?: number | null;
             failure_reason?: string | null;
             /**
-             * @description #34: provider-driven funding model, lower-case (`shared` | `standard`).
+             * @description provider-driven funding model, lower-case (`shared` | `standard`).
              *     `shared` = master-account (draws from a pooled wallet up to a per-card
              *     cumulative limit — the opposite of prepaid); `standard` = prepaid/recharge.
              *     NULL until the connector reports it (on create or refresh-from-connector).
@@ -2586,9 +2946,9 @@ export type components = {
             initial_amount?: string | null;
             last4?: string | null;
             /**
-             * @description #34: the resolved issuer program/plan this card was minted against
+             * @description the resolved issuer program/plan this card was minted against
              *     (the `issuer_program_id` sent to the connector). NULL for cards issued
-             *     before #34 or against connectors without a program catalogue.
+             *     before or against connectors without a program catalogue.
              */
             program_code?: string | null;
             provider_reference?: string | null;
@@ -2627,8 +2987,8 @@ export type components = {
             created_at: string;
             currency: string;
             /**
-             * @description #34: provider-driven funding model (`shared` | `standard`). `null` for
-             *     cards issued before #34 / connectors that don't distinguish.
+             * @description provider-driven funding model (`shared` | `standard`). `null` for
+             *     cards issued before / connectors that don't distinguish.
              */
             funding_mode?: string | null;
             /** Format: uuid */
@@ -2689,6 +3049,39 @@ export type components = {
         };
         /** @enum {string} */
         CardType: "credit" | "prepaid" | "gift";
+        /**
+         * @description Derived state of one broadcast button. The server decides; the operator console renders.
+         *     Keeping this here means the rules can't drift between the UI and the
+         *     endpoint that enforces them.
+         */
+        ChannelState: {
+            /**
+             * @description Machine-readable reason when `can_send` is false:
+             *     `not_published` | `channel_disabled` | `no_subscribers` | `already_sent` | `in_flight`.
+             */
+            blocked_by?: string | null;
+            /** @description Whether the button should be clickable. */
+            can_send: boolean;
+            /** @description `email` | `telegram` | … */
+            channel: string;
+            /**
+             * @description True when a send exists for an older version of the post — the operator console
+             *     offers "re-send (updated)" rather than a first send.
+             */
+            is_resend: boolean;
+            /** Format: date-time */
+            last_sent_at?: string | null;
+            /**
+             * Format: int32
+             * @description Recipients of the most recent completed send, if any.
+             */
+            last_sent_recipients?: number | null;
+            /**
+             * Format: int64
+             * @description Active subscribers on this channel right now.
+             */
+            subscribers: number;
+        };
         CheckResult: {
             error?: string | null;
             ok: boolean;
@@ -2728,9 +3121,9 @@ export type components = {
         ConnectorView: {
             /**
              * Format: int32
-             * @description #25 point 4 — issuer cascade order (lower wins). Per-program pricing
+             * @description point 4 — issuer cascade order (lower wins). Per-program pricing
              *     (the `connector_card_programs` table) replaced the ADR-0013 per-connector
-             *     pricing block in #22.
+             *     pricing block in.
              */
             cascade_priority: number;
             /**
@@ -2765,8 +3158,8 @@ export type components = {
             customer?: null | components["schemas"]["CustomerInfo"];
             initial_amount?: string | null;
             /**
-             * @description Optional. Slug of a configured the connector connector (e.g. `spool-mock`,
-             *     `spool-marqeta`). When omitted, the first configured the connector mints the card.
+             * @description Optional. Slug of a configured the connector (e.g. `the connector`,
+             *     `the connector`). When omitted, the first configured the connector mints the card.
              *     Unknown slug → 400 `validation`. Empty the connector list → 503.
              */
             issuer_slug?: string | null;
@@ -2789,7 +3182,7 @@ export type components = {
             role: string;
             /**
              * @description Stable lowercase identifier. Convention: `<role>-<provider>`,
-             *     e.g. `gator-blik_op`. See CLAUDE.md "Naming Convention".
+             *     e.g. `the connector`. See CLAUDE.md "Naming Convention".
              */
             slug: string;
         };
@@ -2820,8 +3213,8 @@ export type components = {
             currency: string;
             customer?: null | components["schemas"]["CustomerInfo"];
             /**
-             * @description Optional. Slug of a configured the connector connector (e.g. `indigo-mock`,
-             *     `indigo-fireblocks`). When omitted, the first configured the connector handles
+             * @description Optional. Slug of a configured the connector (e.g. `the connector`,
+             *     `the connector`). When omitted, the first configured the connector handles
              *     the deposit. Unknown slug → 400 `validation`. Empty the connector list → 503.
              */
             funder_slug?: string | null;
@@ -2830,6 +3223,13 @@ export type components = {
             };
             /** @description One of `card`, `crypto`, `bank_transfer`. */
             method: components["schemas"]["DepositMethod"];
+            /**
+             * Format: uuid
+             * @description Required when `currency` differs from the Wallet's local currency
+             *     (see `GET /branding` + `POST /me/deposits/quotes`): the rate-locked
+             *     quote this deposit executes against.
+             */
+            quote_id?: string | null;
         };
         CreateEndpointBody: {
             /** @description Empty / omitted → receives every event. */
@@ -2851,6 +3251,21 @@ export type components = {
         CreateOrgBody: {
             billing_currency: string;
             legal_name: string;
+        };
+        /**
+         * @example {
+         *       "amount": "5000.00",
+         *       "currency": "RUB"
+         *     }
+         */
+        CreateQuoteBody: {
+            /**
+             * @description Amount the user will pay, in `currency`.
+             * @example 5000.00
+             */
+            amount: string;
+            /** @description ISO 4217 source currency — must differ from the local currency. */
+            currency: string;
         };
         /**
          * @example {
@@ -3081,7 +3496,7 @@ export type components = {
              * @example 975.00
              */
             net_amount: string;
-            /** @description Specific outband-<provider> slug, if dispatched. NULL in MVP. */
+            /** @description Specific the connector-<provider> slug, if dispatched. NULL in MVP. */
             outband_slug?: string | null;
             /**
              * Format: date-time
@@ -3131,7 +3546,7 @@ export type components = {
             currency: string;
             /**
              * Format: uuid
-             * @description #38: client-generated idempotency key (UUID), stable across retries of
+             * @description client-generated idempotency key (UUID), stable across retries of
              *     the same intent. A replay with the same key is a no-op — protects
              *     against double-submit lowering the limit twice.
              */
@@ -3170,6 +3585,10 @@ export type components = {
         Health: {
             status: string;
             version: string;
+        };
+        ImageView: components["schemas"]["BlogImageMeta"] & {
+            /** @description Public URL to reference from post bodies. */
+            url: string;
         };
         InviteBody: {
             email: string;
@@ -3331,6 +3750,30 @@ export type components = {
             /** Format: date-time */
             updated_at: string;
         };
+        /**
+         * @example {
+         *       "source_currency": "RUB"
+         *     }
+         */
+        MigrateWalletBody: {
+            /** @description The non-local currency balance to convert into the local currency. */
+            source_currency: string;
+        };
+        MigrateWalletResult: {
+            /** @example 62.50 */
+            credited_amount: string;
+            local_currency: string;
+            provider: string;
+            /** @example 0.0125 */
+            rate: string;
+            /** @example 5000.00 */
+            source_amount: string;
+            source_currency: string;
+            /** Format: int64 */
+            spread_bps: number;
+            /** Format: uuid */
+            user_id: string;
+        };
         MintKeyBody: {
             label?: string | null;
         };
@@ -3378,6 +3821,17 @@ export type components = {
              */
             temporary_password: string;
             user: components["schemas"]["MerchantUser"];
+        };
+        NewPost: {
+            body_markdown?: string;
+            /** Format: uuid */
+            cover_image_id?: string | null;
+            excerpt?: string;
+            locale?: string;
+            /** @description Lowercase kebab-case. Generated from the title when omitted. */
+            slug?: string | null;
+            tags?: string[];
+            title: string;
         };
         NewRole: {
             description?: string;
@@ -3480,7 +3934,7 @@ export type components = {
              *     to do a date subtraction on every poll.
              */
             uptime_seconds: number;
-            /** @description `meister-api` package version. */
+            /** @description `the platform` package version. */
             version: string;
         };
         /**
@@ -3664,6 +4118,34 @@ export type components = {
         PermissionEntry: {
             key: string;
         };
+        PostList: {
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            per_page: number;
+            posts: components["schemas"]["PublicPost"][];
+            /** Format: int64 */
+            total: number;
+        };
+        /**
+         * @description Partial update. Absent fields are left alone; changing any *content* field
+         *     bumps `content_version` and thereby re-arms the broadcast buttons.
+         */
+        PostUpdate: {
+            body_markdown?: string | null;
+            /** Format: uuid */
+            cover_image_id?: string | null;
+            excerpt?: string | null;
+            locale?: string | null;
+            slug?: string | null;
+            /**
+             * @description `draft` | `published` | `archived`. Publishing stamps `published_at`
+             *     the first time.
+             */
+            status?: string | null;
+            tags?: string[] | null;
+            title?: string | null;
+        };
         /**
          * @description One row of the per-program catalogue + pricing. `program_code` is the
          *     provider product / program id (== the connector's advertised `id`); the
@@ -3687,6 +4169,35 @@ export type components = {
             sell_price?: string | null;
             /** @description `active` | `disabled`. */
             status: string;
+        };
+        /**
+         * @description What a the client app gets. Structured, style-free: the client maps block types
+         *     onto its own components, so a post looks native on every surface.
+         */
+        PublicPost: {
+            /**
+             * @description The same body as a flat block list — the recommended input for
+             *     rendering in the site's own components.
+             */
+            body_blocks: components["schemas"]["Block"][];
+            /** @description Raw Markdown, for clients that bring their own renderer. */
+            body_markdown: string;
+            /** @description Absolute-path URL of the cover image, when set. */
+            cover_url?: string | null;
+            /** @description Teaser for cards. Falls back to the first paragraph, trimmed. */
+            excerpt: string;
+            /** @description BCP-47-ish tag when the operator set one; empty otherwise. */
+            locale?: string;
+            /** Format: date-time */
+            published_at?: string | null;
+            /** Format: int32 */
+            reading_minutes: number;
+            /** @description Stable public key — link by this, never by uuid. */
+            slug: string;
+            tags: string[];
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
         };
         PutConfigurationBody: {
             /** @description Replace the entire map. Pass `{}` to wipe. */
@@ -3714,6 +4225,34 @@ export type components = {
         };
         PutSettingBody: {
             value: string;
+        };
+        /**
+         * @description A rate-locked funding quote: pay `source_amount source_currency`,
+         *     the Wallet gets `credited_amount credited_currency`. Execute by passing
+         *     `id` as `quote_id` to `POST /me/deposits` before `expires_at`.
+         */
+        QuoteView: {
+            /**
+             * @description What the Wallet will be credited, net of spread, at the locked rate.
+             * @example 57.97
+             */
+            credited_amount: string;
+            credited_currency: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: uuid */
+            id: string;
+            provider: string;
+            /**
+             * @description Provider rate before spread (credited units per 1 source unit).
+             * @example 0.011832
+             */
+            rate: string;
+            /** @example 5000.00 */
+            source_amount: string;
+            source_currency: string;
+            /** Format: int64 */
+            spread_bps: number;
         };
         Readiness: {
             checks: components["schemas"]["ReadinessChecks"];
@@ -3856,6 +4395,21 @@ export type components = {
              */
             email: string;
         };
+        /**
+         * @example {
+         *       "channels": [
+         *         "email",
+         *         "telegram"
+         *       ]
+         *     }
+         */
+        SetSubscriptionsBody: {
+            /**
+             * @description The complete desired set — this is a replace, not a merge. An empty
+             *     array unsubscribes from everything.
+             */
+            channels: string[];
+        };
         SetWebhookBody: {
             /**
              * @description HMAC-SHA256 signing secret. Plaintext at rest — the worker signs each
@@ -3949,6 +4503,16 @@ export type components = {
             tryout_window_days: number;
             /** Format: date-time */
             updated_at: string;
+        };
+        /** @description Which channels this user agreed to receive announcements on. */
+        SubscriptionsView: {
+            /**
+             * @description Channels this deployment can actually deliver on right now — a client
+             *     should only offer these as toggles.
+             */
+            available: string[];
+            /** @description Channels the user is subscribed to, e.g. `["email"]`. */
+            channels: string[];
         };
         SwitchBody: {
             /**
@@ -4067,6 +4631,21 @@ export type components = {
             status?: null | components["schemas"]["EndpointStatus"];
             url?: string | null;
         };
+        UploadImageBody: {
+            /**
+             * @description Alternative text. Worth filling in: it is what screen readers and
+             *     broken-image states show.
+             */
+            alt?: string;
+            /** @description `image/png` | `image/jpeg` | `image/webp` | `image/gif` | `image/svg+xml`. */
+            content_type: string;
+            /**
+             * @description Base64 payload. A `data:` URL from the browser's FileReader is
+             *     accepted as-is — the prefix is stripped server-side.
+             */
+            data_base64: string;
+            filename?: string;
+        };
         UserBalanceResult: {
             /**
              * @description Current ledger balance in `currency` (Formance), decimal-as-string.
@@ -4155,6 +4734,22 @@ export type components = {
             /** Format: uuid */
             user_id: string;
         };
+        WalletBalanceRow: {
+            /** @example 5000.00 */
+            amount: string;
+            currency: string;
+            /**
+             * @description True for the deployment's local currency (`wallet.local_currency`);
+             *     the others are candidates for migration.
+             */
+            is_local: boolean;
+        };
+        WalletBalancesView: {
+            balances: components["schemas"]["WalletBalanceRow"][];
+            local_currency: string;
+            /** Format: uuid */
+            user_id: string;
+        };
         WebhookConfig: {
             /** Format: uuid */
             merchant_id: string;
@@ -4211,6 +4806,275 @@ export type components = {
 };
 export type $defs = Record<string, never>;
 export interface operations {
+    list_images: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageView"][];
+                };
+            };
+        };
+    };
+    upload_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadImageBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageView"];
+                };
+            };
+            /** @description Bad base64, unsupported type, or over the size limit */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_posts: {
+        parameters: {
+            query?: {
+                page?: number | null;
+                per_page?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPostView"][];
+                };
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPost"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPostView"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Slug already taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPostView"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PostUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPostView"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Slug already taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    broadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BroadcastBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastResult"];
+                };
+            };
+            /** @description Unknown channel, or the post isn't published */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already sent for this version */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Channel disabled in this deployment */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_card_transactions_all: {
         parameters: {
             query?: {
@@ -4255,7 +5119,7 @@ export interface operations {
                 user_id?: string | null;
                 /** @description `credit` | `prepaid` | `gift`. */
                 card_type?: string | null;
-                /** @description Filter by issuing connector slug (e.g. `spool-brighty`). */
+                /** @description Filter by issuing connector slug (e.g. `the connector`). */
                 connector_slug?: string | null;
                 /** @description Cap on rows. Default 100, max 500. */
                 limit?: number | null;
@@ -5255,7 +6119,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Issuer connector slug, e.g. spool-okcard */
+                /** @description Issuer connector slug, e.g. the connector */
                 slug: string;
             };
             cookie?: never;
@@ -7783,6 +8647,34 @@ export interface operations {
             };
         };
     };
+    list_user_balances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletBalancesView"];
+                };
+            };
+            /** @description Not an operator */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     patch_user_role: {
         parameters: {
             query?: never;
@@ -7965,6 +8857,52 @@ export interface operations {
             };
             /** @description User has no TOTP enrolment */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    migrate_wallet_balance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MigrateWalletBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MigrateWalletResult"];
+                };
+            };
+            /** @description Nothing to migrate / source is already local / bad currency */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not an operator */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate provider unavailable — migration refused, never guessed */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8250,6 +9188,102 @@ export interface operations {
             };
         };
     };
+    get_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Image id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": unknown;
+                };
+            };
+            /** @description Not modified */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such image */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    blog_list_posts: {
+        parameters: {
+            query?: {
+                /** @description 1-based page number. Default 1. */
+                page?: number | null;
+                /** @description Posts per page, 1..=50. Default 10. */
+                per_page?: number | null;
+                /** @description Only posts carrying this tag. */
+                tag?: string | null;
+                /** @description Only posts in this locale. */
+                locale?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of published posts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostList"];
+                };
+            };
+        };
+    };
+    blog_get_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Post slug */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The post */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPost"];
+                };
+            };
+            /** @description No published post with that slug */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     get_branding: {
         parameters: {
             query?: never;
@@ -8374,7 +9408,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description No the connector connectors configured for this deployment */
+            /** @description No the connectors configured for this deployment */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -8694,12 +9728,59 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description No the connector connectors configured for this deployment */
+            /** @description No the connectors configured for this deployment */
             503: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    create_deposit_quote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateQuoteBody"];
+            };
+        };
+        responses: {
+            /** @description Quote created; execute via POST /me/deposits with quote_id */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuoteView"];
+                };
+            };
+            /** @description Bad amount/currency, or the currency already IS the local currency */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate provider unavailable/unconfigured — cross-currency funding is refused, never guessed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
             };
         };
     };
@@ -8825,6 +9906,71 @@ export interface operations {
             };
             /** @description Email already in use */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_subscriptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Subscribed + available channels */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionsView"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    put_subscriptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetSubscriptionsBody"];
+            };
+        };
+        responses: {
+            /** @description The stored set */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionsView"];
+                };
+            };
+            /** @description Unsupported channel */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid token */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
