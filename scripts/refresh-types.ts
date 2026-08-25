@@ -80,6 +80,9 @@ const SCRUB: Array<[RegExp, string]> = [
   [/\bHub\b/g, "the operator console"],
   [/\bRecanary\b|\bSmith\b/g, "the back office"],
   [/\bmaster balance\b/gi, "wallet balance"],
+  // Never ship a real white-label customer's name in the public SDK. Keep
+  // this list in step with the deployments we actually run.
+  [/\bWexel\b/g, "Acme"],
 ];
 function scrub(v: unknown): unknown {
   if (typeof v === "string") {
