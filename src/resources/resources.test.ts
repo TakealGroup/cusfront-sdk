@@ -230,6 +230,32 @@ describe("BalanceResource", () => {
   });
 });
 
+describe("DepositsResource (fx quotes)", () => {
+  it("quote POSTs /me/deposits/quotes and initiate carries quote_id", async () => {
+    const q = {
+      id: "q1", source_amount: "5000", source_currency: "RUB",
+      credited_amount: "57.97", credited_currency: "USD",
+      rate: "0.011832", spread_bps: 200, provider: "manual",
+      expires_at: "2026-08-24T00:02:00Z",
+    };
+    const { captured, http } = rig(q);
+    const out = await new DepositsResource(http).quote({ amount: "5000", currency: "RUB" });
+    expect(out).toEqual(q);
+    expect(captured[0]!.url).toBe("https://api.test/me/deposits/quotes");
+    expect(bodyOf(captured[0]!)).toEqual({ amount: "5000", currency: "RUB" });
+
+    const dep = { id: "d1" } as unknown as Deposit;
+    const rig2 = rig(dep);
+    await new DepositsResource(rig2.http).initiate({
+      amount: "5000", currency: "RUB", method: "card",
+      idempotencyKey: "k1", quote_id: "q1",
+    });
+    expect(bodyOf(rig2.captured[0]!)).toEqual({
+      amount: "5000", currency: "RUB", method: "card", quote_id: "q1",
+    });
+  });
+});
+
 describe("BrandingResource", () => {
   it("get GETs /branding without an Authorization header", async () => {
     const brand: Branding = {

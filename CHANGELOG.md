@@ -8,6 +8,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `client.deposits.quote()` + `quote_id` on `initiate()` — cross-currency
+  top-ups now execute against a rate-locked quote (the wallet holds a single
+  local currency; the API converts on funding). `Deposit` gains
+  `quote_id` / `fx_rate` / `fx_spread_bps` / `credited_currency` /
+  `credited_amount`.
 - `client.branding.get()` — fetches the deployment's public runtime brand
   config (`GET /branding`): platform / portal names, logo, favicon and the new
   `wallet_label` (how the end-user's balance is called, e.g. "Acme Wallet").

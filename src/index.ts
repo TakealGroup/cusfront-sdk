@@ -38,7 +38,7 @@ export type {
   InitiateDepositInput,
   CreateDepositRefundInput,
   Refund,
-} from "./resources/deposits.js";
+  CreateQuoteInput, FundingQuote } from "./resources/deposits.js";
 export type {
   Card,
   CardType,

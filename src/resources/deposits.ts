@@ -33,6 +33,34 @@ export type DepositMethod = "card" | "crypto" | "bank_transfer";
  * server-side `id` is the stable handle the SDK polls against. `idempotency_key`
  * and `request_fingerprint` are server-internal and never serialised.
  */
+/** Input for `quote()` — price a cross-currency deposit before paying. */
+export interface CreateQuoteInput {
+  /** Decimal string, e.g. `"5000.00"`. */
+  amount: string;
+  /** ISO 4217 source currency — must differ from the wallet's local currency. */
+  currency: string;
+}
+
+/**
+ * A rate-locked funding quote: pay `source_amount source_currency`, the
+ * wallet is credited `credited_amount credited_currency` (net of the
+ * platform's conversion spread). Execute by passing `id` as `quote_id` to
+ * `initiate()` before `expires_at`; after that the API returns 409 and a new
+ * quote is needed.
+ */
+export interface FundingQuote {
+  id: string;
+  source_amount: string;
+  source_currency: string;
+  credited_amount: string;
+  credited_currency: string;
+  /** Provider rate before spread (credited units per 1 source unit). */
+  rate: string;
+  spread_bps: number;
+  provider: string;
+  expires_at: string;
+}
+
 export interface Deposit {
   id: string;
   user_id: string;
@@ -51,6 +79,15 @@ export interface Deposit {
   /** Final settled amount once confirmed (may differ from `amount` on FX). */
   confirmed_amount: string | null;
   confirmed_at: string | null;
+  /** Set on cross-currency deposits: the quote this deposit executed against. */
+  quote_id?: string | null;
+  /** Locked provider rate (credited units per 1 source unit). */
+  fx_rate?: string | null;
+  fx_spread_bps?: number | null;
+  /** The wallet's local currency the deposit converted into. */
+  credited_currency?: string | null;
+  /** What the wallet was actually credited, net of spread. */
+  credited_amount?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -77,6 +114,12 @@ export interface InitiateDepositInput {
    * UUID per logical attempt so a retried network call is safe.
    */
   idempotencyKey: string;
+  /**
+   * Required when `currency` differs from the wallet's local currency: a
+   * fresh quote id from `quote()`. Cross-currency deposits without one are
+   * rejected with 400; expired quotes with 409.
+   */
+  quote_id?: string;
 }
 
 export interface CreateDepositRefundInput {
@@ -116,6 +159,15 @@ export class DepositsResource {
    * `status` may already be `confirmed` (synchronous rails / mock) or
    * `redirect_required` (3DS / APM — forward the user to `redirect_url`).
    */
+  /**
+   * Price a cross-currency deposit BEFORE paying. The rate is locked
+   * server-side until `expires_at`; deposits in the local currency need no
+   * quote (the API answers 400 `no_quote_needed`).
+   */
+  async quote(input: CreateQuoteInput): Promise<FundingQuote> {
+    return this.http.post<FundingQuote>("/me/deposits/quotes", { body: input });
+  }
+
   async initiate(input: InitiateDepositInput): Promise<Deposit> {
     const { idempotencyKey, ...body } = input;
     return this.http.post<Deposit>("/me/deposits", {
