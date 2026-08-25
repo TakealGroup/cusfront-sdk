@@ -8,6 +8,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `client.blog.list()` / `client.blog.get(slug)` — public posts returned as
+  structured blocks (`body_blocks`) plus raw Markdown, so a site renders them
+  in its own components instead of fighting server-side HTML.
+- `client.subscriptions.get()` / `.set(channels)` — the user's announcement
+  channels, with `available` reflecting what the deployment can deliver.
 - `client.deposits.quote()` + `quote_id` on `initiate()` — cross-currency
   top-ups now execute against a rate-locked quote (the wallet holds a single
   local currency; the API converts on funding). `Deposit` gains

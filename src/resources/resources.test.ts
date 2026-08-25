@@ -5,6 +5,8 @@ import { DepositsResource, type Deposit, type Refund } from "./deposits.js";
 import { CardsResource, type Card, type CardBalance } from "./cards.js";
 import { BalanceResource, type Balance } from "./balance.js";
 import { BrandingResource, type Branding } from "./branding.js";
+import { BlogResource } from "./blog.js";
+import { SubscriptionsResource } from "./subscriptions.js";
 import { AuthResource, type JwtIssued, type User } from "./auth.js";
 
 /**
@@ -253,6 +255,58 @@ describe("DepositsResource (fx quotes)", () => {
     expect(bodyOf(rig2.captured[0]!)).toEqual({
       amount: "5000", currency: "RUB", method: "card", quote_id: "q1",
     });
+  });
+});
+
+describe("BlogResource", () => {
+  it("list is public and passes paging + filters", async () => {
+    const page = { posts: [], total: 0, page: 2, per_page: 5 };
+    const { captured, http } = rig(page);
+    const out = await new BlogResource(http).list({ page: 2, perPage: 5, tag: "news" });
+    expect(out).toEqual(page);
+    expect(captured[0]!.url).toBe("https://api.test/blog/posts?page=2&per_page=5&tag=news");
+    expect(new Headers(captured[0]!.init.headers).get("authorization")).toBeNull();
+  });
+
+  it("get returns the structured body", async () => {
+    const post = {
+      slug: "wallet-2-0",
+      title: "Wallet 2.0",
+      excerpt: "What changed",
+      body_markdown: "# H\n\ntext",
+      body_blocks: [
+        { type: "heading", level: 1, text: "H" },
+        { type: "paragraph", text: "text" },
+      ],
+      tags: [],
+      reading_minutes: 1,
+      published_at: null,
+      updated_at: "2026-08-25T00:00:00Z",
+    };
+    const { captured, http } = rig(post);
+    const out = await new BlogResource(http).get("wallet-2-0");
+    expect(out.body_blocks[0]).toEqual({ type: "heading", level: 1, text: "H" });
+    expect(captured[0]!.url).toBe("https://api.test/blog/posts/wallet-2-0");
+  });
+
+  it("imageUrl absolutises API paths and leaves absolute URLs alone", () => {
+    const r = new BlogResource(rig({}).http);
+    expect(r.imageUrl("https://api.test/", "/blog/images/x")).toBe(
+      "https://api.test/blog/images/x",
+    );
+    expect(r.imageUrl("https://api.test", "https://cdn/x.png")).toBe("https://cdn/x.png");
+  });
+});
+
+describe("SubscriptionsResource", () => {
+  it("set PUTs the whole channel set", async () => {
+    const body = { channels: ["email"], available: ["email", "telegram"] };
+    const { captured, http } = rig(body);
+    const out = await new SubscriptionsResource(http).set(["email"]);
+    expect(out).toEqual(body);
+    expect(captured[0]!.url).toBe("https://api.test/me/subscriptions");
+    expect(captured[0]!.init.method).toBe("PUT");
+    expect(bodyOf(captured[0]!)).toEqual({ channels: ["email"] });
   });
 });
 

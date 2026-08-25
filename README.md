@@ -130,8 +130,10 @@ Available now:
 - `@takeal/cusfront-sdk` — `createClient` + types.
 - `@takeal/cusfront-sdk/auth` — auth-only entry.
 - `@takeal/cusfront-sdk/deposits` — `DepositsResource` (money IN via a funder connector).
-- `@takeal/cusfront-sdk/cards` — `CardsResource` (cards backed by master balance).
-- `@takeal/cusfront-sdk/balance` — `BalanceResource` (per-currency master balance).
+- `@takeal/cusfront-sdk/cards` — `CardsResource` (cards backed by the wallet balance).
+- `@takeal/cusfront-sdk/balance` — `BalanceResource` (per-currency wallet balance).
+- `@takeal/cusfront-sdk/blog` — `BlogResource` (public posts as structured blocks).
+- `@takeal/cusfront-sdk/subscriptions` — `SubscriptionsResource` (announcement channels).
 - `@takeal/cusfront-sdk/webhooks` — HMAC-SHA256 signature verifier (no network, isomorphic).
 - `@takeal/cusfront-sdk/react` — optional React hooks layer (`ClientProvider` + `useMe` / `useDeposits` / `useCards` / `useBalance`). React is a `peerDependency`, never bundled.
 - `@takeal/cusfront-sdk/telegram` — Telegram Mini App `initData` → authenticated client bridge.

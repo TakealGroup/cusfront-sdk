@@ -17,6 +17,8 @@ import { DepositsResource } from "./resources/deposits.js";
 import { CardsResource } from "./resources/cards.js";
 import { BalanceResource } from "./resources/balance.js";
 import { BrandingResource } from "./resources/branding.js";
+import { BlogResource } from "./resources/blog.js";
+import { SubscriptionsResource } from "./resources/subscriptions.js";
 import {
   defaultBrowserStore,
   inMemoryStore,
@@ -50,6 +52,11 @@ export type {
 } from "./resources/cards.js";
 export type { Balance } from "./resources/balance.js";
 export type { Branding } from "./resources/branding.js";
+export type { BlogPost, BlogBlock, BlogList, BlogListInput } from "./resources/blog.js";
+export type {
+  Subscriptions,
+  BroadcastChannel,
+} from "./resources/subscriptions.js";
 
 export interface CreateClientOptions {
   /** Absolute origin of the Takeal API deployment, no trailing slash.
@@ -84,6 +91,10 @@ export interface CusfrontClient {
   readonly balance: BalanceResource;
   /** Runtime white-label config (`GET /branding`, public): names, logo, wallet label. */
   readonly branding: BrandingResource;
+  /** Public blog posts, returned as structured blocks to render in your own style. */
+  readonly blog: BlogResource;
+  /** The user's announcement channel subscriptions. */
+  readonly subscriptions: SubscriptionsResource;
   /** Direct access to the token store (e.g. for an explicit sign-out
    *  on Capacitor's lifecycle "app pausing" event). */
   readonly tokens: TokenStore;
@@ -110,6 +121,8 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     cards: new CardsResource(http),
     balance: new BalanceResource(http),
     branding: new BrandingResource(http),
+    blog: new BlogResource(http),
+    subscriptions: new SubscriptionsResource(http),
   };
 }
 

@@ -42,6 +42,16 @@
       "import": "./dist/resources/branding.js",
       "require": "./dist/resources/branding.cjs"
     },
+    "./blog": {
+      "types": "./dist/resources/blog.d.ts",
+      "import": "./dist/resources/blog.js",
+      "require": "./dist/resources/blog.cjs"
+    },
+    "./subscriptions": {
+      "types": "./dist/resources/subscriptions.d.ts",
+      "import": "./dist/resources/subscriptions.js",
+      "require": "./dist/resources/subscriptions.cjs"
+    },
     "./webhooks": {
       "types": "./dist/webhooks.d.ts",
       "import": "./dist/webhooks.js",
