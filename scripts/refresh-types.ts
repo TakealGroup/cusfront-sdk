@@ -85,9 +85,9 @@ const SCRUB: Array<[RegExp, string]> = [
   [/\bHub\b/g, "the operator console"],
   [/\bRecanary\b|\bSmith\b/g, "the back office"],
   [/\bmaster balance\b/gi, "wallet balance"],
-  // Never ship a real white-label customer's name in the public SDK. Keep
-  // this list in step with the deployments we actually run.
-  [/\bWexel\b/g, "Acme"],
+  // Never ship a real white-label customer's name in the public SDK: the
+  // spec itself must stay deployment-agnostic (no partner names in code or
+  // docs), so nothing to substitute here.
   // Tidy-up after the substitutions above.
   [/\bthe (\w+) the \1\b/g, "the $1"],
   [/\bthe the\b/g, "the"],
