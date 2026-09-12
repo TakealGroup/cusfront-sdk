@@ -5,7 +5,7 @@ import type { HttpClient } from "../http.js";
  *
  * Runtime white-label config published by the deployment at `GET /branding`
  * (public, no auth). Lets a Cusfront re-theme itself on the fly — platform
- * name, logo, favicon and the label used for the end-user's balance — without
+ * name, logo, favicon, brand colours and the label used for the end-user's balance — without
  * a rebuild. Pairs with the build-time `BrandConfig`: the server-side values
  * win whenever both are present.
  */
@@ -23,6 +23,12 @@ export interface Branding {
   /** User-facing name of the balance, e.g. `"Wallet"` or `"Acme Wallet"`.
    *  Display-only: the `balance` API shape never changes with it. */
   wallet_label: string;
+  /** Primary brand colour as `#rrggbb`. Empty → client default palette. */
+  primary_color: string;
+  /** Secondary brand colour as `#rrggbb`. Empty → client default palette. */
+  secondary_color: string;
+  /** Accent colour as `#rrggbb`. Empty → client default palette. */
+  accent_color: string;
 }
 
 export class BrandingResource {

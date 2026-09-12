@@ -2794,6 +2794,8 @@ export type components = {
             updated_at: string;
         };
         Branding: {
+            /** @description Accent colour, `#rrggbb`. Empty → the client's bundled palette. */
+            accent_color: string;
             /**
              * @description Favicon (absolute URL or `data:` URI). Empty → the client's bundled
              *     default favicon.
@@ -2811,6 +2813,10 @@ export type components = {
             merchant_portal_name: string;
             /** @description Operator-chosen platform name. Replaces "Takeal" in the operator console. Default "Takeal". */
             platform_name: string;
+            /** @description Primary brand colour, `#rrggbb`. Empty → the client's bundled palette. */
+            primary_color: string;
+            /** @description Secondary brand colour, `#rrggbb`. Empty → the client's bundled palette. */
+            secondary_color: string;
             /**
              * @description User-facing name of the end-user's balance (e.g. "Wallet",
              *     "Acme Wallet"). Display-only — JSON field names such as `balance`

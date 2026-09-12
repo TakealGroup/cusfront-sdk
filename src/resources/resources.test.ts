@@ -317,6 +317,9 @@ describe("BrandingResource", () => {
       merchant_portal_name: "Acme Partners",
       logo_url: "",
       favicon_url: "",
+      primary_color: "",
+      secondary_color: "",
+      accent_color: "",
       wallet_label: "Acme Wallet",
     };
     const { captured, http } = rig(brand);
