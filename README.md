@@ -2,7 +2,7 @@
 
 Typed TypeScript client for the **Takeal end-user API** — auth, deposits, cards, balance, and webhook signature verification.
 
-The SDK powers any "Cusfront" (consumer front-end) on top of a Takeal deployment: a PWA, a Capacitor-wrapped mobile app, a Telegram Mini App, or anything else that talks to the `/auth/*` + `/me/*` surface. One client, runtime brand swap, zero runtime deps in the core.
+The SDK powers any end-user client app on top of a Takeal deployment: a PWA, a Capacitor-wrapped mobile app, a Telegram Mini App, or anything else that talks to the `/auth/*` + `/me/*` surface. One client, runtime brand swap, zero runtime deps in the core.
 
 > **Status:** 0.x — pre-release scaffold. Auth resource lands first; deposits + cards + balance + webhook verifier ship in subsequent releases.
 
@@ -96,7 +96,7 @@ you built yourself.
 
 ## Brand config
 
-Whitelabel-friendly by design — the SDK ships no embedded brand. Pass `brand` at runtime and the consumer Cusfront reads it back via `client.brand`:
+Whitelabel-friendly by design — the SDK ships no embedded brand. Pass `brand` at runtime and the client app reads it back via `client.brand`:
 
 ```ts
 type BrandConfig = {
@@ -113,7 +113,7 @@ Switching brands does **not** require forking or re-publishing the SDK.
 The deployment also publishes its live brand config at `GET /branding` (public,
 no login needed) — `client.branding.get()` returns `platform_name`,
 `merchant_portal_name`, `logo_url`, `favicon_url` and `wallet_label`, so a
-Cusfront can re-theme itself at runtime and call the balance whatever the
+client app can re-theme itself at runtime and call the balance whatever the
 operator configured. Server values win over the build-time `brand` when both
 are present.
 
