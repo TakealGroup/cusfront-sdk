@@ -274,7 +274,7 @@ pnpm typecheck       # tsc --noEmit
 The OpenAPI snapshot lives at `openapi-snapshot.json` and is committed; refresh it from a running Takeal deployment with:
 
 ```sh
-curl https://api.your-deployment.example.com/v1/docs/openapi.json > openapi-snapshot.json
+curl https://api.your-deployment.example.com/docs/openapi.json > openapi-snapshot.json
 pnpm refresh-types
 ```
 

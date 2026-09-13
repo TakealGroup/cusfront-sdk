@@ -6,9 +6,9 @@
  * The snapshot is git-ignored (it's the full API spec dump). To
  * (re)pull it from a running Takeal API, do:
  *
- *   curl http://localhost:7777/v1/docs/openapi.json > openapi-snapshot.json
+ *   curl http://localhost:7777/docs/openapi.json > openapi-snapshot.json
  *
- * Cusfront uses the global docs (`/v1/docs`), not the merchant docs —
+ * Cusfront uses the global docs (`/docs`), not the merchant docs —
  * it calls /auth/* + /me/*, which only the global spec includes.
  *
  * `openapi-typescript` is a build-only dep — never shipped to npm.
@@ -131,7 +131,7 @@ const ast = await openapiTS(spec, {
 const header = `/**
  * AUTO-GENERATED — do not edit by hand. Run \`pnpm refresh-types\`.
  *
- * Source: openapi-snapshot.json (pulled from the Takeal API's /v1/docs/openapi.json).
+ * Source: openapi-snapshot.json (pulled from the Takeal API's /docs/openapi.json).
  * Generator: openapi-typescript.
  */
 /* eslint-disable */

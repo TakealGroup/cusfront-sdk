@@ -1,7 +1,7 @@
 /**
  * AUTO-GENERATED — do not edit by hand. Run `pnpm refresh-types`.
  *
- * Source: openapi-snapshot.json (pulled from the Takeal API's /v1/docs/openapi.json).
+ * Source: openapi-snapshot.json (pulled from the Takeal API's /docs/openapi.json).
  * Generator: openapi-typescript.
  */
 /* eslint-disable */
