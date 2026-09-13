@@ -92,6 +92,29 @@ export interface SwitchMethodInput {
   method: AvailableMethod["kind"];
 }
 
+export interface RegisterInput {
+  email: string;
+  password: string;
+  /** ISO 4217 code for the new wallet; must be offered by the deployment. */
+  wallet_currency?: string;
+}
+
+/** A signed-in session without the login `stage` marker — what
+ *  `register` returns. */
+export type Session = Omit<JwtIssued, "stage">;
+
+export interface TotpSetupComplete extends Session {
+  /** Ten one-time `XXXX-XXXX` codes, returned only this once. */
+  backup_codes: string[];
+}
+
+export interface ChangePasswordInput {
+  current_password: string;
+  /** At least 12 characters with a lower-case letter, an upper-case letter
+   *  and a digit; must differ from the current password. */
+  new_password: string;
+}
+
 export interface OtpSentResponse {
   stage: "otp_sent";
   challenge_token: string;
@@ -142,6 +165,43 @@ export class AuthResource {
     return resp;
   }
 
+  /** Create an end-user account and sign it in. The JWT is stored.
+   *  `wallet_currency` must be one the deployment offers; omit it to take
+   *  the deployment default (it can be switched later via `client.wallet`
+   *  while the wallet is empty).
+   *  Errors: 400 `validation` / `currency_not_allowed`, 409 email taken. */
+  async register(input: RegisterInput): Promise<Session> {
+    const resp = await this.http.post<Session>("/auth/register", {
+      body: input,
+      skipAuth: true,
+    });
+    await Promise.resolve(this.tokens.set(resp.access_token));
+    return resp;
+  }
+
+  /** Finish a `totp_setup_required` login: send the first code from the
+   *  authenticator app. The JWT is stored. The response carries ten
+   *  one-time `backup_codes` that are never returned again, so show them to
+   *  the user right away and don't keep them on the device. */
+  async completeTotpSetup(input: TotpVerifyInput): Promise<TotpSetupComplete> {
+    const resp = await this.http.post<TotpSetupComplete>("/auth/login/totp-setup", {
+      body: input,
+      skipAuth: true,
+    });
+    await Promise.resolve(this.tokens.set(resp.access_token));
+    return resp;
+  }
+
+  /** Change the signed-in user's password. Every other session of the
+   *  account is signed out; this one stays valid.
+   *  Errors: 400 when the new password fails the policy, 401 when the
+   *  current one is wrong. */
+  async changePassword(input: ChangePasswordInput): Promise<{ revoked_sessions: number }> {
+    return this.http.post<{ revoked_sessions: number }>("/auth/password", {
+      body: input,
+    });
+  }
+
   /** Swap the 2FA method mid-flow. Resolves to `otp_sent` for
    *  telegram/email; for TOTP it short-circuits back to the challenge. */
   async switchMethod(input: SwitchMethodInput): Promise<OtpSentResponse> {
@@ -182,10 +242,9 @@ export class AuthResource {
     return this.http.get<User>("/auth/me");
   }
 
-  /** Local sign-out. The SDK doesn't currently call a server-side
-   *  endpoint (the Takeal API issues stateless JWTs); clearing the
-   *  store is enough. Server-side session invalidation may land
-   *  with a future session table. */
+  /** Local sign-out: forgets the stored JWT. To end the session on the
+   *  server as well, revoke it first with `client.sessions.revoke(jti)`
+   *  (the current one is marked `current: true` in `client.sessions.list()`). */
   async signOut(): Promise<void> {
     await Promise.resolve(this.tokens.clear());
   }

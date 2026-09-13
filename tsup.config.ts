@@ -18,6 +18,9 @@ export default defineConfig({
     "resources/branding": "src/resources/branding.ts",
     "resources/blog": "src/resources/blog.ts",
     "resources/subscriptions": "src/resources/subscriptions.ts",
+    "resources/wallet": "src/resources/wallet.ts",
+    "resources/sessions": "src/resources/sessions.ts",
+    "resources/push": "src/resources/push.ts",
     webhooks: "src/webhooks.ts",
     // Telegram Mini App adapter — its own entry so non-TG consumers never
     // pull it (and the `window.Telegram` access stays out of the core path).

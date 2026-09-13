@@ -20,6 +20,8 @@ import { BrandingResource } from "./resources/branding.js";
 import { WalletResource } from "./resources/wallet.js";
 import { BlogResource } from "./resources/blog.js";
 import { SubscriptionsResource } from "./resources/subscriptions.js";
+import { SessionsResource } from "./resources/sessions.js";
+import { PushResource } from "./resources/push.js";
 import {
   defaultBrowserStore,
   inMemoryStore,
@@ -59,6 +61,25 @@ export type {
   Subscriptions,
   BroadcastChannel,
 } from "./resources/subscriptions.js";
+export type {
+  User,
+  LoginInput,
+  LoginResponse,
+  JwtIssued,
+  TotpRequired,
+  TotpSetupRequired,
+  OtpSentResponse,
+  RegisterInput,
+  Session,
+  TotpSetupComplete,
+  ChangePasswordInput,
+} from "./resources/auth.js";
+export type { UserSession } from "./resources/sessions.js";
+export type {
+  PushStatus,
+  PushSubscriptionInput,
+  PushCapableRegistration,
+} from "./resources/push.js";
 
 export interface CreateClientOptions {
   /** Absolute origin of the Takeal API deployment, no trailing slash.
@@ -99,6 +120,10 @@ export interface CusfrontClient {
   readonly blog: BlogResource;
   /** The user's announcement channel subscriptions. */
   readonly subscriptions: SubscriptionsResource;
+  /** Where the user is signed in: list sessions, sign one or all others out. */
+  readonly sessions: SessionsResource;
+  /** Web Push subscription for the signed-in user. */
+  readonly push: PushResource;
   /** Direct access to the token store (e.g. for an explicit sign-out
    *  on Capacitor's lifecycle "app pausing" event). */
   readonly tokens: TokenStore;
@@ -128,6 +153,8 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     branding: new BrandingResource(http),
     blog: new BlogResource(http),
     subscriptions: new SubscriptionsResource(http),
+    sessions: new SessionsResource(http),
+    push: new PushResource(http),
   };
 }
 

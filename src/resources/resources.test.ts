@@ -8,6 +8,8 @@ import { BrandingResource, type Branding } from "./branding.js";
 import { BlogResource } from "./blog.js";
 import { SubscriptionsResource } from "./subscriptions.js";
 import { AuthResource, type JwtIssued, type User } from "./auth.js";
+import { SessionsResource } from "./sessions.js";
+import { PushResource, base64UrlToBytes } from "./push.js";
 
 /**
  * Resource-level wire-shape tests. A captured fake `fetch` asserts the SDK
@@ -383,5 +385,140 @@ describe("AuthResource (telegram + email)", () => {
     expect(captured[0]!.url).toBe("https://api.test/v1/me/email");
     expect(captured[0]!.init.method).toBe("POST");
     expect(bodyOf(captured[0]!)).toEqual({ email: "alice@example.com" });
+  });
+});
+
+describe("AuthResource (register, totp setup, password)", () => {
+  const { stage: _stage, ...SESSION } = {
+    stage: "jwt",
+    access_token: "jwt-new",
+    expires_at: "2026-09-14T00:00:00Z",
+    user: {
+      id: "usr_new",
+      email: "bob@example.com",
+      role: "user",
+      is_active: true,
+      created_at: "2026-09-13T00:00:00Z",
+      updated_at: "2026-09-13T00:00:00Z",
+    },
+    hub_access: false,
+  };
+
+  it("register POSTs /auth/register unauthenticated + stores the JWT", async () => {
+    const { captured, http } = rig(SESSION);
+    const store = inMemoryStore();
+    const out = await new AuthResource(http, store).register({
+      email: "bob@example.com",
+      password: "Correct-Horse-9",
+      wallet_currency: "EUR",
+    });
+    expect(out.user.id).toBe("usr_new");
+    expect(captured[0]!.url).toBe("https://api.test/v1/auth/register");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({
+      email: "bob@example.com",
+      password: "Correct-Horse-9",
+      wallet_currency: "EUR",
+    });
+    expect(headersOf(captured[0]!)["Authorization"]).toBeUndefined();
+    expect(await store.get()).toBe("jwt-new");
+  });
+
+  it("completeTotpSetup POSTs /auth/login/totp-setup and returns the backup codes", async () => {
+    const { captured, http } = rig({ ...SESSION, backup_codes: ["ABCD-EFGH"] });
+    const store = inMemoryStore();
+    const out = await new AuthResource(http, store).completeTotpSetup({
+      challenge_token: "chal",
+      code: "123456",
+    });
+    expect(out.backup_codes).toEqual(["ABCD-EFGH"]);
+    expect(captured[0]!.url).toBe("https://api.test/v1/auth/login/totp-setup");
+    expect(bodyOf(captured[0]!)).toEqual({ challenge_token: "chal", code: "123456" });
+    expect(await store.get()).toBe("jwt-new");
+  });
+
+  it("changePassword POSTs /auth/password with the bearer token", async () => {
+    const { captured, http } = rig({ revoked_sessions: 2 });
+    const out = await new AuthResource(http, inMemoryStore()).changePassword({
+      current_password: "old-Password-1",
+      new_password: "new-Password-2",
+    });
+    expect(out.revoked_sessions).toBe(2);
+    expect(captured[0]!.url).toBe("https://api.test/v1/auth/password");
+    expect(captured[0]!.init.method).toBe("POST");
+  });
+});
+
+describe("SessionsResource", () => {
+  it("list / revoke / revokeOthers hit the right paths", async () => {
+    const { captured, http } = rig({ revoked_sessions: 1 });
+    const r = new SessionsResource(http);
+    await r.list();
+    await r.revoke("5f0c0b8e-0000-4000-8000-000000000001");
+    const out = await r.revokeOthers();
+    expect(out.revoked_sessions).toBe(1);
+    expect(captured.map((c) => [c.init.method, c.url])).toEqual([
+      ["GET", "https://api.test/v1/me/sessions"],
+      ["DELETE", "https://api.test/v1/me/sessions/5f0c0b8e-0000-4000-8000-000000000001"],
+      ["POST", "https://api.test/v1/me/sessions/terminate-others"],
+    ]);
+  });
+});
+
+describe("PushResource", () => {
+  const KEY = "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U";
+
+  it("status / remove hit /me/push-subscription", async () => {
+    const { captured, http } = rig({ subscribed: false, vapid_public_key: KEY });
+    const r = new PushResource(http);
+    const s = await r.status();
+    await r.remove();
+    expect(s.vapid_public_key).toBe(KEY);
+    expect(captured.map((c) => [c.init.method, c.url])).toEqual([
+      ["GET", "https://api.test/v1/me/push-subscription"],
+      ["DELETE", "https://api.test/v1/me/push-subscription"],
+    ]);
+  });
+
+  it("enable subscribes with the VAPID key and PUTs the subscription", async () => {
+    const { captured, http } = rig({ subscribed: true, vapid_public_key: KEY });
+    let usedKey: Uint8Array | undefined;
+    const registration = {
+      pushManager: {
+        getSubscription: async () => null,
+        subscribe: async (o: { userVisibleOnly: boolean; applicationServerKey: Uint8Array }) => {
+          usedKey = o.applicationServerKey;
+          return {
+            toJSON: () => ({
+              endpoint: "https://push.example/abc",
+              keys: { p256dh: "p256", auth: "auth" },
+            }),
+          };
+        },
+      },
+    };
+    const out = await new PushResource(http).enable(registration);
+    expect(out.subscribed).toBe(true);
+    expect(usedKey).toEqual(base64UrlToBytes(KEY));
+    expect(usedKey!.length).toBe(65);
+    expect(captured[1]!.init.method).toBe("PUT");
+    expect(captured[1]!.url).toBe("https://api.test/v1/me/push-subscription");
+    expect(bodyOf(captured[1]!)).toEqual({
+      endpoint: "https://push.example/abc",
+      keys: { p256dh: "p256", auth: "auth" },
+    });
+  });
+
+  it("enable refuses when the deployment has no VAPID key", async () => {
+    const { http } = rig({ subscribed: false, vapid_public_key: null });
+    const registration = {
+      pushManager: {
+        getSubscription: async () => null,
+        subscribe: async () => {
+          throw new Error("should not subscribe");
+        },
+      },
+    };
+    await expect(new PushResource(http).enable(registration)).rejects.toThrow(/not enabled/);
   });
 });

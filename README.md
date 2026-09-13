@@ -1,10 +1,10 @@
 # @takeal/cusfront-sdk
 
-Typed TypeScript client for the **Takeal end-user API** — auth, deposits, cards, balance, and webhook signature verification.
+Typed TypeScript client for the **Takeal end-user API**: sign-up and login, wallet, deposits, cards, sessions, push notifications and webhook signature verification.
 
 The SDK powers any end-user client app on top of a Takeal deployment: a PWA, a Capacitor-wrapped mobile app, a Telegram Mini App, or anything else that talks to the `/auth/*` + `/me/*` surface. One client, runtime brand swap, zero runtime deps in the core.
 
-> **Status:** 0.x — pre-release scaffold. Auth resource lands first; deposits + cards + balance + webhook verifier ship in subsequent releases.
+> **Versioning:** the SDK version matches the Takeal platform release it was checked against (SDK 0.2.8 goes with API release v0.2.8). Until 1.0, a minor version can break things; read the [changelog](./CHANGELOG.md) before upgrading.
 
 ## Install
 
@@ -42,7 +42,21 @@ if (result.stage === "jwt") {
 } else if (result.stage === "totp_required") {
   // Step-up required. Prompt the user for their TOTP code,
   // then call client.auth.verifyTotp({ challenge_token, code }).
+} else if (result.stage === "totp_setup_required") {
+  // The account has to enrol an authenticator first. Show result.otpauth_url
+  // as a QR code, then call client.auth.completeTotpSetup({ challenge_token, code })
+  // and show the backup_codes it returns. They are never sent again.
 }
+```
+
+New users sign up with `register`, which also signs them in:
+
+```ts
+await client.auth.register({
+  email: "user@example.com",
+  password: "a-long-Passw0rd",
+  wallet_currency: "EUR", // optional; must be offered by the deployment
+});
 ```
 
 ## Telegram Mini App
@@ -112,7 +126,8 @@ Switching brands does **not** require forking or re-publishing the SDK.
 
 The deployment also publishes its live brand config at `GET /branding` (public,
 no login needed) — `client.branding.get()` returns `platform_name`,
-`merchant_portal_name`, `logo_url`, `favicon_url` and `wallet_label`, so a
+`merchant_portal_name`, `logo_url`, `favicon_url`, `wallet_label` and the
+`primary_color` / `secondary_color` / `accent_color` hex values, so a
 client app can re-theme itself at runtime and call the balance whatever the
 operator configured. Server values win over the build-time `brand` when both
 are present.
@@ -134,6 +149,9 @@ Available now:
 - `@takeal/cusfront-sdk/balance` — `BalanceResource` (per-currency wallet balance).
 - `@takeal/cusfront-sdk/blog` — `BlogResource` (public posts as structured blocks).
 - `@takeal/cusfront-sdk/subscriptions` — `SubscriptionsResource` (announcement channels).
+- `@takeal/cusfront-sdk/wallet` — `WalletResource` (the wallet's currency).
+- `@takeal/cusfront-sdk/sessions` — `SessionsResource` (where the user is signed in).
+- `@takeal/cusfront-sdk/push` — `PushResource` (Web Push subscription).
 - `@takeal/cusfront-sdk/webhooks` — HMAC-SHA256 signature verifier (no network, isomorphic).
 - `@takeal/cusfront-sdk/react` — optional React hooks layer (`ClientProvider` + `useMe` / `useDeposits` / `useCards` / `useBalance`). React is a `peerDependency`, never bundled.
 - `@takeal/cusfront-sdk/telegram` — Telegram Mini App `initData` → authenticated client bridge.
@@ -158,11 +176,10 @@ if (!ok) return res.status(401).end();
 Algorithm: HMAC-SHA256, header `X-Takeal-Signature: sha256=<hex>`, signed over
 the raw body bytes (no timestamp). Comparison is constant-time.
 
-> **Card lifecycle note:** card-data reveal (PAN / CVV) is a separate,
-> security-gated flow with its own re-auth + rate-limit + audit contract, so it
-> is intentionally not part of `client.cards`. The cards resource covers
-> create / get / list / balance plus the ownership-gated freeze / unfreeze /
-> terminate lifecycle actions.
+> **Card details:** `client.cards.reveal()` returns the full card number and
+> CVV. It asks for the user's password again (and a TOTP code if they have one
+> enrolled), and the API rate-limits and logs every call. The rest of
+> `client.cards` is create, get, list, balance, freeze, unfreeze and terminate.
 
 ## React hooks (`@takeal/cusfront-sdk/react`)
 

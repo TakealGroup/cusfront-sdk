@@ -1,7 +1,7 @@
 {
   "name": "@takeal/cusfront-sdk",
-  "version": "0.1.0",
-  "description": "Typed client for the Takeal end-user API. Auth, deposits, cards, balance, webhook verification.",
+  "version": "0.2.8",
+  "description": "Typed client for the Takeal end-user API: sign-up and login, wallet, deposits, cards, sessions, push, webhook verification.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -51,6 +51,21 @@
       "types": "./dist/resources/subscriptions.d.ts",
       "import": "./dist/resources/subscriptions.js",
       "require": "./dist/resources/subscriptions.cjs"
+    },
+    "./wallet": {
+      "types": "./dist/resources/wallet.d.ts",
+      "import": "./dist/resources/wallet.js",
+      "require": "./dist/resources/wallet.cjs"
+    },
+    "./sessions": {
+      "types": "./dist/resources/sessions.d.ts",
+      "import": "./dist/resources/sessions.js",
+      "require": "./dist/resources/sessions.cjs"
+    },
+    "./push": {
+      "types": "./dist/resources/push.d.ts",
+      "import": "./dist/resources/push.js",
+      "require": "./dist/resources/push.cjs"
     },
     "./webhooks": {
       "types": "./dist/webhooks.d.ts",
@@ -116,8 +131,12 @@
     "client",
     "typescript"
   ],
+  "homepage": "https://git.wiseless.xyz/takeal/cusfront-sdk",
+  "bugs": {
+    "url": "https://git.wiseless.xyz/takeal/cusfront-sdk/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://git.wiseless.xyz/takeal/cusfront-sdk.git"
+    "url": "https://git.wiseless.xyz/takeal/cusfront-sdk.git"
   }
 }
