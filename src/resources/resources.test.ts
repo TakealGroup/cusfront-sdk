@@ -73,7 +73,7 @@ describe("DepositsResource", () => {
 
     expect(out).toEqual(DEPOSIT);
     expect(captured).toHaveLength(1);
-    expect(captured[0]!.url).toBe("https://api.test/me/deposits");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/deposits");
     expect(captured[0]!.init.method).toBe("POST");
     expect(headersOf(captured[0]!)["Idempotency-Key"]).toBe("idem-1");
     // The transport-only `idempotencyKey` must NOT leak into the JSON body.
@@ -90,13 +90,13 @@ describe("DepositsResource", () => {
     const deposits = new DepositsResource(http);
     await deposits.get("dep 1/with?chars");
     expect(captured[0]!.url).toBe(
-      "https://api.test/me/deposits/dep%201%2Fwith%3Fchars",
+      "https://api.test/v1/me/deposits/dep%201%2Fwith%3Fchars",
     );
     expect(captured[0]!.init.method).toBe("GET");
 
     const { captured: c2, http: h2 } = rig([DEPOSIT]);
     await new DepositsResource(h2).list();
-    expect(c2[0]!.url).toBe("https://api.test/me/deposits");
+    expect(c2[0]!.url).toBe("https://api.test/v1/me/deposits");
   });
 
   it("refund POSTs /me/deposits/{id}/refunds", async () => {
@@ -121,7 +121,7 @@ describe("DepositsResource", () => {
       idempotencyKey: "idem-rf",
     });
     expect(out).toEqual(refund);
-    expect(captured[0]!.url).toBe("https://api.test/me/deposits/dep_1/refunds");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/deposits/dep_1/refunds");
     expect(headersOf(captured[0]!)["Idempotency-Key"]).toBe("idem-rf");
     expect(bodyOf(captured[0]!)).toEqual({
       amount: "50.00",
@@ -157,7 +157,7 @@ describe("CardsResource", () => {
       idempotencyKey: "idem-card",
     });
     expect(out).toEqual(CARD);
-    expect(captured[0]!.url).toBe("https://api.test/me/cards");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/cards");
     expect(captured[0]!.init.method).toBe("POST");
     expect(headersOf(captured[0]!)["Idempotency-Key"]).toBe("idem-card");
     expect(bodyOf(captured[0]!)).toEqual({
@@ -170,11 +170,11 @@ describe("CardsResource", () => {
   it("get / list hit the right paths", async () => {
     const { captured, http } = rig(CARD);
     await new CardsResource(http).get("card_1");
-    expect(captured[0]!.url).toBe("https://api.test/me/cards/card_1");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/cards/card_1");
 
     const { captured: c2, http: h2 } = rig([CARD]);
     await new CardsResource(h2).list();
-    expect(c2[0]!.url).toBe("https://api.test/me/cards");
+    expect(c2[0]!.url).toBe("https://api.test/v1/me/cards");
   });
 
   it("balance GETs /me/cards/{id}/balance with the currency query", async () => {
@@ -183,7 +183,7 @@ describe("CardsResource", () => {
     const out = await new CardsResource(http).balance("card_1", "USD");
     expect(out).toEqual(bal);
     expect(captured[0]!.url).toBe(
-      "https://api.test/me/cards/card_1/balance?currency=USD",
+      "https://api.test/v1/me/cards/card_1/balance?currency=USD",
     );
   });
 
@@ -195,7 +195,7 @@ describe("CardsResource", () => {
     expect(typeof cards.terminate).toBe("function");
 
     await cards.freeze("card_1", "lost");
-    expect(captured[0]!.url).toBe("https://api.test/me/cards/card_1/freeze");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/cards/card_1/freeze");
     expect(captured[0]!.init.method).toBe("POST");
     expect(bodyOf(captured[0]!)).toEqual({ reason: "lost" });
   });
@@ -215,7 +215,7 @@ describe("CardsResource", () => {
       totpCode: "123456",
     });
     expect(out).toEqual(revealed);
-    expect(captured[0]!.url).toBe("https://api.test/me/cards/card_1/reveal");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/cards/card_1/reveal");
     expect(captured[0]!.init.method).toBe("POST");
     expect(bodyOf(captured[0]!)).toEqual({ password: "pw", totp_code: "123456" });
   });
@@ -227,7 +227,7 @@ describe("BalanceResource", () => {
     const { captured, http } = rig(bal);
     const out = await new BalanceResource(http).get("EUR");
     expect(out).toEqual(bal);
-    expect(captured[0]!.url).toBe("https://api.test/me/balance?currency=EUR");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/balance?currency=EUR");
     expect(captured[0]!.init.method).toBe("GET");
   });
 });
@@ -243,7 +243,7 @@ describe("DepositsResource (fx quotes)", () => {
     const { captured, http } = rig(q);
     const out = await new DepositsResource(http).quote({ amount: "5000", currency: "RUB" });
     expect(out).toEqual(q);
-    expect(captured[0]!.url).toBe("https://api.test/me/deposits/quotes");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/deposits/quotes");
     expect(bodyOf(captured[0]!)).toEqual({ amount: "5000", currency: "RUB" });
 
     const dep = { id: "d1" } as unknown as Deposit;
@@ -264,7 +264,7 @@ describe("BlogResource", () => {
     const { captured, http } = rig(page);
     const out = await new BlogResource(http).list({ page: 2, perPage: 5, tag: "news" });
     expect(out).toEqual(page);
-    expect(captured[0]!.url).toBe("https://api.test/blog/posts?page=2&per_page=5&tag=news");
+    expect(captured[0]!.url).toBe("https://api.test/v1/blog/posts?page=2&per_page=5&tag=news");
     expect(new Headers(captured[0]!.init.headers).get("authorization")).toBeNull();
   });
 
@@ -286,13 +286,13 @@ describe("BlogResource", () => {
     const { captured, http } = rig(post);
     const out = await new BlogResource(http).get("wallet-2-0");
     expect(out.body_blocks[0]).toEqual({ type: "heading", level: 1, text: "H" });
-    expect(captured[0]!.url).toBe("https://api.test/blog/posts/wallet-2-0");
+    expect(captured[0]!.url).toBe("https://api.test/v1/blog/posts/wallet-2-0");
   });
 
   it("imageUrl absolutises API paths and leaves absolute URLs alone", () => {
     const r = new BlogResource(rig({}).http);
-    expect(r.imageUrl("https://api.test/", "/blog/images/x")).toBe(
-      "https://api.test/blog/images/x",
+    expect(r.imageUrl("https://api.test/", "/v1/blog/images/x")).toBe(
+      "https://api.test/v1/blog/images/x",
     );
     expect(r.imageUrl("https://api.test", "https://cdn/x.png")).toBe("https://cdn/x.png");
   });
@@ -304,7 +304,7 @@ describe("SubscriptionsResource", () => {
     const { captured, http } = rig(body);
     const out = await new SubscriptionsResource(http).set(["email"]);
     expect(out).toEqual(body);
-    expect(captured[0]!.url).toBe("https://api.test/me/subscriptions");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/subscriptions");
     expect(captured[0]!.init.method).toBe("PUT");
     expect(bodyOf(captured[0]!)).toEqual({ channels: ["email"] });
   });
@@ -356,7 +356,7 @@ describe("AuthResource (telegram + email)", () => {
       initData: "user=%7B%22id%22%3A777000%7D&auth_date=1700000000&hash=abc",
     });
     expect(out.user.email_pending).toBe(true);
-    expect(captured[0]!.url).toBe("https://api.test/auth/telegram/exchange");
+    expect(captured[0]!.url).toBe("https://api.test/v1/auth/telegram/exchange");
     expect(captured[0]!.init.method).toBe("POST");
     expect(bodyOf(captured[0]!)).toEqual({
       init_data: "user=%7B%22id%22%3A777000%7D&auth_date=1700000000&hash=abc",
@@ -380,7 +380,7 @@ describe("AuthResource (telegram + email)", () => {
       email: "alice@example.com",
     });
     expect(out.email_pending).toBe(false);
-    expect(captured[0]!.url).toBe("https://api.test/me/email");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/email");
     expect(captured[0]!.init.method).toBe("POST");
     expect(bodyOf(captured[0]!)).toEqual({ email: "alice@example.com" });
   });

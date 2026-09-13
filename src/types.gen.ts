@@ -1,1817 +1,12 @@
 /**
  * AUTO-GENERATED — do not edit by hand. Run `pnpm refresh-types`.
  *
- * Source: openapi-snapshot.json (pulled from the Takeal API's /api/docs/openapi.json).
+ * Source: openapi-snapshot.json (pulled from the Takeal API's /v1/docs/openapi.json).
  * Generator: openapi-typescript.
  */
 /* eslint-disable */
 /* prettier-ignore */
 export type paths = {
-    "/admin/blog/images": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["list_images"];
-        put?: never;
-        /** Upload an image and get back the URL to drop into a post body. */
-        post: operations["upload_image"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/blog/posts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** All posts (any status), newest activity first. */
-        get: operations["list_posts"];
-        put?: never;
-        /**
-         * Create a draft. `slug` is derived from the title when omitted; a title
-         *     with no latin characters gets a generated handle instead of an error.
-         */
-        post: operations["create_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/blog/posts/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_post"];
-        put?: never;
-        post?: never;
-        delete: operations["delete_post"];
-        options?: never;
-        head?: never;
-        /**
-         * Edit a post. Changing any content field bumps `content_version`, which
-         *     re-arms the broadcast buttons; a pure status change does not.
-         */
-        patch: operations["patch_post"];
-        trace?: never;
-    };
-    "/admin/blog/posts/{id}/broadcast": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Fan a published post out to everyone subscribed to `channel`.
-         * @description Idempotent per (post, channel, content version): a repeat click returns
-         *     409 rather than sending twice. Editing the post afterwards makes a
-         *     re-send available again.
-         */
-        post: operations["broadcast"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/card-transactions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Cross-card VCI spend feed, newest first, served from `card_transactions`.
-         *     Optional filters: `card_id`, `user_id`, `connector_slug`. Paginated via
-         *     `limit` (≤500, default 100) + `offset`.
-         */
-        get: operations["list_card_transactions_all"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/cards": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List cards across all users. Operator-only. ADR-0015. */
-        get: operations["list_cards"];
-        put?: never;
-        /**
-         * Issue a card for an end-user (operator action). Operator-only.
-         * @description **Idempotency:** honors the `Idempotency-Key` header when present; otherwise
-         *     a fresh key is generated server-side (operator-initiated issuance).
-         */
-        post: operations["create_card"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/cards/orphans": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List suspected orphaned cards: `failed` rows that still carry a
-         *     `provider_reference` — the provider likely created + funded the card before
-         *     a later Takeal step failed, so it may be live + spendable off our float.
-         */
-        get: operations["list_orphans"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/cards/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a single card's full detail. Operator-only. ADR-0015. */
-        get: operations["get_card"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/cards/{id}/debit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Manually debit a SHARED card — lowers its cumulative limit by `amount`
-         *     (floored at the provider minimum). The mirror of "Manual top up". No ledger
-         *     move: shared cards draw from the connector's pooled wallet, so there's
-         *     nothing to reclaim. STANDARD/prepaid cards return 501 (limit not editable).
-         * @description **Shared-gating source of truth:** the *connector* is the single
-         *     authority — a non-shared card's connector returns 501 here, fail-safe,
-         *     regardless of what `cards.funding_mode` says. The persisted `funding_mode`
-         *     (and the operator console button that keys off it) is an **informational** hint only;
-         *     it can lag the live connector (lazy backfill / COALESCE-on-refresh) and is
-         *     never the enforcement point.
-         */
-        post: operations["debit_card"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/cards/{id}/freeze": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Freeze a card. Idempotent — replaying on an already-frozen card returns the
-         *     current row. Providers without freeze support return 501.
-         */
-        post: operations["freeze_card"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/cards/{id}/reconcile": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reconcile a suspected orphan. `close` terminates it at the provider;
-         *     `adopt` charges the still-unpaid load and activates it (402 if the user
-         *     can't cover it).
-         */
-        post: operations["reconcile_card"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/cards/{id}/refresh-from-connector": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Re-pull last4 + expiry + status from the card's issuer connector and
-         *     mirror the answer into our local row. Recovery path for the cases where
-         *     the original `CreateCard` left fields blank (PENDING-fallback, missing
-         *     `maskedCardNo` on first response, etc.). Idempotent.
-         */
-        post: operations["refresh_card_from_connector"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/cards/{id}/reload": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reload a PREPAID card. Most providers return 501 (funds flow via the
-         *     linked funding account, not via direct reload); the connector included.
-         *     400 on non-prepaid card / non-active status / non-positive amount.
-         */
-        post: operations["reload_card"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/cards/{id}/terminate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Terminate a card. **One-way.** Idempotent — calling on an already-terminated
-         *     card returns the current row without re-calling the connector.
-         */
-        post: operations["terminate_card"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/cards/{id}/transactions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List recent transactions on a card. Pagination via opaque `page_token`.
-         *     501 from providers without a history API.
-         */
-        get: operations["list_card_transactions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/cards/{id}/unfreeze": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Unfreeze a previously-frozen card. Idempotent on already-active. 501 from
-         *     providers that don't support unfreeze.
-         */
-        post: operations["unfreeze_card"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/connectors": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List all connectors (active + disabled). Secrets are redacted. Operator-only. */
-        get: operations["list_connectors"];
-        put?: never;
-        /**
-         * Create a new connector. Server generates both secrets (`signing_secret`
-         *     + `outbound_auth_secret`) and returns them **plaintext one-shot**.
-         *     After commit, the in-memory `ConnectorRegistry` is refreshed so the new
-         *     slug is immediately usable by the funding / issuing / acquiring services.
-         */
-        post: operations["create_connector"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/connectors/breakers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Per-connector circuit-breaker + rate-limiter metrics. Operator-only. */
-        get: operations["list_breakers"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/connectors/{slug}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Soft-disable: sets `status = 'disabled'`. The row stays for audit
-         *     history. Use `PATCH` with `status: "active"` to re-enable.
-         */
-        delete: operations["disable_connector"];
-        options?: never;
-        head?: never;
-        /**
-         * Update `grpc_url` and/or `status` for an existing connector. Either
-         *     field can be omitted; the request is a no-op if both are.
-         */
-        patch: operations["patch_connector"];
-        trace?: never;
-    };
-    "/admin/connectors/{slug}/balances": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Master/account balances for an issuer connector (e.g. OKCard channel
-         *     wallets). Empty for connectors without a wallet concept. Operator-only.
-         */
-        get: operations["connector_balances"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/connectors/{slug}/configuration": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * GET full plaintext map. **Audited** — every call emits
-         *     `admin.connector.configuration.viewed`.
-         */
-        get: operations["get_configuration"];
-        /** PUT — replace the full map. */
-        put: operations["put_configuration"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/connectors/{slug}/configuration/{key}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** DELETE one key. */
-        delete: operations["delete_configuration_key"];
-        options?: never;
-        head?: never;
-        /** PATCH one key. */
-        patch: operations["patch_configuration_key"];
-        trace?: never;
-    };
-    "/admin/connectors/{slug}/programs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List the per-program catalogue + pricing for an issuer. Powers the operator console
-         *     pricing UI + the "Add card" picker. Empty until `POST.../programs/sync`.
-         */
-        get: operations["list_programs"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/connectors/{slug}/programs/sync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Sync the program catalogue from the connector's advertised list (option (c):
-         *     the connector knows its BINs, we own the pricing). Upserts catalogue fields
-         *     (label / card_type / currency / bin) and **preserves** operator-set pricing.
-         */
-        post: operations["sync_programs"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/connectors/{slug}/programs/{program_code}/pricing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Set price / priority / status on one program. The program row must
-         *     exist (run sync first). Currency is required whenever a sell_price is set.
-         */
-        put: operations["put_program_pricing"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/connectors/{slug}/rotate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Generate new secrets for an existing connector. Both `signing_secret` and
-         *     `outbound_auth_secret` are replaced atomically; previous values stop
-         *     working immediately. Plaintext one-shot return.
-         * @description **No grace window in MVP** — coordinate the rotation with the slave
-         *     operator (update both sides). TODO(phase-2): dual-secret window.
-         */
-        post: operations["rotate_connector"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/connectors/{slug}/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Per-connector aggregate stats (count + summed amount, grouped by
-         *     status + currency) from the platform own tables. Operator-only.
-         */
-        get: operations["connector_stats"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List all merchants. Operator-only. Used by the operator console's merchants page. */
-        get: operations["list_merchants"];
-        put?: never;
-        /** Onboard a new merchant. Operator-only. */
-        post: operations["create_merchant"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Fetch one merchant. Operator-only. the operator console's `/merchants/{id}` detail page
-         *     and the cascade-management UI both call this.
-         */
-        get: operations["get_merchant"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}/acquirers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List the merchant's cascade priorities, ASC by priority (lower first).
-         *     Backs the operator console's drag-to-reorder UI — paired with `assign_acquirer` for save.
-         */
-        get: operations["list_acquirers"];
-        put?: never;
-        /**
-         * Assign (or update) an acquiring connector to a merchant. ON CONFLICT
-         *     (merchant_id, connector_slug) updates priority + re-enables.
-         */
-        post: operations["assign_acquirer"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}/acquirers/{slug}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Remove a connector from the merchant's cascade. Audited.
-         * @description Hard-delete: removes the row so the cascade engine stops considering it.
-         *     Reassigning via `POST.../acquirers` re-inserts cleanly thanks to the
-         *     ON CONFLICT upsert.
-         */
-        delete: operations["remove_acquirer"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}/api-keys": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Mint a new API key + secret pair for a merchant. The plaintext `secret` is
-         *     returned **once** in the response — it cannot be retrieved later.
-         */
-        post: operations["create_api_key"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}/bank-accounts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List bank accounts for a merchant. Active rows only by default;
-         *     pass `?include_archived=true` to surface soft-deleted history.
-         */
-        get: operations["list_bank_accounts"];
-        put?: never;
-        /**
-         * Create a new bank account for the merchant. The row is created
-         *     non-primary; promote via `POST.../{bank_id}/primary` once verified.
-         */
-        post: operations["create_bank_account"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}/bank-accounts/{bank_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Soft-delete the bank account (status → archived). The cycle history
-         *     referencing this row keeps its snapshot data intact; the `bank_account_id`
-         *     pointer stays live but the source row is hidden from default listings.
-         *     If the archived row was primary, it loses its flag — the merchant is
-         *     left without a primary for that currency until the operator promotes
-         *     another row.
-         */
-        delete: operations["archive_bank_account"];
-        options?: never;
-        head?: never;
-        /**
-         * Patch fields on an existing bank account. Any field omitted leaves
-         *     the column untouched. To clear `currency` (drop the per-currency pin),
-         *     pass `"currency": null` explicitly.
-         */
-        patch: operations["update_bank_account"];
-        trace?: never;
-    };
-    "/admin/merchants/{id}/bank-accounts/{bank_id}/primary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Promote a bank account to primary. Un-flags any prior primary for
-         *     the same (merchant, currency) tuple in a single transaction —
-         *     concurrent calls cannot leave the merchant with zero or two primaries
-         *     for the same currency.
-         */
-        post: operations["set_primary_bank_account"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}/customers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List a merchant's customers, sorted last_seen_at DESC. Includes
-         *     tombstoned rows for accounting clarity — the JSON shape keeps PII
-         *     columns null for those, with `erased_at` set.
-         */
-        get: operations["list_customers"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}/customers/{cid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a single customer with full PII + counters. */
-        get: operations["get_customer"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}/customers/{cid}/erase": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * GDPR right-to-erasure. NULL the PII columns, stamp `erased_at`. Idempotent
-         *     only against itself — a second call returns 409 with `already_erased`.
-         */
-        post: operations["erase_customer"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}/shops": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["admin_list_shops"];
-        put?: never;
-        post: operations["admin_create_shop"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}/shops/{shop_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["admin_get_shop"];
-        put?: never;
-        post?: never;
-        delete: operations["admin_archive_shop"];
-        options?: never;
-        head?: never;
-        patch: operations["admin_patch_shop"];
-        trace?: never;
-    };
-    "/admin/merchants/{id}/shops/{shop_id}/secrets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["admin_list_secrets"];
-        put?: never;
-        post: operations["admin_create_secret"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}/shops/{shop_id}/secrets/{key_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["admin_revoke_secret"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}/users": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List all merchant users for a merchant. Operator-only. */
-        get: operations["list_merchant_users"];
-        put?: never;
-        /**
-         * Operator-side: create a new merchant user with a one-shot temporary
-         *     password. The plaintext password is returned in this response **once**
-         *     and is unrecoverable thereafter — the operator console renders a copy-to-clipboard
-         *     banner exactly like the API-key reveal flow. The operator hands the
-         *     temp password to the human out-of-band (Slack, in person, etc.). On
-         *     first login the merchant portal will prompt for a change (phase-2; not enforced
-         *     server-side yet).
-         */
-        post: operations["create_merchant_user"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}/users/{user_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete (or disable, depending on the future flag) a merchant user.
-         *     Operator-only. Hard-delete today; phase-2 turns this into a soft
-         *     delete with an `is_active=false` flip + retained audit row.
-         */
-        delete: operations["delete_merchant_user"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}/webhook": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Configure (or rotate) the merchant's webhook URL + signing secret. */
-        post: operations["set_webhook"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}/webhook-endpoints": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["admin_list"];
-        put?: never;
-        post: operations["admin_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/merchants/{id}/webhook-endpoints/{ep_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["admin_archive"];
-        options?: never;
-        head?: never;
-        patch: operations["admin_update"];
-        trace?: never;
-    };
-    "/admin/merchants/{id}/webhook-endpoints/{ep_id}/rotate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["admin_rotate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/metrics/issuing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * VCI/issuing metrics over `card_transactions` for the last `window_days`
-         *     (default 7, max 90), optionally filtered to one `currency`. Powers the operator console
-         *     dashboard KPIs + the /card-spend breakdown without a client-side scan.
-         */
-        get: operations["issuing_metrics"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/organizations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["list_organizations"];
-        put?: never;
-        post: operations["create_organization"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/organizations/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_organization"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["patch_organization"];
-        trace?: never;
-    };
-    "/admin/organizations/{id}/keys": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["mint_key"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/organizations/{id}/pricing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_pricing"];
-        put: operations["put_pricing"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/organizations/{id}/pricing/{card_type}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["delete_pricing"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/organizations/{id}/topup": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Credit the org prepay balance (`world -> orgs:<id>:available`). Operator
-         *     manual top-up; a future the connector deposit path can reuse the same account.
-         */
-        post: operations["topup"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/organizations/{id}/users": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["list_users"];
-        put?: never;
-        post: operations["create_user"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/payments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List the most recent payments across all merchants. Operator-only. Used by
-         *     the operator console's payments page. Joined with merchants for the legal_name.
-         */
-        get: operations["list_payments"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/permissions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List the permission catalogue — the finite set of keys the operator console role
-         *     editor renders as toggles. No data, just the schema.
-         */
-        get: operations["list_permissions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/refunds": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List refunds across the deployment, newest first. Operator-only. */
-        get: operations["list_refunds"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/roles": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List every role, system roles first. Permissions arrays included so
-         *     the operator console editor can render the matrix without a second fetch.
-         */
-        get: operations["list_roles"];
-        put?: never;
-        /**
-         * Create a non-system custom role. The seeded five (user / customer /
-         *     support / finance / operator) cannot be re-created via this route.
-         */
-        post: operations["create_role"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/roles/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Fetch one role by name. */
-        get: operations["get_role"];
-        put?: never;
-        post?: never;
-        /** Delete a custom role. System roles are protected. */
-        delete: operations["delete_role"];
-        options?: never;
-        head?: never;
-        /**
-         * Patch description and/or permissions on an existing role. The
-         *     operator role's permissions are locked at the wildcard; description
-         *     edits are allowed.
-         */
-        patch: operations["patch_role"];
-        trace?: never;
-    };
-    "/admin/settings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List every declared setting with its (possibly-redacted) current value.
-         *     Operator-only. NOT audited — list reads don't reveal secrets.
-         */
-        get: operations["list_settings"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/settings/{key}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Reveal the full value of one setting. **Audited.** Returns full
-         *     plaintext (or default). Failing to find the key is 404.
-         */
-        get: operations["get_setting"];
-        /** Set a value. Runs validator before encrypting + persisting. */
-        put: operations["put_setting"];
-        post?: never;
-        /** Delete the row — value falls back to SCHEMA default. */
-        delete: operations["delete_setting"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/settlements": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List settlement cycles, newest first. Operator-only. */
-        get: operations["list_cycles"];
-        put?: never;
-        /** Manually open a fresh cycle. Audited. */
-        post: operations["open_cycle"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/settlements/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Fetch one cycle. */
-        get: operations["get_cycle"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/settlements/{id}/close": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Close the cycle — freezes the window, computes payable, moves to
-         *     `posted`. Audited. (the connector dispatch lands in the follow-up; today
-         *     the operator handles the actual money-move and then calls
-         *     `mark-completed`.)
-         */
-        post: operations["close_cycle"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/settlements/{id}/mark-completed": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Operator confirms the money actually moved. Audited. */
-        post: operations["mark_completed"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/settlements/{id}/mark-failed": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Mark a cycle as failed (e.g. operator hit an issue moving money;
-         *     cycle goes terminal-bad so a fresh one can open). Audited.
-         */
-        post: operations["mark_failed"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/subscriptions/tiers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["list_tiers"];
-        put?: never;
-        post: operations["create_tier"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/subscriptions/tiers/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["delete_tier"];
-        options?: never;
-        head?: never;
-        patch: operations["patch_tier"];
-        trace?: never;
-    };
-    "/admin/users": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List end-users for the operator. Operator-only. */
-        get: operations["admin_list_users"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/users/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** User detail. Used by the operator console's `/users/[id]` page. */
-        get: operations["get_user"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/users/{id}/balance": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Current internal (Formance ledger) balance for a user, in one currency.
-         *     Backs the operator console's "Ledger Balance" card — the real balance Takeal holds for
-         *     this user, which the manual adjust endpoint credits / debits.
-         */
-        get: operations["get_user_balance"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/users/{id}/balance-adjust": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Operator-only manual balance adjustment. Positive amount credits;
-         *     negative debits. Mandatory `note` ends up in the audit metadata so
-         *     the trail is never anonymous.
-         * @description Skips the risk evaluator on purpose — this is an operator-driven
-         *     fix-up of last resort.
-         */
-        post: operations["adjust_balance"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/users/{id}/balances": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List every non-zero balance a user holds, flagging the local currency.
-         *     Powers the migration panel in the operator console.
-         */
-        get: operations["list_user_balances"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/users/{id}/role": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Reassign a user's role. The target role must already exist; the
-         *     FK on `users.role → roles.name` rejects unknown names with a
-         *     foreign-key violation.
-         */
-        patch: operations["patch_user_role"];
-        trace?: never;
-    };
-    "/admin/users/{id}/subscription": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_user_subscription"];
-        put: operations["assign_user_subscription"];
-        post?: never;
-        delete: operations["cancel_user_subscription"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/users/{id}/totp": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Operator-only TOTP reset. Deletes the user's `user_totp` row so that
-         *     their next login restarts at `totp_setup_required` (per the API contract).
-         * @description Idempotent — returns 200 with `removed: false` when the user wasn't
-         *     enrolled. Always emits an audit event so the trail is preserved
-         *     regardless of whether a row was actually removed.
-         *
-         *     Use case: admin lost their phone / authenticator app. Operator
-         *     resets, admin re-enrols on next login.
-         */
-        delete: operations["reset_totp"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/users/{id}/totp/backup-codes/regenerate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Regenerate the 10 one-shot backup codes on a user's TOTP enrolment.
-         *     Old codes are invalidated immediately (the array is replaced
-         *     wholesale). 404 when the user has no TOTP enrolment at all.
-         * @description Use case: the operator gave the user a one-shot recovery flow and
-         *     wants to rotate the unused codes; or the user themselves asks the
-         *     operator to rotate after suspected disclosure.
-         */
-        post: operations["regenerate_backup_codes"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/users/{id}/wallet-migrate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Convert a user's entire `source_currency` balance into the local currency
-         *     at the current rate + spread. Atomic; audited; idempotent on the
-         *     (user, source, amount) tuple so a double-click can't double-convert.
-         */
-        post: operations["migrate_wallet_balance"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Log in with email + password. Returns one of three envelopes:
-         * @description * `{"stage":"jwt", access_token, expires_at, user}` — end-user/customer roles.
-         *     * `{"stage":"totp_setup_required", challenge_token, challenge_expires_at,
-         *      secret_base32, otpauth_url}` — first admin login: enroll a TOTP.
-         *     * `{"stage":"totp_required", challenge_token, challenge_expires_at}` —
-         *      returning admin login: type the code.
-         *
-         *     Wrong-password and unknown-email return the same 401 (no enumeration).
-         */
-        post: operations["login"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/login/2fa/switch": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["login_2fa_switch"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/login/otp/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["login_otp_verify"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/login/totp": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["login_totp"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/login/totp-setup": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["login_totp_setup"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Current authenticated user. The "do I still have a session"
-         *     probe the client app calls on app boot — login returns the user inline,
-         *     but consumers need a way to re-validate without re-running the
-         *     password flow. 401 → token expired / invalidated → consumer
-         *     kicks back to /login.
-         */
-        get: operations["me"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Register a new end-user account. Role is always `user`; admin-side
-         *     roles are operator-issued via `/admin/users` flows. End-users skip
-         *     the TOTP gate entirely.
-         */
-        post: operations["register"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/telegram/exchange": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Exchange a signed Telegram Mini App `initData` payload for a session JWT.
-         * @description The bot token is the shared secret, so validation is authoritative here.
-         *     First-time Telegram users are **auto-provisioned**: a fresh end-user is
-         *     created keyed by the Telegram id, with a synthetic placeholder email and
-         *     `email_pending = true`. The client must then collect a real email from the
-         *     user and attach it via `POST /me/email` (which clears the flag).
-         *
-         *     Returns the same `{"stage":"jwt", access_token, expires_at, user, …}`
-         *     envelope as `/auth/login`; `user.email_pending` tells the client whether to
-         *     prompt for an email.
-         */
-        post: operations["telegram_exchange"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/blog/images/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Serve an image's bytes. **No auth**. Content is immutable per id, so it
-         *     carries a long-lived cache and an ETag — a the client app can hotlink these
-         *     straight from `cover_url` / image blocks.
-         */
-        get: operations["get_image"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/blog/posts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Published posts, newest first. **No auth** — public content. */
-        get: operations["blog_list_posts"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/blog/posts/{slug}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** One published post by its slug. **No auth**. */
-        get: operations["blog_get_post"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/branding": {
         parameters: {
             query?: never;
@@ -1846,7 +41,1934 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/me/balance": {
+    "/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Readiness probe — deep, round-trips deps. Returns 200 if all pass,
+         *     503 if any fails. Body always includes the per-dep results + counts
+         *     + ops surface so the operator UI can render even on a 503.
+         */
+        get: operations["ready"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blog/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_images"];
+        put?: never;
+        /** Upload an image and get back the URL to drop into a post body. */
+        post: operations["upload_image"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blog/posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All posts (any status), newest activity first. */
+        get: operations["list_posts"];
+        put?: never;
+        /**
+         * Create a draft. `slug` is derived from the title when omitted; a title
+         *     with no latin characters gets a generated handle instead of an error.
+         */
+        post: operations["create_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blog/posts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_post"];
+        put?: never;
+        post?: never;
+        delete: operations["delete_post"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit a post. Changing any content field bumps `content_version`, which
+         *     re-arms the broadcast buttons; a pure status change does not.
+         */
+        patch: operations["patch_post"];
+        trace?: never;
+    };
+    "/v1/admin/blog/posts/{id}/broadcast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fan a published post out to everyone subscribed to `channel`.
+         * @description Idempotent per (post, channel, content version): a repeat click returns
+         *     409 rather than sending twice. Editing the post afterwards makes a
+         *     re-send available again.
+         */
+        post: operations["broadcast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/card-transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cross-card VCI spend feed, newest first, served from `card_transactions`.
+         *     Optional filters: `card_id`, `user_id`, `connector_slug`. Paginated via
+         *     `limit` (≤500, default 100) + `offset`.
+         */
+        get: operations["list_card_transactions_all"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List cards across all users. Operator-only. */
+        get: operations["list_cards"];
+        put?: never;
+        /**
+         * Issue a card for an end-user (operator action). Operator-only.
+         * @description **Idempotency:** honors the `Idempotency-Key` header when present; otherwise
+         *     a fresh key is generated server-side (operator-initiated issuance).
+         */
+        post: operations["create_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards/orphans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List suspected orphaned cards: `failed` rows that still carry a
+         *     `provider_reference` — the provider likely created + funded the card before
+         *     a later Takeal step failed, so it may be live + spendable off our float.
+         */
+        get: operations["list_orphans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single card's full detail. Operator-only. */
+        get: operations["get_card"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards/{id}/debit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Manually debit a SHARED card — lowers its cumulative limit by `amount`
+         *     (floored at the provider minimum). The mirror of "Manual top up". No ledger
+         *     move: shared cards draw from the connector's pooled wallet, so there's
+         *     nothing to reclaim. STANDARD/prepaid cards return 501 (limit not editable).
+         * @description **Shared-gating source of truth:** the *connector* is the single
+         *     authority — a non-shared card's connector returns 501 here, fail-safe,
+         *     regardless of what `cards.funding_mode` says. The persisted `funding_mode`
+         *     (and the operator console button that keys off it) is an **informational** hint only;
+         *     it can lag the live connector (lazy backfill / COALESCE-on-refresh) and is
+         *     never the enforcement point.
+         */
+        post: operations["debit_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards/{id}/freeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Freeze a card. Idempotent — replaying on an already-frozen card returns the
+         *     current row. Providers without freeze support return 501.
+         */
+        post: operations["freeze_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards/{id}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reconcile a suspected orphan. `close` terminates it at the provider;
+         *     `adopt` charges the still-unpaid load and activates it (402 if the user
+         *     can't cover it).
+         */
+        post: operations["reconcile_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards/{id}/refresh-from-connector": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-pull last4 + expiry + status from the card's issuer connector and
+         *     mirror the answer into our local row. Recovery path for the cases where
+         *     the original `CreateCard` left fields blank (PENDING-fallback, missing
+         *     `maskedCardNo` on first response, etc.). Idempotent. (PCI rule
+         *     still applies: the connector never returns full PAN — only last4.)
+         */
+        post: operations["refresh_card_from_connector"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards/{id}/reload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reload a PREPAID card. Most providers return 501 (funds flow via the
+         *     linked funding account, not via direct reload); the connector included.
+         *     400 on non-prepaid card / non-active status / non-positive amount.
+         */
+        post: operations["reload_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards/{id}/terminate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Terminate a card. **One-way.** Idempotent — calling on an already-terminated
+         *     card returns the current row without re-calling the connector.
+         */
+        post: operations["terminate_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards/{id}/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recent transactions on a card. Pagination via opaque `page_token`.
+         *     501 from providers without a history API.
+         */
+        get: operations["list_card_transactions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards/{id}/unfreeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unfreeze a previously-frozen card. Idempotent on already-active. 501 from
+         *     providers that don't support unfreeze.
+         */
+        post: operations["unfreeze_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/connectors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all connectors (active + disabled). Secrets are redacted. Operator-only. */
+        get: operations["list_connectors"];
+        put?: never;
+        /**
+         * Create a new connector. Server generates both secrets (`signing_secret`
+         *     + `outbound_auth_secret`) and returns them **plaintext one-shot**.
+         *     After commit, the in-memory `ConnectorRegistry` is refreshed so the new
+         *     slug is immediately usable by the funding / issuing / acquiring services.
+         */
+        post: operations["create_connector"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/connectors/breakers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Per-connector circuit-breaker + rate-limiter metrics. Operator-only. */
+        get: operations["list_breakers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/connectors/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Soft-disable: sets `status = 'disabled'`. The row stays for audit
+         *     history. Use `PATCH` with `status: "active"` to re-enable.
+         */
+        delete: operations["disable_connector"];
+        options?: never;
+        head?: never;
+        /**
+         * Update `grpc_url` and/or `status` for an existing connector. Either
+         *     field can be omitted; the request is a no-op if both are.
+         */
+        patch: operations["patch_connector"];
+        trace?: never;
+    };
+    "/v1/admin/connectors/{slug}/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Master/account balances for an issuer connector (e.g. OKCard channel
+         *     wallets). Empty for connectors without a wallet concept. Operator-only.
+         */
+        get: operations["connector_balances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/connectors/{slug}/configuration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET full plaintext map. **Audited** — every call emits
+         *     `admin.connector.configuration.viewed`.
+         */
+        get: operations["get_configuration"];
+        /** PUT — replace the full map. */
+        put: operations["put_configuration"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/connectors/{slug}/configuration/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** DELETE one key. */
+        delete: operations["delete_configuration_key"];
+        options?: never;
+        head?: never;
+        /** PATCH one key. */
+        patch: operations["patch_configuration_key"];
+        trace?: never;
+    };
+    "/v1/admin/connectors/{slug}/programs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the per-program catalogue + pricing for an issuer. Powers the operator console
+         *     pricing UI + the "Add card" picker. Empty until `POST.../programs/sync`.
+         */
+        get: operations["list_programs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/connectors/{slug}/programs/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync the program catalogue from the connector's advertised list (option (c):
+         *     the connector knows its BINs, we own the pricing). Upserts catalogue fields
+         *     (label / card_type / currency / bin) and **preserves** operator-set pricing.
+         */
+        post: operations["sync_programs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/connectors/{slug}/programs/{program_code}/pricing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set price / priority / status on one program. The program row must
+         *     exist (run sync first). Currency is required whenever a sell_price is set.
+         */
+        put: operations["put_program_pricing"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/connectors/{slug}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate new secrets for an existing connector. Both `signing_secret` and
+         *     `outbound_auth_secret` are replaced atomically; previous values stop
+         *     working immediately. Plaintext one-shot return.
+         * @description **No grace window in MVP** — coordinate the rotation with the slave
+         *     operator (update both sides). TODO(phase-2): dual-secret window.
+         */
+        post: operations["rotate_connector"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/connectors/{slug}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Per-connector aggregate stats (count + summed amount, grouped by
+         *     status + currency) from the platform own tables. Operator-only.
+         */
+        get: operations["connector_stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/fx/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fetch a rate from one source **without** making it active.
+         * @description The point is to try a freshly-defined `rates.custom` entry against a real
+         *     pair before production FX depends on it; otherwise the only way to find
+         *     out a definition is wrong is a user's deposit. Bypasses the rate cache.
+         */
+        get: operations["fx_probe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/fx/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List selectable rate sources. Powers a real dropdown instead of asking an
+         *     operator to remember which names exist.
+         */
+        get: operations["fx_providers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all merchants. Operator-only. Used by the operator console's merchants page. */
+        get: operations["list_merchants"];
+        put?: never;
+        /** Onboard a new merchant. Operator-only. */
+        post: operations["create_merchant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fetch one merchant. Operator-only. the operator console's `/merchants/{id}` detail page
+         *     and the cascade-management UI both call this.
+         */
+        get: operations["get_merchant"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/acquirers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the merchant's cascade priorities, ASC by priority (lower first).
+         *     Backs the operator console's drag-to-reorder UI — paired with `assign_acquirer` for save.
+         */
+        get: operations["list_acquirers"];
+        put?: never;
+        /**
+         * Assign (or update) an acquiring connector to a merchant. ON CONFLICT
+         *     (merchant_id, connector_slug) updates priority + re-enables.
+         */
+        post: operations["assign_acquirer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/acquirers/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a connector from the merchant's cascade. Audited.
+         * @description Hard-delete: removes the row so the cascade engine stops considering it.
+         *     Reassigning via `POST.../acquirers` re-inserts cleanly thanks to the
+         *     ON CONFLICT upsert.
+         */
+        delete: operations["remove_acquirer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint a new API key + secret pair for a merchant. The plaintext `secret` is
+         *     returned **once** in the response — it cannot be retrieved later.
+         */
+        post: operations["create_api_key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/bank-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List bank accounts for a merchant. Active rows only by default;
+         *     pass `?include_archived=true` to surface soft-deleted history.
+         */
+        get: operations["list_bank_accounts"];
+        put?: never;
+        /**
+         * Create a new bank account for the merchant. The row is created
+         *     non-primary; promote via `POST.../{bank_id}/primary` once verified.
+         */
+        post: operations["create_bank_account"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/bank-accounts/{bank_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Soft-delete the bank account (status → archived). The cycle history
+         *     referencing this row keeps its snapshot data intact; the `bank_account_id`
+         *     pointer stays live but the source row is hidden from default listings.
+         *     If the archived row was primary, it loses its flag — the merchant is
+         *     left without a primary for that currency until the operator promotes
+         *     another row.
+         */
+        delete: operations["archive_bank_account"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch fields on an existing bank account. Any field omitted leaves
+         *     the column untouched. To clear `currency` (drop the per-currency pin),
+         *     pass `"currency": null` explicitly.
+         */
+        patch: operations["update_bank_account"];
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/bank-accounts/{bank_id}/primary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Promote a bank account to primary. Un-flags any prior primary for
+         *     the same (merchant, currency) tuple in a single transaction —
+         *     concurrent calls cannot leave the merchant with zero or two primaries
+         *     for the same currency.
+         */
+        post: operations["set_primary_bank_account"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a merchant's customers, sorted last_seen_at DESC. Includes
+         *     tombstoned rows for accounting clarity — the JSON shape keeps PII
+         *     columns null for those, with `erased_at` set.
+         */
+        get: operations["list_customers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/customers/{cid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single customer with full PII + counters. */
+        get: operations["get_customer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/customers/{cid}/erase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * GDPR right-to-erasure. NULL the PII columns, stamp `erased_at`. Idempotent
+         *     only against itself — a second call returns 409 with `already_erased`.
+         */
+        post: operations["erase_customer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/shops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_list_shops"];
+        put?: never;
+        post: operations["admin_create_shop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/shops/{shop_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_get_shop"];
+        put?: never;
+        post?: never;
+        delete: operations["admin_archive_shop"];
+        options?: never;
+        head?: never;
+        patch: operations["admin_patch_shop"];
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/shops/{shop_id}/secrets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_list_secrets"];
+        put?: never;
+        post: operations["admin_create_secret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/shops/{shop_id}/secrets/{key_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["admin_revoke_secret"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all merchant users for a merchant. Operator-only. */
+        get: operations["list_merchant_users"];
+        put?: never;
+        /**
+         * Operator-side: create a new merchant user with a one-shot temporary
+         *     password. The plaintext password is returned in this response **once**
+         *     and is unrecoverable thereafter — the operator console renders a copy-to-clipboard
+         *     banner exactly like the API-key reveal flow. The operator hands the
+         *     temp password to the human out-of-band (Slack, in person, etc.). On
+         *     first login the merchant portal will prompt for a change (phase-2; not enforced
+         *     server-side yet).
+         */
+        post: operations["create_merchant_user"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete (or disable, depending on the future flag) a merchant user.
+         *     Operator-only. Hard-delete today; phase-2 turns this into a soft
+         *     delete with an `is_active=false` flip + retained audit row.
+         */
+        delete: operations["delete_merchant_user"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Configure (or rotate) the merchant's webhook URL + signing secret. */
+        post: operations["set_webhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/webhook-endpoints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_list"];
+        put?: never;
+        post: operations["admin_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/webhook-endpoints/{ep_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["admin_archive"];
+        options?: never;
+        head?: never;
+        patch: operations["admin_update"];
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/webhook-endpoints/{ep_id}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin_rotate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/metrics/issuing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * VCI/issuing metrics over `card_transactions` for the last `window_days`
+         *     (default 7, max 90), optionally filtered to one `currency`. Powers the operator console
+         *     dashboard KPIs + the /card-spend breakdown without a client-side scan.
+         */
+        get: operations["issuing_metrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_organizations"];
+        put?: never;
+        post: operations["create_organization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/organizations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_organization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["patch_organization"];
+        trace?: never;
+    };
+    "/v1/admin/organizations/{id}/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["mint_key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/organizations/{id}/pricing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_pricing"];
+        put: operations["put_pricing"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/organizations/{id}/pricing/{card_type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_pricing"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/organizations/{id}/topup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Credit the org prepay balance (`world -> orgs:<id>:available`). Operator
+         *     manual top-up; a future the connector deposit path can reuse the same account.
+         */
+        post: operations["topup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/organizations/{id}/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_users"];
+        put?: never;
+        post: operations["create_user"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the most recent payments across all merchants. Operator-only. Used by
+         *     the operator console's payments page. Joined with merchants for the legal_name.
+         */
+        get: operations["list_payments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the permission catalogue — the finite set of keys the operator console role
+         *     editor renders as toggles. No data, just the schema.
+         */
+        get: operations["list_permissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List refunds across the deployment, newest first. Operator-only. */
+        get: operations["list_refunds"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List every role, system roles first. Permissions arrays included so
+         *     the operator console editor can render the matrix without a second fetch.
+         */
+        get: operations["list_roles"];
+        put?: never;
+        /**
+         * Create a non-system custom role. The seeded five (user / customer /
+         *     support / finance / operator) cannot be re-created via this route.
+         */
+        post: operations["create_role"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/roles/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch one role by name. */
+        get: operations["get_role"];
+        put?: never;
+        post?: never;
+        /** Delete a custom role. System roles are protected. */
+        delete: operations["delete_role"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch description and/or permissions on an existing role. The
+         *     operator role's permissions are locked at the wildcard; description
+         *     edits are allowed.
+         */
+        patch: operations["patch_role"];
+        trace?: never;
+    };
+    "/v1/admin/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List every declared setting with its (possibly-redacted) current value.
+         *     Operator-only. NOT audited — list reads don't reveal secrets.
+         */
+        get: operations["list_settings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/settings/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reveal the full value of one setting. **Audited.** Returns full
+         *     plaintext (or default). Failing to find the key is 404.
+         */
+        get: operations["get_setting"];
+        /** Set a value. Runs validator before encrypting + persisting. */
+        put: operations["put_setting"];
+        post?: never;
+        /** Delete the row — value falls back to SCHEMA default. */
+        delete: operations["delete_setting"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/settlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List settlement cycles, newest first. Operator-only. */
+        get: operations["list_cycles"];
+        put?: never;
+        /** Manually open a fresh cycle. Audited. */
+        post: operations["open_cycle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/settlements/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch one cycle. */
+        get: operations["get_cycle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/settlements/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close the cycle — freezes the window, computes payable, moves to
+         *     `posted`. Audited. (the connector dispatch lands in the follow-up; today
+         *     the operator handles the actual money-move and then calls
+         *     `mark-completed`.)
+         */
+        post: operations["close_cycle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/settlements/{id}/mark-completed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Operator confirms the money actually moved. Audited. */
+        post: operations["mark_completed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/settlements/{id}/mark-failed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a cycle as failed (e.g. operator hit an issue moving money;
+         *     cycle goes terminal-bad so a fresh one can open). Audited.
+         */
+        post: operations["mark_failed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/subscriptions/tiers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_tiers"];
+        put?: never;
+        post: operations["create_tier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/subscriptions/tiers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_tier"];
+        options?: never;
+        head?: never;
+        patch: operations["patch_tier"];
+        trace?: never;
+    };
+    "/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List end-users for the operator. Operator-only. */
+        get: operations["admin_list_users"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** User detail. Used by the operator console's `/users/[id]` page. */
+        get: operations["get_user"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current internal (Formance ledger) balance for a user, in one currency.
+         *     Backs the operator console's "Ledger Balance" card — the real balance Takeal holds for
+         *     this user, which the manual adjust endpoint credits / debits.
+         */
+        get: operations["get_user_balance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/balance-adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Operator-only manual balance adjustment. Positive amount credits;
+         *     negative debits. Mandatory `note` ends up in the audit metadata so
+         *     the trail is never anonymous.
+         * @description Skips the risk evaluator on purpose — this is an operator-driven
+         *     fix-up of last resort.
+         */
+        post: operations["adjust_balance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List every non-zero balance a user holds, flagging the local currency.
+         *     Powers the migration panel in the operator console.
+         */
+        get: operations["list_user_balances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Reassign a user's role. The target role must already exist; the
+         *     FK on `users.role → roles.name` rejects unknown names with a
+         *     foreign-key violation.
+         */
+        patch: operations["patch_user_role"];
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/sessions/terminate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Operator: sign a user out everywhere (all sessions, none kept). */
+        post: operations["admin_terminate_sessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_user_subscription"];
+        put: operations["assign_user_subscription"];
+        post?: never;
+        delete: operations["cancel_user_subscription"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/totp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Operator-only TOTP reset. Deletes the user's `user_totp` row so that
+         *     their next login restarts at `totp_setup_required`.
+         * @description Idempotent — returns 200 with `removed: false` when the user wasn't
+         *     enrolled. Always emits an audit event so the trail is preserved
+         *     regardless of whether a row was actually removed.
+         *
+         *     Use case: admin lost their phone / authenticator app. Operator
+         *     resets, admin re-enrols on next login.
+         */
+        delete: operations["reset_totp"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/totp/backup-codes/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Regenerate the 10 one-shot backup codes on a user's TOTP enrolment.
+         *     Old codes are invalidated immediately (the array is replaced
+         *     wholesale). 404 when the user has no TOTP enrolment at all.
+         * @description Use case: the operator gave the user a one-shot recovery flow and
+         *     wants to rotate the unused codes; or the user themselves asks the
+         *     operator to rotate after suspected disclosure.
+         */
+        post: operations["regenerate_backup_codes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Operator: set a user's Wallet currency. Any ISO 4217 code; balances held
+         *     in the previous currency become "foreign" and can be converted with
+         *     `POST /admin/users/{id}/wallet-migrate`.
+         */
+        patch: operations["admin_set_wallet"];
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/wallet-migrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convert a user's entire `source_currency` balance into the local currency
+         *     at the current rate + spread. Atomic; audited; idempotent on the
+         *     (user, source, amount) tuple so a double-click can't double-convert.
+         */
+        post: operations["migrate_wallet_balance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log in with email + password. Returns one of three envelopes:
+         * @description * `{"stage":"jwt", access_token, expires_at, user}` — end-user/customer roles.
+         *     * `{"stage":"totp_setup_required", challenge_token, challenge_expires_at,
+         *      secret_base32, otpauth_url}` — first admin login: enroll a TOTP.
+         *     * `{"stage":"totp_required", challenge_token, challenge_expires_at}` —
+         *      returning admin login: type the code.
+         *
+         *     Wrong-password and unknown-email return the same 401 (no enumeration).
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/login/2fa/switch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["login_2fa_switch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/login/otp/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["login_otp_verify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/login/totp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["login_totp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/login/totp-setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["login_totp_setup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current authenticated user. The "do I still have a session"
+         *     probe the client app calls on app boot — login returns the user inline,
+         *     but consumers need a way to re-validate without re-running the
+         *     password flow. 401 → token expired / invalidated → consumer
+         *     kicks back to /login.
+         */
+        get: operations["me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the caller's own password. Every other session is signed out; the
+         *     one making this call stays valid.
+         */
+        post: operations["change_password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register a new end-user account. Role is always `user`; admin-side
+         *     roles are operator-issued via `/admin/users` flows. End-users skip
+         *     the TOTP gate entirely.
+         */
+        post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/telegram/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exchange a signed Telegram Mini App `initData` payload for a session JWT.
+         * @description The bot token is the shared secret, so validation is authoritative here.
+         *     First-time Telegram users are **auto-provisioned**: a fresh end-user is
+         *     created keyed by the Telegram id, with a synthetic placeholder email and
+         *     `email_pending = true`. The client must then collect a real email from the
+         *     user and attach it via `POST /me/email` (which clears the flag).
+         *
+         *     Returns the same `{"stage":"jwt", access_token, expires_at, user, …}`
+         *     envelope as `/auth/login`; `user.email_pending` tells the client whether to
+         *     prompt for an email.
+         */
+        post: operations["telegram_exchange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/blog/images/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Serve an image's bytes. **No auth**. Content is immutable per id, so it
+         *     carries a long-lived cache and an ETag — a the client app can hotlink these
+         *     straight from `cover_url` / image blocks.
+         */
+        get: operations["get_image"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/blog/posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Published posts, newest first. **No auth** — public content. */
+        get: operations["blog_list_posts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/blog/posts/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One published post by its slug. **No auth**. */
+        get: operations["blog_get_post"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/balance": {
         parameters: {
             query?: never;
             header?: never;
@@ -1866,7 +1988,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/me/cards": {
+    "/v1/me/cards": {
         parameters: {
             query?: never;
             header?: never;
@@ -1888,7 +2010,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/me/cards/{id}": {
+    "/v1/me/cards/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1905,7 +2027,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/me/cards/{id}/balance": {
+    "/v1/me/cards/{id}/balance": {
         parameters: {
             query?: never;
             header?: never;
@@ -1922,7 +2044,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/me/cards/{id}/freeze": {
+    "/v1/me/cards/{id}/freeze": {
         parameters: {
             query?: never;
             header?: never;
@@ -1942,7 +2064,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/me/cards/{id}/reveal": {
+    "/v1/me/cards/{id}/reveal": {
         parameters: {
             query?: never;
             header?: never;
@@ -1959,7 +2081,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/me/cards/{id}/terminate": {
+    "/v1/me/cards/{id}/terminate": {
         parameters: {
             query?: never;
             header?: never;
@@ -1976,7 +2098,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/me/cards/{id}/unfreeze": {
+    "/v1/me/cards/{id}/unfreeze": {
         parameters: {
             query?: never;
             header?: never;
@@ -1993,7 +2115,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/me/deposits": {
+    "/v1/me/deposits": {
         parameters: {
             query?: never;
             header?: never;
@@ -2016,7 +2138,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/me/deposits/quotes": {
+    "/v1/me/deposits/quotes": {
         parameters: {
             query?: never;
             header?: never;
@@ -2036,7 +2158,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/me/deposits/{id}": {
+    "/v1/me/deposits/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2053,7 +2175,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/me/deposits/{id}/refunds": {
+    "/v1/me/deposits/{id}/refunds": {
         parameters: {
             query?: never;
             header?: never;
@@ -2063,7 +2185,7 @@ export type paths = {
         get?: never;
         put?: never;
         /**
-         * Refund a previously-confirmed deposit. the API contract. Synchronous if the
+         * Refund a previously-confirmed deposit. Synchronous if the
          *     connector settles inline; otherwise the row stays `pending` and flips later
          *     via the inbound `deposit.refunded` event.
          * @description **Idempotency:** `Idempotency-Key` header required.
@@ -2075,7 +2197,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/me/email": {
+    "/v1/me/email": {
         parameters: {
             query?: never;
             header?: never;
@@ -2087,7 +2209,7 @@ export type paths = {
         /**
          * Attach a real email to the current user and clear `email_pending`.
          * @description Telegram Mini App users are auto-provisioned with a synthetic placeholder
-         *     email (`email_pending = true`, the API contract); the client calls this once
+         *     email (`email_pending = true`); the client calls this once
          *     it has collected the user's real address. Password-registered users may
          *     also use it to change their email. The new address must be unique (409).
          *
@@ -2101,7 +2223,61 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/me/subscriptions": {
+    "/v1/me/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Live sessions of the caller (this device + every other signed-in one). */
+        get: operations["list_sessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/sessions/terminate-others": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign out every other device signed in as the caller. The current
+         *     session stays.
+         */
+        post: operations["terminate_other_sessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/sessions/{jti}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Sign out one session (any device, including the current one). */
+        delete: operations["revoke_session"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/subscriptions": {
         parameters: {
             query?: never;
             header?: never;
@@ -2124,7 +2300,29 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/api-keys": {
+    "/v1/me/wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's Wallet currency and the currencies they may switch to. */
+        get: operations["get_my_wallet"];
+        /**
+         * Switch the caller's Wallet currency. Allowed only while every balance is
+         *     zero (a funded Wallet is migrated by an operator instead), and only to
+         *     the local currency or one listed in `wallet.allowed_currencies`.
+         */
+        put: operations["set_my_wallet"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/org/api-keys": {
         parameters: {
             query?: never;
             header?: never;
@@ -2140,7 +2338,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/api-keys/{id}": {
+    "/v1/org/api-keys/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2156,7 +2354,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/auth/login": {
+    "/v1/org/auth/login": {
         parameters: {
             query?: never;
             header?: never;
@@ -2173,7 +2371,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/auth/me": {
+    "/v1/org/auth/me": {
         parameters: {
             query?: never;
             header?: never;
@@ -2190,7 +2388,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/balance": {
+    "/v1/org/balance": {
         parameters: {
             query?: never;
             header?: never;
@@ -2207,7 +2405,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/cards": {
+    "/v1/org/cards": {
         parameters: {
             query?: never;
             header?: never;
@@ -2229,7 +2427,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/cards/{id}": {
+    "/v1/org/cards/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2245,7 +2443,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/cards/{id}/balance": {
+    "/v1/org/cards/{id}/balance": {
         parameters: {
             query?: never;
             header?: never;
@@ -2261,7 +2459,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/cards/{id}/freeze": {
+    "/v1/org/cards/{id}/freeze": {
         parameters: {
             query?: never;
             header?: never;
@@ -2277,7 +2475,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/cards/{id}/reload": {
+    "/v1/org/cards/{id}/reload": {
         parameters: {
             query?: never;
             header?: never;
@@ -2293,7 +2491,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/cards/{id}/terminate": {
+    "/v1/org/cards/{id}/terminate": {
         parameters: {
             query?: never;
             header?: never;
@@ -2309,7 +2507,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/cards/{id}/unfreeze": {
+    "/v1/org/cards/{id}/unfreeze": {
         parameters: {
             query?: never;
             header?: never;
@@ -2325,7 +2523,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/me": {
+    "/v1/org/me": {
         parameters: {
             query?: never;
             header?: never;
@@ -2342,7 +2540,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/members": {
+    "/v1/org/members": {
         parameters: {
             query?: never;
             header?: never;
@@ -2363,7 +2561,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/members/bulk": {
+    "/v1/org/members/bulk": {
         parameters: {
             query?: never;
             header?: never;
@@ -2383,7 +2581,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/members/{id}": {
+    "/v1/org/members/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2403,7 +2601,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/payroll": {
+    "/v1/org/payroll": {
         parameters: {
             query?: never;
             header?: never;
@@ -2424,7 +2622,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/webhook-endpoints": {
+    "/v1/org/webhook-endpoints": {
         parameters: {
             query?: never;
             header?: never;
@@ -2440,7 +2638,7 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/org/webhook-endpoints/{id}": {
+    "/v1/org/webhook-endpoints/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2456,7 +2654,7 @@ export type paths = {
         patch: operations["update_webhook"];
         trace?: never;
     };
-    "/org/webhook-endpoints/{id}/rotate": {
+    "/v1/org/webhook-endpoints/{id}/rotate": {
         parameters: {
             query?: never;
             header?: never;
@@ -2466,27 +2664,6 @@ export type paths = {
         get?: never;
         put?: never;
         post: operations["rotate_webhook"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/ready": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Readiness probe — deep, round-trips deps. Returns 200 if all pass,
-         *     503 if any fails. Body always includes the per-dep results + counts
-         *     + ops surface so the operator UI can render even on a 503.
-         */
-        get: operations["ready"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2574,6 +2751,12 @@ export type components = {
             /** @description Public URL of the cover image, when set. */
             cover_url?: string | null;
         };
+        AdminWalletView: {
+            currency: string;
+            explicit: boolean;
+            /** Format: uuid */
+            user_id: string;
+        };
         /**
          * @description What we return for an API key on the listing endpoint. `key` is the
          *     public-ish identifier (safe to display); the secret was captured
@@ -2624,7 +2807,7 @@ export type components = {
             tier_id: string;
         };
         /**
-         * @description the API contract — one entry per second-factor method available to the
+         * @description one entry per second-factor method available to the
          *     user in this deployment. Only sent when [`AvailableMethodKind::Totp`]
          *     is in the set AND at least one other method (else the operator console hides the
          *     "Try another way" link entirely).
@@ -2638,7 +2821,7 @@ export type components = {
             /**
              * @description True when this is the server-suggested default — the operator console renders the
              *     input for THIS method on first paint. Priority TOTP > Telegram >
-             *     email — per the API contract §"Server: enumerate methods".
+             *     email.
              */
             is_default?: boolean;
             /** @description `"totp"` | `"telegram_otp"` | `"email_otp"`. Frozen wire shape. */
@@ -3055,6 +3238,21 @@ export type components = {
         };
         /** @enum {string} */
         CardType: "credit" | "prepaid" | "gift";
+        ChangePasswordBody: {
+            current_password: string;
+            /**
+             * @description At least 12 characters with a lower-case letter, an upper-case letter
+             *     and a digit; must differ from the current password.
+             */
+            new_password: string;
+        };
+        ChangePasswordResult: {
+            /**
+             * Format: int64
+             * @description Other sessions of this account that were signed out.
+             */
+            revoked_sessions: number;
+        };
         /**
          * @description Derived state of one broadcast button. The server decides; the operator console renders.
          *     Keeping this here means the rules can't drift between the UI and the
@@ -3128,7 +3326,7 @@ export type components = {
             /**
              * Format: int32
              * @description point 4 — issuer cascade order (lower wins). Per-program pricing
-             *     (the `connector_card_programs` table) replaced the ADR-0013 per-connector
+             *     (the `connector_card_programs` table) replaced the earlier per-connector
              *     pricing block in.
              */
             cascade_priority: number;
@@ -3201,7 +3399,7 @@ export type components = {
             outbound_auth_secret: string;
             /**
              * @description **One-shot, plaintext.** Slave HMAC-signs inbound webhooks with this
-             *     secret (`X-Takeal-Connector-Signature`, the API contract). Operator copies
+             *     secret (`X-Takeal-Connector-Signature`). Operator copies
              *     it now; subsequent reads only return the redacted preview.
              */
             signing_secret: string;
@@ -3318,7 +3516,7 @@ export type components = {
              *     deployment's local currency or one of `wallet.allowed_currencies`;
              *     omitted = local. Ignored on login.
              */
-            wallet_currency?: string;
+            wallet_currency?: string | null;
         };
         /** @description Full per-merchant customer row. */
         Customer: {
@@ -3587,6 +3785,27 @@ export type components = {
             /** @description Free-text reason recorded on the card row. Empty → no reason logged. */
             reason?: string;
         };
+        FxProbeResult: {
+            dst: string;
+            provider: string;
+            /**
+             * @description Provider rate, before spread.
+             * @example 0.0125
+             */
+            rate: string;
+            src: string;
+        };
+        FxProvidersView: {
+            /** @description The one currently in force. */
+            active: string;
+            /**
+             * @description Every name valid in `rates.fx_provider`: the compiled-in providers
+             *     plus whatever `rates.custom` defines.
+             */
+            available: string[];
+            /** @description The Wallet currency every quote converts into. */
+            local_currency: string;
+        };
         GroupSpend: {
             /** Format: int64 */
             count: number;
@@ -3642,7 +3861,7 @@ export type components = {
             /** Format: date-time */
             expires_at: string;
             /**
-             * @description the API contract follow-up — true when this user can use Takeal the operator console.
+             * @description true when this user can use Takeal the operator console.
              *     JWT itself is still valid for the client app / Mini App calls
              *     regardless; only the operator console gates on this field.
              */
@@ -4295,7 +4514,7 @@ export type components = {
             formance: components["schemas"]["CheckResult"];
             /**
              * @description NATS probe. When the deployment is unconfigured for NATS (env
-             *     `NATS_URL` unset, the API contract NullPublisher path), this reports
+             *     `NATS_URL` unset, NullPublisher path), this reports
              *     `{ ok: true, error: None, skipped: true }` so the operator console renders a
              *     neutral "skipped" dot rather than a red "down" one.
              */
@@ -4395,6 +4614,20 @@ export type components = {
             email: string;
             error: string;
         };
+        SessionView: {
+            /** @description The session making this request. */
+            current: boolean;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            issued_at: string;
+            /** Format: uuid */
+            jti: string;
+            /** Format: date-time */
+            last_seen_at: string;
+            remote_ip?: string | null;
+            user_agent?: string | null;
+        };
         /**
          * @example {
          *       "email": "alice@example.com"
@@ -4421,6 +4654,14 @@ export type components = {
              *     array unsubscribes from everything.
              */
             channels: string[];
+        };
+        /**
+         * @example {
+         *       "currency": "EUR"
+         *     }
+         */
+        SetWalletBody: {
+            currency: string;
         };
         SetWebhookBody: {
             /**
@@ -4580,6 +4821,10 @@ export type components = {
             };
             reason?: string;
         };
+        TerminateResult: {
+            /** Format: int64 */
+            revoked_sessions: number;
+        };
         TopupBody: {
             amount: string;
             /** @description Defaults to the org's billing currency when omitted. */
@@ -4672,7 +4917,7 @@ export type components = {
         UserDetail: {
             /**
              * Format: int64
-             * @description the API contract — count of unused backup codes on the user_totp row.
+             * @description count of unused backup codes on the user_totp row.
              *     Zero on legacy rows (the operator can hit "Regenerate" to
              *     populate). Drops by 1 every time the user logs in with a backup
              *     code (which also deletes the user_totp row, so the next check
@@ -4692,12 +4937,12 @@ export type components = {
             is_active: boolean;
             role: string;
             /**
-             * @description the API contract — true when the user has a confirmed `user_totp` row.
+             * @description true when the user has a confirmed `user_totp` row.
              *     Mutually exclusive with `totp_pending`.
              */
             totp_enrolled: boolean;
             /**
-             * @description the API contract — true when a `user_totp` row exists but `confirmed_at`
+             * @description true when a `user_totp` row exists but `confirmed_at`
              *     is NULL (the user fetched a QR but hasn't entered a verification
              *     code yet). Operator UX surfaces this as "Setup in progress".
              */
@@ -4751,16 +4996,33 @@ export type components = {
             amount: string;
             currency: string;
             /**
-             * @description True for the deployment's local currency (`wallet.local_currency`);
-             *     the others are candidates for migration.
+             * @description True for the user's Wallet currency (their own, else the deployment's
+             *     `wallet.local_currency`); the others are candidates for migration.
              */
             is_local: boolean;
         };
         WalletBalancesView: {
             balances: components["schemas"]["WalletBalanceRow"][];
+            /** @description The user's Wallet currency — the migration target. */
             local_currency: string;
             /** Format: uuid */
             user_id: string;
+            /**
+             * @description True when the user (or an operator) chose it explicitly, false when
+             *     it is the deployment default.
+             */
+            wallet_currency_explicit: boolean;
+        };
+        WalletView: {
+            /** @description Currencies the user may switch to with `PUT /me/wallet`. */
+            allowed: string[];
+            /** @description The currency this Wallet is held in. */
+            currency: string;
+            /**
+             * @description `true` when the user chose it themselves (or an operator set it);
+             *     `false` when it is the deployment default.
+             */
+            explicit: boolean;
         };
         WebhookConfig: {
             /** Format: uuid */
@@ -4818,6 +5080,75 @@ export type components = {
 };
 export type $defs = Record<string, never>;
 export interface operations {
+    get_branding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description White-label brand config */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Branding"];
+                };
+            };
+        };
+    };
+    health: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Process is alive */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    ready: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All dependencies probed successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Readiness"];
+                };
+            };
+            /** @description At least one dependency failed; `checks` shows which */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Readiness"];
+                };
+            };
+        };
+    };
     list_images: {
         parameters: {
             query?: never;
@@ -6299,6 +6630,79 @@ export interface operations {
             };
             /** @description Unknown connector slug */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    fx_probe: {
+        parameters: {
+            query: {
+                /** @description Source name to try. Defaults to the active one. */
+                provider?: string | null;
+                /** @description Currency to convert from, e.g. `RUB`. */
+                src: string;
+                /** @description Currency to convert into. Defaults to the Wallet's local currency. */
+                dst?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FxProbeResult"];
+                };
+            };
+            /** @description Bad currency, or src == dst */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The source is unknown or returned no usable rate */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    fx_providers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FxProvidersView"];
+                };
+            };
+            /** @description Not permitted */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8733,6 +9137,34 @@ export interface operations {
             };
         };
     };
+    admin_terminate_sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TerminateResult"];
+                };
+            };
+            /** @description Missing users.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     get_user_subscription: {
         parameters: {
             query?: never;
@@ -8868,6 +9300,45 @@ export interface operations {
                 content?: never;
             };
             /** @description User has no TOTP enrolment */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_set_wallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetWalletBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWalletView"];
+                };
+            };
+            /** @description Missing users.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -9117,6 +9588,43 @@ export interface operations {
             };
         };
     };
+    change_password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangePasswordResult"];
+                };
+            };
+            /** @description New password rejected by policy */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Current password wrong */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     register: {
         parameters: {
             query?: never;
@@ -9296,51 +9804,11 @@ export interface operations {
             };
         };
     };
-    get_branding: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description White-label brand config */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Branding"];
-                };
-            };
-        };
-    };
-    health: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Process is alive */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Health"];
-                };
-            };
-        };
-    };
     get_balance: {
         parameters: {
-            query: {
-                /** @description Currency code (e.g. `USD`). */
-                currency: string;
+            query?: {
+                /** @description Currency code (e.g. `USD`). Omit for the caller's Wallet currency. */
+                currency?: string | null;
             };
             header?: never;
             path?: never;
@@ -9465,9 +9933,9 @@ export interface operations {
     };
     get_card_balance: {
         parameters: {
-            query: {
-                /** @description Currency code (e.g. `USD`). */
-                currency: string;
+            query?: {
+                /** @description Currency code (e.g. `USD`). Omit for the caller's Wallet currency. */
+                currency?: string | null;
             };
             header?: never;
             path: {
@@ -9925,6 +10393,70 @@ export interface operations {
             };
         };
     };
+    list_sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionView"][];
+                };
+            };
+        };
+    };
+    terminate_other_sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TerminateResult"];
+                };
+            };
+        };
+    };
+    revoke_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jti: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such live session */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     get_subscriptions: {
         parameters: {
             query?: never;
@@ -9983,6 +10515,62 @@ export interface operations {
             };
             /** @description Missing or invalid token */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_my_wallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletView"];
+                };
+            };
+        };
+    };
+    set_my_wallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetWalletBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletView"];
+                };
+            };
+            /** @description Currency not allowed here */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wallet holds a balance — ask an operator to migrate it */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10596,35 +11184,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WebhookSecretView"];
-                };
-            };
-        };
-    };
-    ready: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description All dependencies probed successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Readiness"];
-                };
-            };
-            /** @description At least one dependency failed; `checks` shows which */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Readiness"];
                 };
             };
         };

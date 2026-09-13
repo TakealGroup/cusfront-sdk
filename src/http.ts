@@ -5,7 +5,10 @@ import type { TokenStore } from "./token-store.js";
  * Internal HTTP client. One per SDK instance; injected into each
  * resource. Responsibilities:
  *
- *  - Construct absolute URLs from `baseUrl` + path.
+ *  - Construct absolute URLs from `baseUrl` + API version + path.
+ *    Resources pass contract paths (`/me/deposits`); the `/v1` prefix is
+ *    added here, in one place. Only the deployment-level endpoints
+ *    (`/ready`, `/branding`, …) stay unversioned.
  *  - Set `Authorization: Bearer <jwt>` from the `TokenStore`.
  *  - Set `Content-Type: application/json` on bodies.
  *  - Parse JSON responses + map non-2xx to `ApiError`.
@@ -19,6 +22,24 @@ import type { TokenStore } from "./token-store.js";
  */
 
 export type FetchLike = typeof fetch;
+
+/** Current public contract revision of the Takeal API. */
+export const API_VERSION = "/v1";
+
+/** Host-level endpoints that are not part of a versioned contract. */
+const UNVERSIONED = new Set(["/health", "/ready", "/branding", "/favicon.ico"]);
+
+/**
+ * `/me/deposits` → `/v1/me/deposits`. Already-versioned paths and the
+ * unversioned ops endpoints pass through untouched.
+ */
+export function versionedPath(path: string): string {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  const bare = p.split("?")[0]!;
+  if (UNVERSIONED.has(bare)) return p;
+  if (bare === API_VERSION || bare.startsWith(`${API_VERSION}/`)) return p;
+  return `${API_VERSION}${p}`;
+}
 
 export interface HttpOptions {
   /** Request body. Will be JSON-serialised if not already a
@@ -105,8 +126,7 @@ export class HttpClient {
   private absolute(path: string): string {
     if (path.startsWith("http://") || path.startsWith("https://")) return path;
     const base = this.baseUrl.replace(/\/+$/, "");
-    const tail = path.startsWith("/") ? path : `/${path}`;
-    return `${base}${tail}`;
+    return `${base}${versionedPath(path)}`;
   }
 }
 

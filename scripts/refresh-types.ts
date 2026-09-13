@@ -6,9 +6,9 @@
  * The snapshot is git-ignored (it's the full API spec dump). To
  * (re)pull it from a running Takeal API, do:
  *
- *   curl http://localhost:7777/api/docs/openapi.json > openapi-snapshot.json
+ *   curl http://localhost:7777/v1/docs/openapi.json > openapi-snapshot.json
  *
- * Cusfront uses the global docs (`/api/docs`), not the merchant docs —
+ * Cusfront uses the global docs (`/v1/docs`), not the merchant docs —
  * it calls /auth/* + /me/*, which only the global spec includes.
  *
  * `openapi-typescript` is a build-only dep — never shipped to npm.
@@ -49,9 +49,10 @@ function dedupeOperationIds(spec: unknown): void {
         seen.add(op.operationId);
         continue;
       }
-      // Path looks like `/admin/...` or `/me/...` — use the second
-      // segment as the prefix (skip the leading slash).
-      const prefix = pathKey.split("/").filter(Boolean)[0] ?? "x";
+      // Path looks like `/v1/admin/...` or `/v1/me/...` — use the first
+      // segment after the API version as the prefix.
+      const prefix =
+        pathKey.split("/").filter(Boolean).find((s) => !/^v\d+$/.test(s)) ?? "x";
       const next = `${prefix}_${op.operationId}`;
       op.operationId = next;
       seen.add(next);
@@ -130,7 +131,7 @@ const ast = await openapiTS(spec, {
 const header = `/**
  * AUTO-GENERATED — do not edit by hand. Run \`pnpm refresh-types\`.
  *
- * Source: openapi-snapshot.json (pulled from the Takeal API's /api/docs/openapi.json).
+ * Source: openapi-snapshot.json (pulled from the Takeal API's /v1/docs/openapi.json).
  * Generator: openapi-typescript.
  */
 /* eslint-disable */

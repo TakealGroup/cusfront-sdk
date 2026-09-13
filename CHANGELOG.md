@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **API paths are versioned.** Every request now goes to `/v1/...`
+  (`/v1/auth/login`, `/v1/me/deposits`, …); the SDK adds the prefix itself,
+  so `baseUrl` stays the bare API origin and resource calls are unchanged.
+  Only `/ready` and `/branding` remain unversioned. Requires a Takeal API
+  that serves `/v1` (the pre-`/v1` paths are still answered by the API for
+  one release, with `Deprecation` headers).
+
 ### Added
 
 - `client.blog.list()` / `client.blog.get(slug)` — public posts returned as

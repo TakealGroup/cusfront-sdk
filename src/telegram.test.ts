@@ -131,7 +131,7 @@ describe("fromInitData", () => {
     );
 
     expect(captured).toHaveLength(1);
-    expect(captured[0]!.url).toBe("https://api.test/auth/telegram/exchange");
+    expect(captured[0]!.url).toBe("https://api.test/v1/auth/telegram/exchange");
     expect(captured[0]!.init.method).toBe("POST");
     expect(JSON.parse(captured[0]!.init.body as string)).toEqual({ init_data: raw });
     // Exchange is unauthenticated — no bearer on the request.
