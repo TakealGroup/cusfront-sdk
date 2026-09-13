@@ -17,6 +17,7 @@ import { DepositsResource } from "./resources/deposits.js";
 import { CardsResource } from "./resources/cards.js";
 import { BalanceResource } from "./resources/balance.js";
 import { BrandingResource } from "./resources/branding.js";
+import { WalletResource } from "./resources/wallet.js";
 import { BlogResource } from "./resources/blog.js";
 import { SubscriptionsResource } from "./resources/subscriptions.js";
 import {
@@ -52,6 +53,7 @@ export type {
 } from "./resources/cards.js";
 export type { Balance } from "./resources/balance.js";
 export type { Branding } from "./resources/branding.js";
+export type { Wallet } from "./resources/wallet.js";
 export type { BlogPost, BlogBlock, BlogList, BlogListInput } from "./resources/blog.js";
 export type {
   Subscriptions,
@@ -87,8 +89,10 @@ export interface CusfrontClient {
   readonly deposits: DepositsResource;
   /** Cards (money OUT via an issuer connector): create, get, list, balance. */
   readonly cards: CardsResource;
-  /** Wallet balance lookup, per currency. */
+  /** Wallet balance lookup (defaults to the wallet's own currency). */
   readonly balance: BalanceResource;
+  /** The wallet's currency: read it, switch it while the wallet is empty. */
+  readonly wallet: WalletResource;
   /** Runtime white-label config (`GET /branding`, public): names, logo, wallet label. */
   readonly branding: BrandingResource;
   /** Public blog posts, returned as structured blocks to render in your own style. */
@@ -120,6 +124,7 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     deposits: new DepositsResource(http),
     cards: new CardsResource(http),
     balance: new BalanceResource(http),
+    wallet: new WalletResource(http),
     branding: new BrandingResource(http),
     blog: new BlogResource(http),
     subscriptions: new SubscriptionsResource(http),

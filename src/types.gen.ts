@@ -3313,6 +3313,12 @@ export type components = {
         Credentials: {
             email: string;
             password: string;
+            /**
+             * @description Optional Wallet currency for the new account. Must be the
+             *     deployment's local currency or one of `wallet.allowed_currencies`;
+             *     omitted = local. Ignored on login.
+             */
+            wallet_currency?: string;
         };
         /** @description Full per-merchant customer row. */
         Customer: {

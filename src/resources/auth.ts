@@ -28,6 +28,9 @@ export interface User {
   email_pending?: boolean;
   created_at: string;
   updated_at: string;
+  /** ISO 4217 code the user's wallet is held in (their own choice, else the
+   *  deployment default). Present on `GET /auth/me`. */
+  wallet_currency?: string;
 }
 
 export interface LoginInput {
