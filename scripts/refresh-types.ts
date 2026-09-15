@@ -68,7 +68,7 @@ dedupeOperationIds(spec);
 // before generating, so a refresh can never leak internals by accident.
 // Keep this list in sync with the repo's sanitisation rules.
 const SCRUB: Array<[RegExp, string]> = [
-  [/\s*\((?:ADR|see ADR)\s*\d{4}[^)]*\)/g, ""], // "(ADR 0028 PCI rule …)"
+  [/\s*\((?:ADR|see ADR)\s*\d{4}[^)]*\)/g, ""], // parenthetical internal decision-record references
   [/\s*\(#\d+\)/g, ""], // "(#42)"
   [/\s*\(#\d+[^)]*\)/g, ""], // "(#22, …)"
   // Bare issue references: "#34: provider-driven …", "before #34", "/ #6".

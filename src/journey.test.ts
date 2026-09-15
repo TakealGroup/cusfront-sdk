@@ -109,7 +109,7 @@ describe.runIf(await reachable())("live Cusfront journey", () => {
     expect(cb.currency).toBe(CCY);
     expect(typeof cb.amount).toBe("string");
 
-    // reveal (ADR 0028): re-auth with password → full (mock) PAN + CVV.
+    // reveal: re-auth with password → full (mock) PAN + CVV.
     const revealed = await client.cards.reveal(card.id, { password: PASSWORD });
     expect(revealed.pan.length, `pan (${JSON.stringify(revealed)})`).toBeGreaterThanOrEqual(12);
     expect(revealed.cvv).toBeTruthy();
