@@ -108,6 +108,93 @@ For the lower-level call returning the raw session envelope (including
 `email_pending`), use `client.auth.exchangeTelegram({ initData })` on a client
 you built yourself.
 
+### "I already have an account"
+
+By default an unknown Telegram id gets a fresh account. That's wrong for a user
+who signed up on the website with an email and a password and then opens the
+Mini App: they'd end up with a second, empty account. Pass `provision: false`
+to find out first, then let the user choose:
+
+```ts
+import {
+  fromTelegramWebApp,
+  TelegramUnknownError,
+} from "@takeal/cusfront-sdk/telegram";
+import { createClient } from "@takeal/cusfront-sdk";
+
+const config = { baseUrl: "https://api.your-deployment.example.com" };
+
+try {
+  // Known Telegram → signed-in client, as before.
+  const client = await fromTelegramWebApp(config, { provision: false });
+} catch (e) {
+  if (!(e instanceof TelegramUnknownError)) throw e;
+
+  // Nobody has signed in with this Telegram yet. Nothing was created.
+  const client = createClient(config);
+  const choice = await askUser(); // "create" | "link"
+
+  if (choice === "create") {
+    // Same as the default flow: a new account, email_pending === true.
+    await client.auth.exchangeTelegram({ initData: e.initData, provision: true });
+  } else {
+    // Attach this Telegram to the existing email + password account.
+    const { email, password } = await askCredentials();
+    await client.auth.linkTelegram({ initData: e.initData, email, password });
+  }
+  // client is signed in either way.
+}
+```
+
+If you'd rather branch on a value than catch an error, `exchangeInitData`
+returns both the client and the outcome:
+
+```ts
+import { exchangeInitData, readWebAppInitData } from "@takeal/cusfront-sdk/telegram";
+
+const initData = readWebAppInitData()!;
+const { client, session } = await exchangeInitData(initData, config, { provision: false });
+if (session.stage === "unknown") {
+  // client has no session yet; call client.auth.linkTelegram or
+  // client.auth.exchangeTelegram({ initData, provision: true }).
+}
+```
+
+`linkTelegram` checks the password the same way `login` does and returns the
+same `stage: "jwt"` envelope. On the next launch the plain exchange finds the
+link and signs the user straight in. Errors to expect:
+
+- `401 unauthenticated` — wrong email or password.
+- `403 second_factor_required` — the account signs in with a second factor;
+  such accounts can't be linked from a Mini App.
+- `409 telegram_already_linked_other` — the account already has a different
+  Telegram. Unlink it first.
+- `409 telegram_in_use` — this Telegram already belongs to another account
+  that has been used. A Telegram can be attached to one account only, and the
+  API does not merge accounts.
+
+Two more calls for a signed-in user:
+
+```ts
+// Attach Telegram to the current session (e.g. the Mini App was opened
+// through a deep link that already carried a session):
+await client.me.linkTelegram(window.Telegram.WebApp.initData);
+
+// Detach it. Refused with 409 `last_credential` when the account has no
+// password, because Telegram would be its only way to sign in.
+await client.me.unlinkTelegram();
+```
+
+The user object (`client.auth.me()` and the `user` in every `stage: "jwt"`
+envelope) carries the state, so a settings screen needs no extra request:
+
+```ts
+type User = {
+  // ...
+  telegram: { username: string | null; linked_at: string } | null;
+};
+```
+
 ## Brand config
 
 Whitelabel-friendly by design — the SDK ships no embedded brand. Pass `brand` at runtime and the client app reads it back via `client.brand`:
@@ -152,6 +239,7 @@ Available now:
 - `@takeal/cusfront-sdk/wallet` — `WalletResource` (the wallet's currency).
 - `@takeal/cusfront-sdk/sessions` — `SessionsResource` (where the user is signed in).
 - `@takeal/cusfront-sdk/push` — `PushResource` (Web Push subscription).
+- `@takeal/cusfront-sdk/me` — `MeResource` (link or unlink Telegram for the signed-in user).
 - `@takeal/cusfront-sdk/webhooks` — HMAC-SHA256 signature verifier (no network, isomorphic).
 - `@takeal/cusfront-sdk/react` — optional React hooks layer (`ClientProvider` + `useMe` / `useDeposits` / `useCards` / `useBalance`). React is a `peerDependency`, never bundled.
 - `@takeal/cusfront-sdk/telegram` — Telegram Mini App `initData` → authenticated client bridge.

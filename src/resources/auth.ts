@@ -1,5 +1,6 @@
 import type { HttpClient } from "../http.js";
 import type { TokenStore } from "../token-store.js";
+import { isApiError } from "../error.js";
 
 /**
  * Auth resource — `client.auth.*`.
@@ -31,6 +32,41 @@ export interface User {
   /** ISO 4217 code the user's wallet is held in (their own choice, else the
    *  deployment default). Present on `GET /auth/me`. */
   wallet_currency?: string;
+  /** The Telegram account linked to this user, or `null` when none is.
+   *  Present on `GET /auth/me` and inside every `stage: "jwt"` envelope. */
+  telegram?: TelegramLink | null;
+}
+
+/** A Telegram account attached to a user. One Telegram per account and one
+ *  account per Telegram. */
+export interface TelegramLink {
+  /** Telegram username without the `@`, or `null` when the user has none. */
+  username: string | null;
+  /** When the link was made, ISO-8601. */
+  linked_at: string;
+}
+
+export interface ExchangeTelegramInput {
+  /** Raw `window.Telegram.WebApp.initData`, passed to the server verbatim. */
+  initData: string;
+  /** Create an account for a Telegram id the deployment has not seen before.
+   *  Default `true`. With `false` the exchange resolves to
+   *  `{ stage: "unknown" }` instead, so the app can offer "create an account"
+   *  or "I already have one". */
+  provision?: boolean;
+}
+
+/** `exchangeTelegram({ provision: false })` for a Telegram id nobody has
+ *  signed in with yet. No account was created and no JWT was stored. */
+export interface TelegramUnknown {
+  stage: "unknown";
+}
+
+export interface LinkTelegramInput {
+  /** Raw `window.Telegram.WebApp.initData`, passed to the server verbatim. */
+  initData: string;
+  email: string;
+  password: string;
 }
 
 export interface LoginInput {
@@ -213,16 +249,55 @@ export class AuthResource {
 
   /** Exchange a signed Telegram Mini App `initData` payload for a session
    *  JWT. The server validates the initData HMAC against the deployment's bot
-   *  token, then find-or-creates the end-user. First-time Telegram users are
-   *  auto-provisioned with `user.email_pending === true` — prompt them for a
-   *  real email and call {@link linkEmail}. Stores the JWT on success.
+   *  token, then looks the Telegram id up. A known id signs in. An unknown id
+   *  gets a fresh account (`user.email_pending === true` — prompt for a real
+   *  email and call {@link linkEmail}) unless `provision: false` is passed, in
+   *  which case the call resolves to `{ stage: "unknown" }`, nothing is
+   *  created and nothing is stored; the app then offers to create the account
+   *  (call again with `provision: true`) or to attach the Telegram to an
+   *  existing one ({@link linkTelegram}). Stores the JWT on `stage: "jwt"`.
+   *
+   *  Every other error still throws an `ApiError` (401 `invalid_init_data`,
+   *  503 `telegram_not_configured`, …).
    *
    *  Most consumers use the higher-level `fromInitData` / `fromTelegramWebApp`
    *  helpers in `@takeal/cusfront-sdk/telegram`; reach for this directly when
    *  you already hold a configured client. */
-  async exchangeTelegram(input: { initData: string }): Promise<JwtIssued> {
-    const resp = await this.http.post<JwtIssued>("/auth/telegram/exchange", {
-      body: { init_data: input.initData },
+  exchangeTelegram(input: { initData: string; provision?: true }): Promise<JwtIssued>;
+  exchangeTelegram(input: ExchangeTelegramInput): Promise<JwtIssued | TelegramUnknown>;
+  async exchangeTelegram(input: ExchangeTelegramInput): Promise<JwtIssued | TelegramUnknown> {
+    const body: { init_data: string; provision?: boolean } = { init_data: input.initData };
+    if (input.provision !== undefined) body.provision = input.provision;
+    let resp: JwtIssued;
+    try {
+      resp = await this.http.post<JwtIssued>("/auth/telegram/exchange", {
+        body,
+        skipAuth: true,
+      });
+    } catch (e) {
+      if (isApiError(e) && e.status === 404 && e.code === "telegram_unknown") {
+        return { stage: "unknown" };
+      }
+      throw e;
+    }
+    await Promise.resolve(this.tokens.set(resp.access_token));
+    return resp;
+  }
+
+  /** Attach the Telegram account behind `initData` to an existing email +
+   *  password account and sign in as that account. No bearer needed; the
+   *  password is checked the same way `login` checks it. The JWT is stored.
+   *
+   *  Errors: 401 `unauthenticated` (wrong email or password, as with
+   *  `login`) / `invalid_init_data`; 403
+   *  `user_disabled` / `second_factor_required` (accounts that sign in with
+   *  a second factor can't be linked from a Mini App); 409
+   *  `telegram_already_linked_other` (this account already has a different
+   *  Telegram; unlink it first) / `telegram_in_use` (this Telegram belongs to
+   *  another account); 503 `telegram_not_configured`. */
+  async linkTelegram(input: LinkTelegramInput): Promise<JwtIssued> {
+    const resp = await this.http.post<JwtIssued>("/auth/telegram/link", {
+      body: { init_data: input.initData, email: input.email, password: input.password },
       skipAuth: true,
     });
     await Promise.resolve(this.tokens.set(resp.access_token));

@@ -1751,8 +1751,8 @@ export type paths = {
         };
         /**
          * List users
-         * @description Returns end-user accounts newest first, optionally filtered by email.
-         *     Operator-only.
+         * @description Returns end-user accounts newest first, optionally filtered by email or
+         *     narrowed to accounts that still lack a real email. Operator-only.
          */
         get: operations["admin_list_users"];
         put?: never;
@@ -1918,6 +1918,30 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/users/{id}/telegram": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unlink a user's Telegram account
+         * @description Operator action for support cases. Removes the user's Telegram link so
+         *     the Mini App treats them as a new visitor next time; the user can link
+         *     again themselves. Refused when the account has no password, because
+         *     nothing would be left to sign in with. Needs the `users.write`
+         *     permission. Always audited.
+         */
+        delete: operations["admin_unlink_telegram"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/users/{id}/totp": {
         parameters: {
             query?: never;
@@ -1931,9 +1955,9 @@ export type paths = {
         /**
          * Reset a user's two-factor authentication
          * @description Removes the user's authenticator enrolment so they set it up again on
-         *     their next login. Use it when someone has lost their phone. Safe to call
-         *     for a user who is not enrolled; the response then says `removed: false`.
-         *     Always audited.
+         *     their next login. Use it when someone has lost their phone. It also lifts
+         *     a lock from too many wrong codes. Safe to call for a user who is not
+         *     enrolled; the response then says `removed: false`. Always audited.
          */
         delete: operations["reset_totp"];
         options?: never;
@@ -2021,11 +2045,17 @@ export type paths = {
         /**
          * Log in with email and password
          * @description The response is tagged by `stage`. End users get `jwt` with the session
-         *     token right away. Operator roles must pass a second factor:
-         *     `totp_setup_required` on the first login (enrol an authenticator, then
-         *     call `POST /auth/login/totp-setup`) and `totp_required` afterwards (call
-         *     `POST /auth/login/totp`). A wrong password and an unknown email return
-         *     the same 401.
+         *     token right away. Accounts whose role has any operator permission must
+         *     pass a second factor: `totp_setup_required` on the first login (enrol an
+         *     authenticator, then call `POST /auth/login/totp-setup`) and
+         *     `totp_required` afterwards (call `POST /auth/login/totp`). A wrong
+         *     password and an unknown email return the same 401.
+         *
+         *     Five wrong codes in a row lock the account for 15 minutes. Each lock
+         *     after that lasts twice as long as the previous one, up to 24 hours, until
+         *     the user signs in successfully. While the account is locked, this
+         *     endpoint and the code endpoints return 429 with `too_many_attempts`. An
+         *     operator can lift the lock by resetting the user's two-factor setup.
          */
         post: operations["login"];
         delete?: never;
@@ -2047,7 +2077,8 @@ export type paths = {
          * Switch to a Telegram or email code
          * @description Sends a one-time code by the chosen method and returns a new
          *     `challenge_token` for `POST /auth/login/otp/verify`. The method must be
-         *     in `available_methods` of the login response.
+         *     in `available_methods` of the `totp_required` login response. A
+         *     `totp_setup_required` challenge can't be switched; finish enrolment first.
          */
         post: operations["login_2fa_switch"];
         delete?: never;
@@ -2091,7 +2122,8 @@ export type paths = {
          * @description Send the `challenge_token` from the `totp_required` response with the
          *     6-digit code. A backup code in `XXXX-XXXX` form is accepted instead;
          *     using one removes the authenticator enrolment, and the user enrols again
-         *     on the next login.
+         *     on the next login. Wrong codes count toward the lock described under
+         *     `POST /auth/login`; the fifth one in a row returns 429.
          */
         post: operations["login_totp"];
         delete?: never;
@@ -2132,7 +2164,8 @@ export type paths = {
         };
         /**
          * Get the current user
-         * @description Returns the account behind the bearer token, plus its `wallet_currency`.
+         * @description Returns the account behind the bearer token, plus its `wallet_currency`
+         *     and `telegram` (`{ username, linked_at }` or `null`).
          *     Use it on app start to check whether a stored token is still valid; a
          *     401 means the token expired or was revoked and the user must log in
          *     again.
@@ -2204,10 +2237,47 @@ export type paths = {
          * @description Exchanges a signed Telegram Mini App `initData` payload for a session. A
          *     Telegram id seen for the first time gets a new end-user account with a
          *     placeholder email and `email_pending: true`; the client should then ask
-         *     for a real address and send it to `POST /me/email`. The response is the
-         *     `stage: "jwt"` envelope of `POST /auth/login`.
+         *     for a real address and send it to `POST /me/email`. With
+         *     `provision: false` an unknown id is answered with `404 telegram_unknown`
+         *     and no account is created, so the app can ask whether the user already
+         *     has one and link it with `POST /auth/telegram/link`. The response is the
+         *     `stage: "jwt"` envelope of `POST /auth/login`. Accounts with operator
+         *     permissions can't sign in this way; they use `POST /auth/login` with a
+         *     second factor.
          */
         post: operations["telegram_exchange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/telegram/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link Telegram to an existing account and sign in
+         * @description For a Mini App user who already has an email + password account. Proves
+         *     the password, attaches the Telegram account from `init_data` to that
+         *     account and returns a session, the `stage: "jwt"` envelope of
+         *     `POST /auth/login`. From then on `POST /auth/telegram/exchange` signs
+         *     the user straight in.
+         *
+         *     One Telegram account maps to one account here. A Telegram id that the
+         *     exchange had auto-provisioned into an empty account (no password, no
+         *     activity) is moved over and that empty account is retired. A Telegram id
+         *     that belongs to an account with activity is refused with
+         *     `telegram_in_use`; an account that already has a different Telegram is
+         *     refused with `telegram_already_linked_other`. Operator accounts can't
+         *     be linked. Linking sends a security notice to the account.
+         */
+        post: operations["telegram_link"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2683,6 +2753,34 @@ export type paths = {
         put: operations["put_subscriptions"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/telegram": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link Telegram to your account
+         * @description For a signed-in user inside the Mini App. Attaches the Telegram account
+         *     from `init_data` to the current account, under the same rules as
+         *     `POST /auth/telegram/link`, and returns the updated user. Linking the
+         *     same Telegram account again is a no-op.
+         */
+        post: operations["me_link_telegram"];
+        /**
+         * Unlink Telegram from your account
+         * @description Detaches the Telegram account. Refused when the account has no password,
+         *     because nothing would be left to sign in with.
+         */
+        delete: operations["me_unlink_telegram"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4520,6 +4618,15 @@ export type components = {
             /** @description Why the settlement failed, in plain words. Stored on the cycle and in the audit log. */
             reason: string;
         };
+        /**
+         * @example {
+         *       "init_data": "query_id=AAH...&user=%7B%22id%22%3A777000%7D&auth_date=1700000000&hash=abcdef..."
+         *     }
+         */
+        MeLinkTelegramBody: {
+            /** @description Raw `window.Telegram.WebApp.initData` of the Mini App session to attach. */
+            init_data: string;
+        };
         /** @description A person on the organization's roster. */
         MemberView: {
             /**
@@ -5705,6 +5812,33 @@ export type components = {
         TelegramExchangeBody: {
             /** @description Raw `window.Telegram.WebApp.initData` string as handed to the Mini App by the Telegram client; verified server-side against the bot token. */
             init_data: string;
+            /** @description Create an account for a Telegram id seen for the first time. Defaults to `true`. Send `false` to get `404 telegram_unknown` instead, so the app can offer "create an account" or "I already have one" (`POST /auth/telegram/link`). */
+            provision?: boolean;
+        };
+        /** @description The Telegram account attached to a user, as shown to clients. */
+        TelegramLink: {
+            /**
+             * Format: date-time
+             * @description When the Telegram account was attached.
+             */
+            linked_at: string;
+            /** @description Telegram username without the `@`; absent when the account has none. */
+            username?: string | null;
+        };
+        /**
+         * @example {
+         *       "email": "alice@example.com",
+         *       "init_data": "query_id=AAH...&user=%7B%22id%22%3A777000%7D&auth_date=1700000000&hash=abcdef...",
+         *       "password": "Correct-Horse-Battery-9"
+         *     }
+         */
+        TelegramLinkBody: {
+            /** @description Email of the existing account. */
+            email: string;
+            /** @description Raw `window.Telegram.WebApp.initData` as handed to the Mini App; verified server-side against the bot token. */
+            init_data: string;
+            /** @description Password of the existing account. */
+            password: string;
         };
         TerminateBody: {
             /** @description Extra key-value pairs passed to the provider, e.g. `{ "reason_code": "LOST_OR_STOLEN" }`. */
@@ -5786,6 +5920,15 @@ export type components = {
             /** @description Transactions on this page, newest first. */
             transactions: components["schemas"]["TransactionItem"][];
         };
+        UnlinkTelegramResult: {
+            /** @description True when a Telegram link was removed, false when the user had none. */
+            removed: boolean;
+            /**
+             * Format: uuid
+             * @description User UUID.
+             */
+            user_id: string;
+        };
         UpdateEndpointBody: {
             /** @description New event filter. Empty list means every event. */
             event_filter?: string[] | null;
@@ -5850,6 +5993,8 @@ export type components = {
             deposit_count: number;
             /** @description Login email. */
             email: string;
+            /** @description True while the account still holds the placeholder address it was created with from Telegram, before the user added a real email. */
+            email_pending: boolean;
             /** @description True when the user can log in with a password. */
             has_password: boolean;
             /**
@@ -5861,6 +6006,7 @@ export type components = {
             is_active: boolean;
             /** @description Role name. */
             role: string;
+            telegram?: null | components["schemas"]["TelegramLink"];
             /** @description True when two-factor authentication is fully set up. Never true together with `totp_pending`. */
             totp_enrolled: boolean;
             /** @description True when the user started two-factor setup but has not confirmed it with a code yet. */
@@ -5889,6 +6035,8 @@ export type components = {
             deposit_count: number;
             /** @description Login email. */
             email: string;
+            /** @description True while the account still holds the placeholder address it was created with from Telegram. */
+            email_pending: boolean;
             /** @description True when the user can log in with a password. */
             has_password: boolean;
             /**
@@ -9934,6 +10082,8 @@ export interface operations {
                 q?: string | null;
                 /** @description Maximum number of rows to return. Default 100, max 500. */
                 limit?: number | null;
+                /** @description `true` returns only accounts still on the placeholder email they were created with from Telegram; `false` only accounts with a real email. Omit for both. */
+                email_pending?: boolean | null;
             };
             header?: never;
             path?: never;
@@ -10268,6 +10418,49 @@ export interface operations {
             };
         };
     };
+    admin_unlink_telegram: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnlinkTelegramResult"];
+                };
+            };
+            /** @description Caller lacks the `users.write` permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The account has no password; Telegram is its only way in (`last_credential`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     reset_totp: {
         parameters: {
             query?: never;
@@ -10462,6 +10655,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Locked after too many wrong codes; the message says when to try again */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     login_2fa_switch: {
@@ -10499,6 +10699,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Locked after too many wrong codes; the message says when to try again */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     login_otp_verify: {
@@ -10525,6 +10732,13 @@ export interface operations {
             };
             /** @description Wrong code or expired challenge */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Locked after too many wrong codes; the message says when to try again */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10561,6 +10775,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Locked after too many wrong codes; the message says when to try again */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     login_totp_setup: {
@@ -10587,6 +10808,13 @@ export interface operations {
             };
             /** @description Wrong code or expired challenge */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Locked after too many wrong codes; the message says when to try again */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10725,14 +10953,73 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Account is disabled */
+            /** @description Account is disabled (`user_disabled`), or it has operator permissions and must sign in with email and password (`second_factor_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            /** @description `provision: false` and this Telegram id has no account yet (`telegram_unknown`) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Telegram login is not enabled on this deployment */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    telegram_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelegramLinkBody"];
+            };
+        };
+        responses: {
+            /** @description Linked and signed in; the `stage: "jwt"` envelope */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Wrong email or password (`unauthenticated`), or the initData signature is invalid or stale (`invalid_init_data`) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Account disabled (`user_disabled`) or it has operator permissions (`second_factor_required`) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `telegram_already_linked_other` or `telegram_in_use` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Telegram sign-in is not enabled on this deployment */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -11622,6 +11909,99 @@ export interface operations {
             };
             /** @description Missing or invalid token */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    me_link_telegram: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeLinkTelegramBody"];
+            };
+        };
+        responses: {
+            /** @description The user, with `telegram` set */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Missing token, or the initData signature is invalid or stale (`invalid_init_data`) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Account disabled (`user_disabled`) or it has operator permissions (`second_factor_required`) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `telegram_already_linked_other` or `telegram_in_use` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Telegram sign-in is not enabled on this deployment */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    me_unlink_telegram: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The user, with `telegram: null` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No Telegram account is linked (`telegram_not_linked`) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The account has no password; Telegram is its only way in (`last_credential`) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

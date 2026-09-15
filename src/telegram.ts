@@ -21,7 +21,7 @@ import {
   type CreateClientOptions,
   type CusfrontClient,
 } from "./index.js";
-import type { JwtIssued } from "./resources/auth.js";
+import type { JwtIssued, TelegramUnknown } from "./resources/auth.js";
 
 /** The Telegram `user` object embedded (URL-encoded JSON) in initData. */
 export interface TelegramUser {
@@ -143,16 +143,71 @@ export interface FromInitDataOptions extends WellFormedOptions {
    *  sole judge. Default false — the fail-fast check saves a round-trip on
    *  obviously-bad input. */
   skipWellFormedCheck?: boolean;
+  /** Create an account for a Telegram id the deployment has not seen before.
+   *  Default `true`. With `false`, an unknown id makes {@link fromInitData} /
+   *  {@link fromTelegramWebApp} throw {@link TelegramUnknownError} (and
+   *  {@link exchangeInitData} resolve with `session.stage === "unknown"`)
+   *  instead of creating anything. */
+  provision?: boolean;
+}
+
+/** Thrown by {@link fromInitData} / {@link fromTelegramWebApp} when
+ *  `provision: false` was passed and the Telegram id has no account yet.
+ *  Nothing was created and no JWT was stored. `initData` is the payload that
+ *  was exchanged, so the app can go on with
+ *  `client.auth.linkTelegram({ initData, email, password })` or retry with
+ *  `provision: true`. */
+export class TelegramUnknownError extends Error {
+  constructor(readonly initData: string) {
+    super("this Telegram account is not linked to any user (provision: false)");
+    this.name = "TelegramUnknownError";
+  }
+}
+
+/** What {@link exchangeInitData} resolves to. When `session.stage` is
+ *  `"jwt"` the client is signed in; when it is `"unknown"` the client is
+ *  built but has no session. */
+export interface InitDataExchange {
+  client: CusfrontClient;
+  session: JwtIssued | TelegramUnknown;
 }
 
 /**
- * Build an authenticated client from a raw `initData` string.
+ * Build a client from a raw `initData` string and exchange the payload,
+ * returning both the client and the exchange result.
  *
  * 1. (unless skipped) structurally validate the payload — throws
  *    {@link InitDataError} on malformed/stale input.
  * 2. exchange it at `POST /auth/telegram/exchange` — the server validates the
  *    HMAC; a bad signature throws a 401 `ApiError`.
- * 3. store the returned JWT and return the ready-to-use client.
+ * 3. on `stage: "jwt"` the JWT is stored and the client is ready. With
+ *    `provision: false` and a Telegram id nobody has signed in with,
+ *    `session` is `{ stage: "unknown" }` and the client is unauthenticated;
+ *    continue with `client.auth.linkTelegram(...)` or
+ *    `client.auth.exchangeTelegram({ initData, provision: true })`.
+ *
+ * Use this when the app wants to branch on the outcome itself;
+ * {@link fromInitData} is the throwing shorthand.
+ */
+export async function exchangeInitData(
+  initData: string,
+  config: CreateClientOptions,
+  opts: FromInitDataOptions = {},
+): Promise<InitDataExchange> {
+  if (!opts.skipWellFormedCheck) assertWellFormed(initData, opts);
+  const client = createClient(config);
+  const session = await client.auth.exchangeTelegram({
+    initData,
+    ...(opts.provision !== undefined ? { provision: opts.provision } : {}),
+  });
+  return { client, session };
+}
+
+/**
+ * Build an authenticated client from a raw `initData` string. Thin wrapper
+ * over {@link exchangeInitData} that never hands back a client without a
+ * session: with `provision: false` and an unknown Telegram id it throws
+ * {@link TelegramUnknownError} (carrying `initData`) instead.
  *
  * Read `client.auth.me()` (or call `client.auth.exchangeTelegram` directly for
  * the raw session) to check `email_pending` and prompt for an email.
@@ -162,9 +217,8 @@ export async function fromInitData(
   config: CreateClientOptions,
   opts: FromInitDataOptions = {},
 ): Promise<CusfrontClient> {
-  if (!opts.skipWellFormedCheck) assertWellFormed(initData, opts);
-  const client = createClient(config);
-  await client.auth.exchangeTelegram({ initData });
+  const { client, session } = await exchangeInitData(initData, config, opts);
+  if (session.stage === "unknown") throw new TelegramUnknownError(initData);
   return client;
 }
 
@@ -182,7 +236,9 @@ export function readWebAppInitData(): string | null {
 
 /**
  * Convenience entry for a Mini App: read `initData` from the Telegram WebApp
- * SDK and exchange it. Throws if not running inside a Telegram Mini App.
+ * SDK and exchange it. Throws {@link InitDataError} if not running inside a
+ * Telegram Mini App, and {@link TelegramUnknownError} when `provision: false`
+ * was passed and the Telegram id has no account yet.
  */
 export async function fromTelegramWebApp(
   config: CreateClientOptions,

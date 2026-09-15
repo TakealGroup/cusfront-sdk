@@ -4,10 +4,13 @@ import {
   assertWellFormed,
   InitDataError,
   fromInitData,
+  exchangeInitData,
+  TelegramUnknownError,
   readWebAppInitData,
   fromTelegramWebApp,
 } from "./telegram.js";
 import { inMemoryStore } from "./token-store.js";
+import { isApiError, type ApiError } from "./error.js";
 import type { FetchLike } from "./http.js";
 
 /**
@@ -152,6 +155,80 @@ describe("fromInitData", () => {
       fromInitData("", { baseUrl: "https://api.test", tokenStore: inMemoryStore(), fetch: fake }),
     ).rejects.toBeInstanceOf(InitDataError);
     expect(called).toBe(false);
+  });
+});
+
+describe("fromInitData / exchangeInitData with provision:false", () => {
+  function unknownFetch(captured: { url: string; init: RequestInit }[]): FetchLike {
+    return async (url, init) => {
+      captured.push({ url: String(url), init: init ?? {} });
+      return new Response(
+        JSON.stringify({ code: "telegram_unknown", message: "no account for this Telegram" }),
+        { status: 404, headers: { "Content-Type": "application/json" } },
+      );
+    };
+  }
+
+  it("fromInitData throws TelegramUnknownError carrying the initData; nothing stored", async () => {
+    const captured: { url: string; init: RequestInit }[] = [];
+    const store = inMemoryStore();
+    const raw = makeInitData(NOW);
+    const err = await fromInitData(
+      raw,
+      { baseUrl: "https://api.test", tokenStore: store, fetch: unknownFetch(captured) },
+      { nowUnix: NOW + 5, provision: false },
+    )
+      .then(() => null)
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TelegramUnknownError);
+    expect((err as TelegramUnknownError).name).toBe("TelegramUnknownError");
+    expect((err as TelegramUnknownError).initData).toBe(raw);
+    expect(JSON.parse(captured[0]!.init.body as string)).toEqual({ init_data: raw, provision: false });
+    expect(await store.get()).toBeNull();
+  });
+
+  it("exchangeInitData resolves {session: unknown} with an unauthenticated client", async () => {
+    const captured: { url: string; init: RequestInit }[] = [];
+    const store = inMemoryStore();
+    const raw = makeInitData(NOW);
+    const { client, session } = await exchangeInitData(
+      raw,
+      { baseUrl: "https://api.test", tokenStore: store, fetch: unknownFetch(captured) },
+      { nowUnix: NOW + 5, provision: false },
+    );
+    expect(session).toEqual({ stage: "unknown" });
+    expect(await client.tokens.get()).toBeNull();
+    // The client is usable for the follow-up call.
+    expect(typeof client.auth.linkTelegram).toBe("function");
+  });
+
+  it("provision is omitted from the body unless given", async () => {
+    const captured: { url: string; init: RequestInit }[] = [];
+    const raw = makeInitData(NOW);
+    await exchangeInitData(
+      raw,
+      { baseUrl: "https://api.test", tokenStore: inMemoryStore(), fetch: unknownFetch(captured) },
+      { nowUnix: NOW + 5 },
+    ).catch(() => undefined);
+    expect(JSON.parse(captured[0]!.init.body as string)).toEqual({ init_data: raw });
+  });
+
+  it("other error codes still surface as ApiError", async () => {
+    const fake: FetchLike = async () =>
+      new Response(JSON.stringify({ code: "invalid_init_data", message: "bad hash" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    const err = await fromInitData(
+      makeInitData(NOW),
+      { baseUrl: "https://api.test", tokenStore: inMemoryStore(), fetch: fake },
+      { nowUnix: NOW + 5, provision: false },
+    )
+      .then(() => null)
+      .catch((e: unknown) => e);
+    expect(isApiError(err)).toBe(true);
+    expect((err as ApiError).status).toBe(401);
+    expect((err as ApiError).code).toBe("invalid_init_data");
   });
 });
 

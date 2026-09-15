@@ -10,6 +10,8 @@ import { SubscriptionsResource } from "./subscriptions.js";
 import { AuthResource, type JwtIssued, type User } from "./auth.js";
 import { SessionsResource } from "./sessions.js";
 import { PushResource, base64UrlToBytes } from "./push.js";
+import { MeResource } from "./me.js";
+import { isApiError, type ApiError } from "../error.js";
 
 /**
  * Resource-level wire-shape tests. A captured fake `fetch` asserts the SDK
@@ -385,6 +387,145 @@ describe("AuthResource (telegram + email)", () => {
     expect(captured[0]!.url).toBe("https://api.test/v1/me/email");
     expect(captured[0]!.init.method).toBe("POST");
     expect(bodyOf(captured[0]!)).toEqual({ email: "alice@example.com" });
+  });
+});
+
+describe("AuthResource (telegram link)", () => {
+  const INIT_DATA = "user=%7B%22id%22%3A777000%7D&auth_date=1700000000&hash=abc";
+  const LINKED: JwtIssued = {
+    stage: "jwt",
+    access_token: "jwt-linked",
+    expires_at: "2026-06-24T00:00:00Z",
+    user: {
+      id: "usr_email",
+      email: "alice@example.com",
+      role: "user",
+      is_active: true,
+      email_pending: false,
+      created_at: "2026-06-23T00:00:00Z",
+      updated_at: "2026-06-23T00:00:00Z",
+      wallet_currency: "USD",
+      telegram: { username: "alice_tg", linked_at: "2026-06-23T00:05:00Z" },
+    },
+    hub_access: false,
+  };
+
+  it("exchangeTelegram with provision:false sends the flag and maps 404 telegram_unknown to {stage:'unknown'}", async () => {
+    const { captured, http } = rig(
+      { code: "telegram_unknown", message: "no account for this Telegram" },
+      404,
+    );
+    const store = inMemoryStore();
+    const out = await new AuthResource(http, store).exchangeTelegram({
+      initData: INIT_DATA,
+      provision: false,
+    });
+    expect(out).toEqual({ stage: "unknown" });
+    expect(bodyOf(captured[0]!)).toEqual({ init_data: INIT_DATA, provision: false });
+    expect(headersOf(captured[0]!)["Authorization"]).toBeUndefined();
+    // Nothing was stored: the client stays signed out.
+    expect(await store.get()).toBeNull();
+  });
+
+  it("exchangeTelegram with provision:false still signs in a known Telegram", async () => {
+    const { captured, http } = rig(LINKED);
+    const store = inMemoryStore();
+    const out = await new AuthResource(http, store).exchangeTelegram({
+      initData: INIT_DATA,
+      provision: false,
+    });
+    expect(out.stage).toBe("jwt");
+    if (out.stage !== "jwt") throw new Error("unreachable");
+    expect(out.user.telegram?.username).toBe("alice_tg");
+    expect(bodyOf(captured[0]!)).toEqual({ init_data: INIT_DATA, provision: false });
+    expect(await store.get()).toBe("jwt-linked");
+  });
+
+  it("exchangeTelegram rethrows every other error as ApiError", async () => {
+    for (const [status, code] of [
+      [401, "invalid_init_data"],
+      [404, "not_found"],
+      [503, "telegram_not_configured"],
+    ] as const) {
+      const { http } = rig({ code, message: "nope" }, status);
+      const err = await new AuthResource(http, inMemoryStore())
+        .exchangeTelegram({ initData: INIT_DATA, provision: false })
+        .then(() => null)
+        .catch((e: unknown) => e);
+      expect(isApiError(err), `${status} ${code} should throw`).toBe(true);
+      expect((err as ApiError).status).toBe(status);
+      expect((err as ApiError).code).toBe(code);
+    }
+  });
+
+  it("linkTelegram POSTs /auth/telegram/link unauthenticated with init_data + credentials and stores the JWT", async () => {
+    const { captured, http } = rig(LINKED);
+    const store = inMemoryStore();
+    const out = await new AuthResource(http, store).linkTelegram({
+      initData: INIT_DATA,
+      email: "alice@example.com",
+      password: "hunter22supersecret",
+    });
+    expect(out.stage).toBe("jwt");
+    expect(out.user.id).toBe("usr_email");
+    expect(out.user.telegram).toEqual({ username: "alice_tg", linked_at: "2026-06-23T00:05:00Z" });
+    expect(captured[0]!.url).toBe("https://api.test/v1/auth/telegram/link");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({
+      init_data: INIT_DATA,
+      email: "alice@example.com",
+      password: "hunter22supersecret",
+    });
+    expect(headersOf(captured[0]!)["Authorization"]).toBeUndefined();
+    expect(await store.get()).toBe("jwt-linked");
+  });
+
+  it("linkTelegram surfaces 409 telegram_in_use as ApiError", async () => {
+    const { http } = rig({ code: "telegram_in_use", message: "taken" }, 409);
+    const err = await new AuthResource(http, inMemoryStore())
+      .linkTelegram({ initData: INIT_DATA, email: "a@b.c", password: "x" })
+      .then(() => null)
+      .catch((e: unknown) => e);
+    expect(isApiError(err)).toBe(true);
+    expect((err as ApiError).code).toBe("telegram_in_use");
+  });
+});
+
+describe("MeResource", () => {
+  const USER: User = {
+    id: "usr_email",
+    email: "alice@example.com",
+    role: "user",
+    is_active: true,
+    created_at: "2026-06-23T00:00:00Z",
+    updated_at: "2026-06-23T00:00:00Z",
+    telegram: { username: null, linked_at: "2026-06-23T00:05:00Z" },
+  };
+
+  it("linkTelegram POSTs /me/telegram with {init_data}", async () => {
+    const { captured, http } = rig(USER);
+    const out = await new MeResource(http).linkTelegram("auth_date=1&hash=abc");
+    expect(out.telegram?.linked_at).toBe("2026-06-23T00:05:00Z");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/telegram");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({ init_data: "auth_date=1&hash=abc" });
+  });
+
+  it("unlinkTelegram DELETEs /me/telegram and returns the user", async () => {
+    const { captured, http } = rig({ ...USER, telegram: null });
+    const out = await new MeResource(http).unlinkTelegram();
+    expect(out.telegram).toBeNull();
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/telegram");
+    expect(captured[0]!.init.method).toBe("DELETE");
+    expect(captured[0]!.init.body).toBeUndefined();
+  });
+
+  it("unlinkTelegram surfaces 409 last_credential", async () => {
+    const { http } = rig({ code: "last_credential", message: "no password" }, 409);
+    const err = await new MeResource(http).unlinkTelegram().then(() => null).catch((e: unknown) => e);
+    expect(isApiError(err)).toBe(true);
+    expect((err as ApiError).status).toBe(409);
+    expect((err as ApiError).code).toBe("last_credential");
   });
 });
 

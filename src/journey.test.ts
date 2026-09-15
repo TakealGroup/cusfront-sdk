@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { createClient, inMemoryStore, ApiError, isApiError } from "./index.js";
 
@@ -161,5 +162,78 @@ describe.runIf(await reachable())("live Cusfront journey", () => {
     const noAuth = await anon.balance.get(CCY).then(() => null).catch((e) => e);
     expect(isApiError(noAuth), `expected ApiError, got ${noAuth}`).toBe(true);
     expect((noAuth as ApiError).status).toBe(401);
+  });
+});
+
+/**
+ * Telegram link journey. Needs the API's bot token to sign `initData` the way
+ * Telegram does, so it only runs with `LIVE_TELEGRAM_BOT_TOKEN` set to the
+ * token the API under test is configured with.
+ */
+const BOT_TOKEN = process.env.LIVE_TELEGRAM_BOT_TOKEN;
+
+/** Sign `initData` exactly as Telegram does for a Mini App launch. */
+function signInitData(botToken: string, fields: Record<string, string>): string {
+  const dataCheckString = Object.keys(fields)
+    .sort()
+    .map((k) => `${k}=${fields[k]}`)
+    .join("\n");
+  const secret = createHmac("sha256", "WebAppData").update(botToken).digest();
+  const hash = createHmac("sha256", secret).update(dataCheckString).digest("hex");
+  const sp = new URLSearchParams(fields);
+  sp.set("hash", hash);
+  return sp.toString();
+}
+
+describe.runIf((await reachable()) && Boolean(BOT_TOKEN))("live Telegram link journey", () => {
+  it("register → exchange(provision:false) unknown → link → exchange → unlink", async () => {
+    const email = `journey-tg-${uuid()}@example.com`;
+    const password = "Journey-Passw0rd-tg";
+    const tgId = 100_000_000 + Math.floor(Math.random() * 900_000_000);
+    const initData = signInitData(BOT_TOKEN!, {
+      auth_date: String(Math.floor(Date.now() / 1000)),
+      query_id: `AAH${uuid().replace(/-/g, "").slice(0, 16)}`,
+      user: JSON.stringify({ id: tgId, first_name: "Journey", username: `journey_${tgId}` }),
+    });
+
+    // --- an email account exists first ------------------------------------
+    const owner = createClient({ baseUrl: LIVE, tokenStore: inMemoryStore() });
+    const registered = await owner.auth.register({ email, password, wallet_currency: CCY });
+    expect(registered.user.email).toBe(email);
+    expect(registered.user.telegram ?? null).toBeNull();
+
+    // --- Mini App opens: unknown Telegram, nothing created ------------------
+    const app = createClient({ baseUrl: LIVE, tokenStore: inMemoryStore() });
+    const first = await app.auth.exchangeTelegram({ initData, provision: false });
+    expect(first, `first exchange (got ${JSON.stringify(first)})`).toEqual({ stage: "unknown" });
+    expect(await app.tokens.get()).toBeNull();
+
+    // --- "I already have an account" ---------------------------------------
+    const linked = await app.auth.linkTelegram({ initData, email, password });
+    expect(linked.stage).toBe("jwt");
+    expect(linked.user.id).toBe(registered.user.id);
+    expect(linked.user.telegram, `telegram on link (got ${JSON.stringify(linked.user)})`).not.toBeNull();
+    expect(linked.user.telegram?.username).toBe(`journey_${tgId}`);
+    expect(typeof linked.user.telegram?.linked_at).toBe("string");
+    expect(await app.tokens.get()).toBe(linked.access_token);
+
+    // --- next launch: the exchange finds the link -------------------------
+    const again = createClient({ baseUrl: LIVE, tokenStore: inMemoryStore() });
+    const second = await again.auth.exchangeTelegram({ initData, provision: false });
+    expect(second.stage).toBe("jwt");
+    if (second.stage !== "jwt") throw new Error("not jwt");
+    expect(second.user.id).toBe(registered.user.id);
+    const me = await again.auth.me();
+    expect(me.telegram?.username).toBe(`journey_${tgId}`);
+
+    // --- unlink from a signed-in session ----------------------------------
+    const unlinked = await again.me.unlinkTelegram();
+    expect(unlinked.id).toBe(registered.user.id);
+    expect(unlinked.telegram).toBeNull();
+
+    // A second unlink has nothing to remove.
+    const twice = await again.me.unlinkTelegram().then(() => null).catch((e) => e);
+    expect(isApiError(twice), `expected ApiError, got ${twice}`).toBe(true);
+    expect((twice as ApiError).status).toBe(404);
   });
 });

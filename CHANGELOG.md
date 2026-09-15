@@ -4,6 +4,34 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `client.auth.exchangeTelegram()` takes `provision` (default `true`). With
+  `provision: false` an unknown Telegram id resolves to `{ stage: "unknown" }`
+  instead of creating an account, so a Mini App can ask the user whether to
+  create one or attach the Telegram to an account they already have.
+- `client.auth.linkTelegram({ initData, email, password })` attaches the
+  Telegram account behind `initData` to an existing email + password account
+  and signs in. Same envelope as `login`; the JWT is stored.
+- `client.me` (sub-export `@takeal/cusfront-sdk/me`): `linkTelegram(initData)`
+  and `unlinkTelegram()` for a signed-in user.
+- `User.telegram` — `{ username, linked_at }` or `null`.
+- `@takeal/cusfront-sdk/telegram`: `provision` in the options of
+  `fromInitData` / `fromTelegramWebApp`; a new `exchangeInitData()` that
+  returns `{ client, session }` for apps that want to branch on the outcome;
+  `TelegramUnknownError` (carries `initData`), thrown by `fromInitData` /
+  `fromTelegramWebApp` when `provision: false` is set and the Telegram id
+  has no account.
+
+### Changed
+
+- `exchangeTelegram()` is typed to return `JwtIssued | TelegramUnknown` when
+  `provision` is passed as a `boolean`. Calls without `provision` (or with
+  `provision: true`) keep returning `JwtIssued`, so existing code compiles
+  unchanged.
+
 ## [0.2.8] — 2026-09-13
 
 The version number now matches the Takeal platform release the SDK was

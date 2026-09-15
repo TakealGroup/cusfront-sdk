@@ -67,6 +67,11 @@
       "import": "./dist/resources/push.js",
       "require": "./dist/resources/push.cjs"
     },
+    "./me": {
+      "types": "./dist/resources/me.d.ts",
+      "import": "./dist/resources/me.js",
+      "require": "./dist/resources/me.cjs"
+    },
     "./webhooks": {
       "types": "./dist/webhooks.d.ts",
       "import": "./dist/webhooks.js",

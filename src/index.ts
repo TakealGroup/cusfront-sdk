@@ -22,6 +22,7 @@ import { BlogResource } from "./resources/blog.js";
 import { SubscriptionsResource } from "./resources/subscriptions.js";
 import { SessionsResource } from "./resources/sessions.js";
 import { PushResource } from "./resources/push.js";
+import { MeResource } from "./resources/me.js";
 import {
   defaultBrowserStore,
   inMemoryStore,
@@ -73,7 +74,12 @@ export type {
   Session,
   TotpSetupComplete,
   ChangePasswordInput,
+  TelegramLink,
+  TelegramUnknown,
+  ExchangeTelegramInput,
+  LinkTelegramInput,
 } from "./resources/auth.js";
+export type { MeResource } from "./resources/me.js";
 export type { UserSession } from "./resources/sessions.js";
 export type {
   PushStatus,
@@ -124,6 +130,8 @@ export interface CusfrontClient {
   readonly sessions: SessionsResource;
   /** Web Push subscription for the signed-in user. */
   readonly push: PushResource;
+  /** Profile actions for the signed-in user: link or unlink Telegram. */
+  readonly me: MeResource;
   /** Direct access to the token store (e.g. for an explicit sign-out
    *  on Capacitor's lifecycle "app pausing" event). */
   readonly tokens: TokenStore;
@@ -155,6 +163,7 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     subscriptions: new SubscriptionsResource(http),
     sessions: new SessionsResource(http),
     push: new PushResource(http),
+    me: new MeResource(http),
   };
 }
 
