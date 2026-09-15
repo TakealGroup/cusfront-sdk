@@ -135,6 +135,98 @@ describe.runIf(await reachable())("live Cusfront journey", () => {
     expect(await client.tokens.get()).toBeNull();
   });
 
+  // Card catalog → issue from a product with a name + design → rename.
+  // Skips itself when the API under test predates the catalog (404 on the
+  // route, or an empty list because no product is visible to the user).
+  it("catalog → issue from a product with name + design → rename", async () => {
+    const client = createClient({ baseUrl: LIVE, tokenStore: inMemoryStore() });
+    await client.auth.login({ email: EMAIL, password: PASSWORD });
+
+    const products = await client.cards.listProducts().catch((e: unknown) => {
+      if (isApiError(e) && e.status === 404) return null;
+      throw e;
+    });
+    if (!products || products.length === 0) {
+      console.warn("live journey: no card products on this API, skipping the catalog scenario");
+      return;
+    }
+
+    const product = products.find((p) => p.is_default) ?? products[0]!;
+    expect(product.id).toBeTruthy();
+    expect(product.name).toBeTruthy();
+    expect(["prepaid", "credit", "gift"]).toContain(product.card_type);
+    expect(product.design.image_url, "product has artwork").toBeTruthy();
+    expect(Array.isArray(product.designs)).toBe(true);
+    expect(typeof product.features).toBe("object");
+    if (product.price) {
+      expect(num(product.price.amount)).toBeLessThanOrEqual(num(product.price.base_amount));
+      expect(product.price.discount_bps).toBeGreaterThanOrEqual(0);
+    }
+    // The artwork URL resolves to something a browser can load.
+    expect(client.assetUrl(product.design.image_url)).toMatch(/^https?:\/\//);
+
+    const one = await client.cards.getProduct(product.id);
+    expect(one.id).toBe(product.id);
+
+    // Make sure there is money for the load + the fee.
+    const ccy = product.currency ?? CCY;
+    const fee = product.price ? num(product.price.amount) : 0;
+    const need = 10 + fee;
+    const bal = await client.balance.get(ccy);
+    if (num(bal.amount) < need) {
+      const dep = await client.deposits.initiate({
+        amount: "100.00",
+        currency: ccy,
+        method: "card",
+        idempotencyKey: uuid(),
+        customer: { email: EMAIL, first_name: "Alice", last_name: "Tester" },
+      });
+      if (dep.status !== "confirmed") {
+        throw new Error(`deposit did not confirm (status=${dep.status}); cannot fund the card`);
+      }
+    }
+
+    const card = await client.cards.create({
+      productId: product.id,
+      name: "Groceries",
+      designId: product.design.id,
+      initial_amount: "10.00",
+      currency: ccy,
+      idempotencyKey: uuid(),
+      customer: { email: EMAIL, first_name: "Alice", last_name: "Tester" },
+    });
+    expect(card.id, `card id (got ${JSON.stringify(card)})`).toBeTruthy();
+    expect(card.status, `card status (reason: ${card.failure_reason})`).toBe("active");
+    expect(card.card_type).toBe(product.card_type);
+    expect(card.name).toBe("Groceries");
+    expect(card.design.id).toBe(product.design.id);
+    expect(card.design.image_url).toBeTruthy();
+    expect(card.product?.id, `card.product (got ${JSON.stringify(card.product)})`).toBe(product.id);
+    expect(card.product?.name).toBe(product.name);
+
+    // The list / get views carry the same fields.
+    const got = await client.cards.get(card.id);
+    expect(got.name).toBe("Groceries");
+    expect(got.product?.id).toBe(product.id);
+
+    // Rename.
+    const renamed = await client.cards.update(card.id, { name: "Coffee" });
+    expect(renamed.id).toBe(card.id);
+    expect(renamed.name).toBe("Coffee");
+    expect((await client.cards.get(card.id)).name).toBe("Coffee");
+
+    // A name that is too long is rejected as 400, not 500.
+    const tooLong = await client.cards
+      .update(card.id, { name: "x".repeat(41) })
+      .then(() => null)
+      .catch((e) => e);
+    expect(isApiError(tooLong), `expected ApiError, got ${tooLong}`).toBe(true);
+    expect((tooLong as ApiError).status).toBe(400);
+
+    await client.cards.terminate(card.id, "journey test cleanup");
+    await client.auth.signOut();
+  });
+
   // Error-shape contract a Cusfront relies on: predictable HTTP statuses +
   // typed ApiError. Catches backend regressions that turn a 4xx into a 500.
   it("surfaces typed errors with sane statuses", async () => {

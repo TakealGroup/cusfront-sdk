@@ -2,9 +2,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createElement, type ReactNode } from "react";
 import { cleanup, render, renderHook, screen, waitFor } from "@testing-library/react";
-import { ClientProvider, useBalance, useClient } from "./index.js";
+import { ClientProvider, useBalance, useCardProducts, useClient } from "./index.js";
 import type { CusfrontClient } from "../index.js";
 import type { Balance } from "../resources/balance.js";
+import type { CardProduct } from "../resources/cards.js";
 
 /**
  * React-hook tests. Scoped to jsdom via the file-level pragma above so
@@ -26,6 +27,7 @@ const USD: Balance = { amount: "100.00", currency: "USD" };
  *  the rest are present as typed no-ops so the cast is sound. */
 function fakeClient(overrides: {
   balanceGet?: (currency: string) => Promise<Balance>;
+  listProducts?: () => Promise<CardProduct[]>;
 } = {}): CusfrontClient {
   const balanceGet =
     overrides.balanceGet ?? ((currency: string) => Promise.resolve({ amount: "100.00", currency }));
@@ -34,7 +36,10 @@ function fakeClient(overrides: {
     tokens: { get: () => null, set: () => {}, clear: () => {} },
     auth: { me: () => Promise.reject(new Error("unused")) },
     deposits: { list: () => Promise.resolve([]) },
-    cards: { list: () => Promise.resolve([]) },
+    cards: {
+      list: () => Promise.resolve([]),
+      listProducts: overrides.listProducts ?? (() => Promise.resolve([])),
+    },
     balance: { get: balanceGet },
   } as unknown as CusfrontClient;
 }
@@ -137,5 +142,31 @@ describe("useBalance", () => {
     rerender({ cur: "EUR" });
     await waitFor(() => expect(result.current.data?.currency).toBe("EUR"));
     expect(get).toHaveBeenCalledWith("EUR");
+  });
+});
+
+describe("useCardProducts", () => {
+  it("resolves the catalog from client.cards.listProducts()", async () => {
+    const product: CardProduct = {
+      id: "prod_1",
+      name: "Virtual Mastercard USD",
+      description: null,
+      card_type: "prepaid",
+      currency: "USD",
+      features: {},
+      design: { id: null, image_url: "/card-designs/default.svg" },
+      designs: [],
+      price: null,
+      is_default: true,
+    };
+    const listProducts = vi.fn(() => Promise.resolve([product]));
+    const { result } = renderHook(() => useCardProducts(), {
+      wrapper: wrapper(fakeClient({ listProducts })),
+    });
+    expect(result.current.loading).toBe(true);
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.data).toEqual([product]);
+    expect(result.current.error).toBeNull();
+    expect(listProducts).toHaveBeenCalledTimes(1);
   });
 });

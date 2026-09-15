@@ -29,8 +29,10 @@ import {
   type TokenStore,
 } from "./token-store.js";
 import type { BrandConfig } from "./brand.js";
+import { resolveAssetUrl } from "./assets.js";
 
 export type { BrandConfig } from "./brand.js";
+export { resolveAssetUrl } from "./assets.js";
 export { ApiError, NetworkError, isApiError, isNetworkError } from "./error.js";
 export { defaultBrowserStore, inMemoryStore, type TokenStore } from "./token-store.js";
 
@@ -49,7 +51,11 @@ export type {
   Card,
   CardType,
   CardStatus,
+  CardDesignRef,
+  CardProduct,
+  CardProductPrice,
   CreateCardInput,
+  UpdateCardInput,
   CardBalance,
   RevealCardInput,
   RevealedCard,
@@ -114,7 +120,7 @@ export interface CusfrontClient {
   readonly auth: AuthResource;
   /** Deposits (money IN via a funder connector): initiate, get, list, refund. */
   readonly deposits: DepositsResource;
-  /** Cards (money OUT via an issuer connector): create, get, list, balance. */
+  /** Cards (money OUT via an issuer connector): the product catalog, create, get, list, update, balance. */
   readonly cards: CardsResource;
   /** Wallet balance lookup (defaults to the wallet's own currency). */
   readonly balance: BalanceResource;
@@ -135,6 +141,13 @@ export interface CusfrontClient {
   /** Direct access to the token store (e.g. for an explicit sign-out
    *  on Capacitor's lifecycle "app pausing" event). */
   readonly tokens: TokenStore;
+  /**
+   * Turn an image URL from the API (`card.design.image_url`,
+   * `product.design.image_url`) into one a browser can load. Absolute URLs
+   * pass through; a path relative to the API origin (the default card
+   * design, `/card-designs/default.svg`) is joined onto `baseUrl`.
+   */
+  assetUrl(url: string): string;
 }
 
 /**
@@ -153,6 +166,7 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
   return {
     brand: opts.brand,
     tokens,
+    assetUrl: (url: string) => resolveAssetUrl(opts.baseUrl, url),
     auth: new AuthResource(http, tokens),
     deposits: new DepositsResource(http),
     cards: new CardsResource(http),

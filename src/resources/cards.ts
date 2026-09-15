@@ -8,9 +8,12 @@ import type { CustomerInfo } from "../types/customer.js";
  * their wallet balance via an issuer connector. Mirrors the Takeal API's
  * `/me/cards` routes:
  *
+ *   GET    /me/card-products         → listProducts (the catalog)
+ *   GET    /me/card-products/{id}    → getProduct
  *   POST   /me/cards                 → create
  *   GET    /me/cards                 → list (most recent first)
  *   GET    /me/cards/{id}            → get
+ *   PATCH  /me/cards/{id}            → update (name, design)
  *   GET    /me/cards/{id}/balance    → balance (prepaid remaining)
  *   POST   /me/cards/{id}/freeze     → freeze
  *   POST   /me/cards/{id}/unfreeze   → unfreeze
@@ -48,6 +51,55 @@ export type CardStatus =
   | "failed";
 
 /**
+ * A card design: the artwork a card is shown with. `image_url` is either an
+ * absolute URL or a path relative to the API origin (the deployment's default
+ * design is `/card-designs/default.svg`) — pass it through
+ * `client.assetUrl()` before rendering. `id` is `null` for the deployment
+ * default, which is rendered from the branding settings.
+ */
+export interface CardDesignRef {
+  id: string | null;
+  name?: string;
+  image_url: string;
+}
+
+/**
+ * What issuing a card costs the caller. `amount` is the price after the
+ * user's subscription discount; `base_amount` is the list price and
+ * `discount_bps` the discount in basis points (1000 = 10 %). `label` is the
+ * operator's wording for the fee line ("Card issuance").
+ */
+export interface CardProductPrice {
+  amount: string;
+  currency: string;
+  label: string;
+  base_amount: string;
+  discount_bps: number;
+}
+
+/**
+ * A card the user can order, as listed by `GET /me/card-products`. The id is
+ * opaque — it names a product, never a provider. `designs` is the set the
+ * user may pick from (may be empty when only the default applies); `design`
+ * is what the card gets when no choice is made. `price` is `null` for a
+ * free card. `features` is an operator-defined object (scheme, wallet
+ * support, load limits, …) with no fixed keys.
+ */
+export interface CardProduct {
+  id: string;
+  name: string;
+  description: string | null;
+  card_type: CardType;
+  currency: string | null;
+  features: Record<string, unknown>;
+  design: CardDesignRef;
+  designs: CardDesignRef[];
+  price: CardProductPrice | null;
+  /** True for the product the deployment issues when none is chosen. */
+  is_default: boolean;
+}
+
+/**
  * A card record as the Takeal API returns it. Mirrors the `cards` table. Note the
  * SDK never receives the full PAN or CVV here — only `last4` + expiry. The
  * gift-card `redemption_code` is returned exactly once (on create) and
@@ -72,13 +124,37 @@ export interface Card {
   initial_amount: string | null;
   currency: string;
   failure_reason: string | null;
+  /** The name the user gave the card, or `null`. */
+  name: string | null;
+  /** The artwork the card is shown with. Always present. */
+  design: CardDesignRef;
+  /** The product the card was issued from; `null` for cards issued without one. */
+  product: { id: string; name: string } | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface CreateCardInput {
-  /** `prepaid` (the only fully-wired type today), `credit`, or `gift`. */
-  type: CardType;
+  /**
+   * A product id from {@link CardsResource.listProducts}. Sent as
+   * `product_id`. When given, `type` and `issuer_slug` may be omitted; when
+   * both are given they must agree with the product (400 `product_mismatch`).
+   * Unknown, disabled or hidden product → 400 `unknown_product`.
+   */
+  productId?: string;
+  /** A name for the card, 1–40 characters. Sent as `name`. */
+  name?: string;
+  /**
+   * One of the product's `designs`. Sent as `design_id`. `null` or omitted
+   * picks the product's default design; a design outside the product's set →
+   * 400 `design_not_allowed`.
+   */
+  designId?: string | null;
+  /**
+   * `prepaid` (the only fully-wired type today), `credit`, or `gift`.
+   * Optional when `productId` is given, required otherwise.
+   */
+  type?: CardType;
   /** Decimal as a string. The prepaid load amount drained from wallet balance. */
   initial_amount?: string;
   /** ISO 4217 code, e.g. `"USD"`. */
@@ -103,6 +179,17 @@ export interface CreateCardInput {
 export interface CardBalance {
   amount: string;
   currency: string;
+}
+
+/** Fields a user can change on their own card. Omitted fields are left as they are. */
+export interface UpdateCardInput {
+  /** New name, 1–40 characters. Sent as `name`. */
+  name?: string;
+  /**
+   * New design (one of the product's `designs`), or `null` for the product's
+   * default. Sent as `design_id`.
+   */
+  designId?: string | null;
 }
 
 /** Re-auth gate for {@link CardsResource.reveal}. */
@@ -138,10 +225,45 @@ export class CardsResource {
    * `failure_reason` on the result.
    */
   async create(input: CreateCardInput): Promise<Card> {
-    const { idempotencyKey, ...body } = input;
+    const { idempotencyKey, productId, name, designId, ...rest } = input;
+    const body: Record<string, unknown> = { ...rest };
+    if (productId !== undefined) body["product_id"] = productId;
+    if (name !== undefined) body["name"] = name;
+    if (designId !== undefined) body["design_id"] = designId;
     return this.http.post<Card>("/me/cards", {
       body,
       idempotencyKey,
+    });
+  }
+
+  /**
+   * The cards the caller can order, in the order the deployment offers them
+   * (the default product first). Each item carries its name, description,
+   * artwork, the issuance price after the caller's subscription discount,
+   * and the currency. Pass an item's `id` as `productId` to {@link create}.
+   */
+  async listProducts(): Promise<CardProduct[]> {
+    return this.http.get<CardProduct[]>("/me/card-products");
+  }
+
+  /** One product from the catalog. 404 when unknown, disabled or hidden. */
+  async getProduct(id: string): Promise<CardProduct> {
+    return this.http.get<CardProduct>(
+      `/me/card-products/${encodeURIComponent(id)}`,
+    );
+  }
+
+  /**
+   * Rename the caller's own card or change its design. Resolves to the
+   * updated card. 404 if the card isn't the caller's; 400 `invalid_name` /
+   * `design_not_allowed` on a bad value.
+   */
+  async update(id: string, input: UpdateCardInput): Promise<Card> {
+    const body: Record<string, unknown> = {};
+    if (input.name !== undefined) body["name"] = input.name;
+    if (input.designId !== undefined) body["design_id"] = input.designId;
+    return this.http.patch<Card>(`/me/cards/${encodeURIComponent(id)}`, {
+      body,
     });
   }
 

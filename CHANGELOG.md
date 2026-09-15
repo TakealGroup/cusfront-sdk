@@ -8,6 +8,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Card catalog: `client.cards.listProducts()` and `client.cards.getProduct(id)`
+  return the cards a user can order (`CardProduct`: name, description, type,
+  currency, artwork, the designs to choose from, the issuance price after the
+  user's subscription discount, free-form `features`).
+- `client.cards.create()` takes `productId`, `name` and `designId`; with a
+  `productId`, `type` is optional. `client.cards.update(id, { name?, designId? })`
+  renames a card or changes its design.
+- `Card` gains `name`, `design` and `product`.
+- `client.assetUrl(url)` and the standalone `resolveAssetUrl(baseUrl, url)`
+  turn the image URLs the API returns (absolute, or relative to the API origin
+  like the default card design) into ones a browser can load.
+- `useCardProducts()` in `@takeal/cusfront-sdk/react`.
 - `client.auth.exchangeTelegram()` takes `provision` (default `true`). With
   `provision: false` an unknown Telegram id resolves to `{ stage: "unknown" }`
   instead of creating an account, so a Mini App can ask the user whether to

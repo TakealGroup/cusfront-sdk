@@ -13,7 +13,7 @@
  *  - {@link ClientProvider} / {@link useClient} — context plumbing for a
  *    single `createClient(...)` instance.
  *  - {@link useMe} / {@link useDeposits} / {@link useCards} /
- *    {@link useBalance} — read hooks over the matching resources, each
+ *    {@link useCardProducts} / {@link useBalance} — read hooks over the matching resources, each
  *    returning `{ data, error, loading, refetch }`.
  *
  * All hooks are SSR-safe (no top-level `window` / `document` access;
@@ -28,6 +28,7 @@ export {
   useMe,
   useDeposits,
   useCards,
+  useCardProducts,
   useBalance,
   type AsyncState,
 } from "./hooks.js";

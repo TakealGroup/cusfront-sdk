@@ -59,6 +59,67 @@ await client.auth.register({
 });
 ```
 
+## Choosing a card
+
+The API publishes a catalog of the cards a user can order, and the client
+walks it from the list to the issued card:
+
+```ts
+// 1. The catalog: what the user can order, default product first.
+const products = await client.cards.listProducts();
+
+for (const p of products) {
+  // Artwork: `image_url` is absolute for uploaded designs and a path
+  // relative to the API for the deployment default. `assetUrl` handles both.
+  const img = client.assetUrl(p.design.image_url);
+
+  // Price after the user's subscription discount; `null` means free.
+  const price = p.price
+    ? p.price.discount_bps > 0
+      ? `${p.price.amount} ${p.price.currency} (was ${p.price.base_amount}, ${p.price.discount_bps / 100}% off)`
+      : `${p.price.amount} ${p.price.currency}`
+    : "free";
+
+  console.log(p.name, p.card_type, p.currency, price, img, p.description);
+}
+
+// 2. Issue from a product. `type` and `issuer_slug` are no longer needed:
+//    the product settles both. The user picks a name and, when the product
+//    offers a choice, one of `p.designs`.
+const product = products.find((p) => p.is_default) ?? products[0];
+const card = await client.cards.create({
+  productId: product.id,
+  name: "Groceries",
+  designId: product.designs[0]?.id ?? null, // null = the product's default design
+  initial_amount: "50.00",
+  currency: product.currency ?? "USD",
+  idempotencyKey: crypto.randomUUID(),
+  customer: { email: "user@example.com", first_name: "Alice", last_name: "Tester" },
+});
+
+// The card carries what was chosen.
+card.name;                              // "Groceries"
+client.assetUrl(card.design.image_url); // ready for <img src>
+card.product;                           // { id, name } or null for older cards
+
+// 3. Rename or change the design later.
+await client.cards.update(card.id, { name: "Coffee" });
+await client.cards.update(card.id, { designId: null });
+```
+
+`cards.getProduct(id)` fetches one entry. `product.features` is a free-form
+object the operator fills in (payment scheme, wallet support, load limits and
+so on), so read the keys you need and ignore the rest. Names are 1 to 40
+characters; a design outside the product's `designs` and an unknown or hidden
+product are rejected with a 400 whose `code` says which check failed
+(`invalid_name`, `design_not_allowed`, `unknown_product`, `product_mismatch`).
+
+Calls without `productId` keep working as before: `type` is then required and
+the deployment picks the product.
+
+`resolveAssetUrl(baseUrl, url)` is the same helper as a standalone function,
+exported from the package root, for code that has no client at hand.
+
 ## Telegram Mini App
 
 Run inside a Telegram Mini App? Exchange the Telegram-signed `initData` for a
@@ -241,7 +302,7 @@ Available now:
 - `@takeal/cusfront-sdk/push` — `PushResource` (Web Push subscription).
 - `@takeal/cusfront-sdk/me` — `MeResource` (link or unlink Telegram for the signed-in user).
 - `@takeal/cusfront-sdk/webhooks` — HMAC-SHA256 signature verifier (no network, isomorphic).
-- `@takeal/cusfront-sdk/react` — optional React hooks layer (`ClientProvider` + `useMe` / `useDeposits` / `useCards` / `useBalance`). React is a `peerDependency`, never bundled.
+- `@takeal/cusfront-sdk/react` — optional React hooks layer (`ClientProvider` + `useMe` / `useDeposits` / `useCards` / `useCardProducts` / `useBalance`). React is a `peerDependency`, never bundled.
 - `@takeal/cusfront-sdk/telegram` — Telegram Mini App `initData` → authenticated client bridge.
 
 ### Verifying webhooks
@@ -267,7 +328,8 @@ the raw body bytes (no timestamp). Comparison is constant-time.
 > **Card details:** `client.cards.reveal()` returns the full card number and
 > CVV. It asks for the user's password again (and a TOTP code if they have one
 > enrolled), and the API rate-limits and logs every call. The rest of
-> `client.cards` is create, get, list, balance, freeze, unfreeze and terminate.
+> `client.cards` is listProducts, getProduct, create, get, list, update,
+> balance, freeze, unfreeze and terminate.
 
 ## React hooks (`@takeal/cusfront-sdk/react`)
 
@@ -317,6 +379,7 @@ Every hook returns the same shape — `{ data, error, loading, refetch }`:
 - `useMe()` — current authenticated user (`client.auth.me()`).
 - `useDeposits()` — the user's deposits (`client.deposits.list()`).
 - `useCards()` — the user's cards (`client.cards.list()`).
+- `useCardProducts()` — the cards the user can order (`client.cards.listProducts()`).
 - `useBalance(currency)` — wallet balance for one currency
   (`client.balance.get(currency)`); re-fetches when `currency` changes.
 

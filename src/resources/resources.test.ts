@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { HttpClient, type FetchLike } from "../http.js";
 import { inMemoryStore } from "../token-store.js";
 import { DepositsResource, type Deposit, type Refund } from "./deposits.js";
-import { CardsResource, type Card, type CardBalance } from "./cards.js";
+import { CardsResource, type Card, type CardBalance, type CardProduct } from "./cards.js";
 import { BalanceResource, type Balance } from "./balance.js";
 import { BrandingResource, type Branding } from "./branding.js";
 import { BlogResource } from "./blog.js";
@@ -147,8 +147,32 @@ const CARD: Card = {
   initial_amount: "50.00",
   currency: "USD",
   failure_reason: null,
+  name: "Groceries",
+  design: { id: null, image_url: "/card-designs/default.svg" },
+  product: { id: "prod_1", name: "Virtual Mastercard USD" },
   created_at: "2026-06-21T00:00:00Z",
   updated_at: "2026-06-21T00:00:00Z",
+};
+
+const PRODUCT: CardProduct = {
+  id: "prod_1",
+  name: "Virtual Mastercard USD",
+  description: "For subscriptions and online purchases.",
+  card_type: "prepaid",
+  currency: "USD",
+  features: { scheme: "mastercard", apple_pay: true },
+  design: { id: null, name: "Default", image_url: "/card-designs/default.svg" },
+  designs: [
+    { id: "dsg_1", name: "Midnight", image_url: "https://api.test/assets/midnight.png" },
+  ],
+  price: {
+    amount: "4.50",
+    currency: "USD",
+    label: "Card issuance",
+    base_amount: "5.00",
+    discount_bps: 1000,
+  },
+  is_default: true,
 };
 
 describe("CardsResource", () => {
@@ -169,6 +193,72 @@ describe("CardsResource", () => {
       initial_amount: "50.00",
       currency: "USD",
     });
+  });
+
+  it("create maps productId / name / designId to snake_case and keeps the key in the header", async () => {
+    const { captured, http } = rig(CARD, 201);
+    await new CardsResource(http).create({
+      productId: "prod_1",
+      name: "Groceries",
+      designId: "dsg_1",
+      initial_amount: "50.00",
+      currency: "USD",
+      idempotencyKey: "idem-card-2",
+    });
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/cards");
+    expect(headersOf(captured[0]!)["Idempotency-Key"]).toBe("idem-card-2");
+    expect(bodyOf(captured[0]!)).toEqual({
+      product_id: "prod_1",
+      name: "Groceries",
+      design_id: "dsg_1",
+      initial_amount: "50.00",
+      currency: "USD",
+    });
+  });
+
+  it("create sends design_id: null explicitly and omits unset optionals", async () => {
+    const { captured, http } = rig(CARD, 201);
+    await new CardsResource(http).create({
+      productId: "prod_1",
+      designId: null,
+      currency: "USD",
+      idempotencyKey: "idem-card-3",
+    });
+    expect(bodyOf(captured[0]!)).toEqual({
+      product_id: "prod_1",
+      design_id: null,
+      currency: "USD",
+    });
+  });
+
+  it("listProducts / getProduct GET /me/card-products[/{id}]", async () => {
+    const { captured, http } = rig([PRODUCT]);
+    const list = await new CardsResource(http).listProducts();
+    expect(list).toEqual([PRODUCT]);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/card-products");
+    expect(captured[0]!.init.method).toBe("GET");
+
+    const { captured: c2, http: h2 } = rig(PRODUCT);
+    const one = await new CardsResource(h2).getProduct("prod 1");
+    expect(one).toEqual(PRODUCT);
+    expect(c2[0]!.url).toBe("https://api.test/v1/me/card-products/prod%201");
+  });
+
+  it("update PATCHes /me/cards/{id} with only the given fields, snake_cased", async () => {
+    const { captured, http } = rig({ ...CARD, name: "Coffee" });
+    const out = await new CardsResource(http).update("card_1", { name: "Coffee" });
+    expect(out.name).toBe("Coffee");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/cards/card_1");
+    expect(captured[0]!.init.method).toBe("PATCH");
+    expect(bodyOf(captured[0]!)).toEqual({ name: "Coffee" });
+
+    const { captured: c2, http: h2 } = rig(CARD);
+    await new CardsResource(h2).update("card_1", { designId: null });
+    expect(bodyOf(c2[0]!)).toEqual({ design_id: null });
+
+    const { captured: c3, http: h3 } = rig(CARD);
+    await new CardsResource(h3).update("card_1", { name: "Coffee", designId: "dsg_1" });
+    expect(bodyOf(c3[0]!)).toEqual({ name: "Coffee", design_id: "dsg_1" });
   });
 
   it("get / list hit the right paths", async () => {

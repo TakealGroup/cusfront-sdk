@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useClient } from "./context.js";
 import type { User } from "../resources/auth.js";
 import type { Deposit } from "../resources/deposits.js";
-import type { Card } from "../resources/cards.js";
+import type { Card, CardProduct } from "../resources/cards.js";
 import type { Balance } from "../resources/balance.js";
 
 /**
@@ -122,6 +122,16 @@ export function useDeposits(): AsyncState<Deposit[]> {
 export function useCards(): AsyncState<Card[]> {
   const client = useClient();
   return useAsyncResource<Card[]>(() => client.cards.list(), [client]);
+}
+
+/**
+ * The cards the user can order, default product first
+ * (`client.cards.listProducts()`). Render each item's artwork through
+ * `client.assetUrl(product.design.image_url)`.
+ */
+export function useCardProducts(): AsyncState<CardProduct[]> {
+  const client = useClient();
+  return useAsyncResource<CardProduct[]>(() => client.cards.listProducts(), [client]);
 }
 
 /**
