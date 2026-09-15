@@ -14,6 +14,12 @@ import type { HttpClient } from "../http.js";
  * ```
  *
  * Unrelated to paid/VIP tiers — this is only about announcements.
+ *
+ * @deprecated Announcements are now the `marketing` category of the
+ * notification preferences. Read them with
+ * `client.notifications.getPreferences()` and change them with
+ * `client.notifications.setPreferences({ categories: { marketing: { email: true, telegram: false } } })`.
+ * This endpoint keeps working as an alias over that setting.
  */
 
 export type BroadcastChannel = "email" | "telegram" | (string & {});
@@ -25,6 +31,7 @@ export interface Subscriptions {
   available: BroadcastChannel[];
 }
 
+/** @deprecated See the note at the top of this module. */
 export class SubscriptionsResource {
   constructor(private readonly http: HttpClient) {}
 

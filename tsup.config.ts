@@ -21,6 +21,8 @@ export default defineConfig({
     "resources/wallet": "src/resources/wallet.ts",
     "resources/sessions": "src/resources/sessions.ts",
     "resources/push": "src/resources/push.ts",
+    "resources/notifications": "src/resources/notifications.ts",
+    "resources/devices": "src/resources/devices.ts",
     "resources/me": "src/resources/me.ts",
     webhooks: "src/webhooks.ts",
     // Telegram Mini App adapter — its own entry so non-TG consumers never

@@ -1,6 +1,6 @@
 # @takeal/cusfront-sdk
 
-Typed TypeScript client for the **Takeal end-user API**: sign-up and login, wallet, deposits, cards, sessions, push notifications and webhook signature verification.
+Typed TypeScript client for the **Takeal end-user API**: sign-up and login, wallet, deposits, cards, sessions, the notification inbox, devices and webhook signature verification.
 
 The SDK powers any end-user client app on top of a Takeal deployment: a PWA, a Capacitor-wrapped mobile app, a Telegram Mini App, or anything else that talks to the `/auth/*` + `/me/*` surface. One client, runtime brand swap, zero runtime deps in the core.
 
@@ -164,6 +164,11 @@ How it works end-to-end:
 4. First-time Telegram users are **auto-provisioned**. They have no email yet, so
    `me.email_pending === true` — prompt for an address and call
    `client.auth.linkEmail` to clear it.
+5. Once signed in, the Mini App registers itself as a `telegram_miniapp`
+   device, so the user's notifications arrive as messages from the bot. A
+   failure here is logged as a warning and never blocks the sign-in; pass
+   `{ registerDevice: false }` to skip it. The client also announces itself as
+   `telegram-miniapp` in `X-Takeal-Client` (see [Client platform](#client-platform-x-takeal-client)).
 
 For the lower-level call returning the raw session envelope (including
 `email_pending`), use `client.auth.exchangeTelegram({ initData })` on a client
@@ -256,6 +261,175 @@ type User = {
 };
 ```
 
+## Notifications (inbox)
+
+Everything the API tells a user (a confirmed deposit, a card transaction, a
+sign-in from a new device) is kept as an inbox item, whatever else was sent
+as a nudge (a push, a Telegram message, an email). The inbox is what your app
+shows; `client.notifications` reads it.
+
+```ts
+const page = await client.notifications.list({ limit: 20 });
+// page.items (newest first), page.next_cursor, page.unread_count
+
+const more = await client.notifications.list({ cursor: page.next_cursor! });
+const onlyMoney = await client.notifications.list({ unreadOnly: true, category: "money" });
+
+await client.notifications.markRead(page.items[0].id);
+await client.notifications.markAllRead();          // or markAllRead(isoTimestamp)
+await client.notifications.remove(page.items[1].id);
+const badge = await client.notifications.unreadCount();
+```
+
+An item has `title`, `body`, a `category` (`money`, `card`, `security`,
+`account`, `marketing`), `read_at` (`null` while unread), free-form `data`
+about the event, and `href`: a path inside your app to open on tap
+(`/cards/<id>`, `/deposits/<id>`, `/subscription`, `/settings/sessions`) or
+`null`. Route `href` through your own router; the SDK doesn't navigate.
+
+A small inbox screen:
+
+```tsx
+function Inbox() {
+  const [page, setPage] = useState<NotificationPage | null>(null);
+  useEffect(() => { client.notifications.list({ limit: 20 }).then(setPage); }, []);
+  if (!page) return <Spinner />;
+  return (
+    <ul>
+      {page.items.map((n) => (
+        <li key={n.id} className={n.read_at ? "" : "unread"}
+            onClick={async () => { await client.notifications.markRead(n.id); if (n.href) router.push(n.href); }}>
+          <strong>{n.title}</strong>
+          <p>{n.body}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+(The React entry has `useNotifications()` and `useUnreadCount()`, which do the
+state handling for you; see [React hooks](#react-hooks-takealcusfront-sdkreact).)
+
+### Preferences
+
+Where the nudge goes is up to the user:
+
+```ts
+const prefs = await client.notifications.getPreferences();
+// prefs.primary_channel: "push" | "telegram" | "email" | "sms" | null (automatic)
+// prefs.categories: { money: { push: true, email: false }, ... }
+// prefs.locale: "en" | "ru" | null
+// prefs.available_channels: what this deployment can deliver on; render toggles only for these
+
+await client.notifications.setPreferences({
+  primary_channel: "telegram",
+  categories: { marketing: { email: true, telegram: false } },
+  locale: "ru",
+});
+```
+
+Every field of `setPreferences` is optional; only what you pass changes.
+`primary_channel: null` goes back to automatic (the server picks by the user's
+devices). `security` and `money` can't be switched off completely: the inbox
+always gets them and at least one outward channel stays on. `marketing` is off
+until the user opts in. A `locale` of `null` means "use the language of the
+Telegram profile, else the deployment's default".
+
+`client.subscriptions` (announcement channels) is deprecated: it now reads and
+writes `categories.marketing` and keeps working, but new code should use
+`setPreferences({ categories: { marketing: { ... } } })`.
+
+## Devices
+
+A user has many devices: each browser with a Web Push subscription, each phone
+with an FCM or APNs token, and a marker that says "uses the Telegram Mini App".
+The server picks where a notification goes from them: a mobile app first,
+otherwise the device seen most recently. What each platform can receive:
+
+| Platform | Outward channel | Inbox |
+|---|---|---|
+| PWA / browser | Web Push | yes |
+| Telegram Mini App | messages from the bot (no Web Push) | yes |
+| iOS / Android app | FCM / APNs (tokens are accepted now; delivery comes later) | yes |
+
+Web Push in a browser, once notification permission is granted:
+
+```ts
+const reg = await navigator.serviceWorker.ready;
+if ((await Notification.requestPermission()) === "granted") {
+  const device = await client.devices.registerWebPush(reg, { label: "Chrome on Mac" });
+  // device.id, device.vapid_public_key
+}
+
+// Settings screen, later:
+await client.devices.unregisterWebPush(reg);              // this session's Web Push devices
+await client.devices.unregisterWebPush(reg, { deviceId }); // or exactly one
+```
+
+`registerWebPush` fetches the deployment's VAPID key, subscribes the browser
+and registers the subscription as a `webpush` device on the client's platform
+(`pwa` or `web`). It throws when push isn't set up on the deployment. Pass
+`vapidPublicKey` in the options to skip the key lookup when you already hold it.
+
+Anything else goes through `register` / `list` / `remove`:
+
+```ts
+// A native app with a push token:
+await client.devices.register({ kind: "fcm", platform: "android", credential: { token }, app_version: "1.4.0" });
+// A Telegram Mini App (done for you by @takeal/cusfront-sdk/telegram):
+await client.devices.register({ kind: "telegram_miniapp", platform: "telegram", credential: {} });
+
+const devices = await client.devices.list();   // is_current marks the ones from this session
+await client.devices.remove(devices[0].id);
+```
+
+Registering the same credential twice refreshes the device (and re-enables a
+disabled one) instead of creating another. `app_version` defaults to the
+version in `X-Takeal-Client`.
+
+`client.push` (`enable`, `disable`, `save`, `remove`, `status`) is deprecated.
+The endpoint behind it keeps working as an alias over Web Push devices, but
+new code should use `devices.registerWebPush` / `devices.unregisterWebPush`.
+
+Your service worker shows the notification; the payload is JSON with `title`,
+`body` and `url`. To keep an open tab's badge fresh, also post a message to
+the open clients:
+
+```js
+self.addEventListener("push", (event) => {
+  const payload = event.data.json();
+  event.waitUntil(Promise.all([
+    self.registration.showNotification(payload.title, { body: payload.body, data: { url: payload.url } }),
+    self.clients.matchAll({ type: "window" }).then((clients) =>
+      clients.forEach((c) => c.postMessage({ type: "takeal:push" }))),
+  ]));
+});
+```
+
+## Client platform (`X-Takeal-Client`)
+
+Every request carries `X-Takeal-Client: <platform>; <version>`, for example
+`pwa; 0.3.0` or `telegram-miniapp; 0.2.8`. The server stores it on the session
+and uses it to notice a sign-in from a new device and to choose the
+notification channel. Set it with the `client` option:
+
+```ts
+const client = createClient({
+  baseUrl: "https://api.your-deployment.example.com",
+  client: { platform: "ios", version: "1.4.0" },
+});
+client.client; // { platform: "ios", version: "1.4.0" }
+```
+
+`platform` is one of `pwa`, `web`, `telegram-miniapp`, `ios`, `android`.
+When you leave the option out, the SDK detects it: `telegram-miniapp` when
+`window.Telegram.WebApp.initData` is present, `pwa` when the page runs
+installed (`navigator.standalone` or a `display-mode: standalone` media
+query), `web` otherwise and on any non-browser runtime. Native wrappers
+(Capacitor, React Native) can't be told apart from a browser, so pass `ios`
+or `android` yourself. `version` defaults to the SDK version (`SDK_VERSION`).
+
 ## Brand config
 
 Whitelabel-friendly by design — the SDK ships no embedded brand. Pass `brand` at runtime and the client app reads it back via `client.brand`:
@@ -296,13 +470,15 @@ Available now:
 - `@takeal/cusfront-sdk/cards` — `CardsResource` (cards backed by the wallet balance).
 - `@takeal/cusfront-sdk/balance` — `BalanceResource` (per-currency wallet balance).
 - `@takeal/cusfront-sdk/blog` — `BlogResource` (public posts as structured blocks).
-- `@takeal/cusfront-sdk/subscriptions` — `SubscriptionsResource` (announcement channels).
+- `@takeal/cusfront-sdk/subscriptions` — `SubscriptionsResource` (announcement channels; deprecated, see [Preferences](#preferences)).
 - `@takeal/cusfront-sdk/wallet` — `WalletResource` (the wallet's currency).
 - `@takeal/cusfront-sdk/sessions` — `SessionsResource` (where the user is signed in).
-- `@takeal/cusfront-sdk/push` — `PushResource` (Web Push subscription).
+- `@takeal/cusfront-sdk/push` — `PushResource` (Web Push subscription; deprecated, see [Devices](#devices)).
+- `@takeal/cusfront-sdk/notifications` — `NotificationsResource` (the inbox and notification preferences).
+- `@takeal/cusfront-sdk/devices` — `DevicesResource` (Web Push, mobile push tokens, the Telegram Mini App marker).
 - `@takeal/cusfront-sdk/me` — `MeResource` (link or unlink Telegram for the signed-in user).
 - `@takeal/cusfront-sdk/webhooks` — HMAC-SHA256 signature verifier (no network, isomorphic).
-- `@takeal/cusfront-sdk/react` — optional React hooks layer (`ClientProvider` + `useMe` / `useDeposits` / `useCards` / `useCardProducts` / `useBalance`). React is a `peerDependency`, never bundled.
+- `@takeal/cusfront-sdk/react` — optional React hooks layer (`ClientProvider` + `useMe` / `useDeposits` / `useCards` / `useCardProducts` / `useBalance` / `useNotifications` / `useUnreadCount`). React is a `peerDependency`, never bundled.
 - `@takeal/cusfront-sdk/telegram` — Telegram Mini App `initData` → authenticated client bridge.
 
 ### Verifying webhooks
@@ -382,6 +558,41 @@ Every hook returns the same shape — `{ data, error, loading, refetch }`:
 - `useCardProducts()` — the cards the user can order (`client.cards.listProducts()`).
 - `useBalance(currency)` — wallet balance for one currency
   (`client.balance.get(currency)`); re-fetches when `currency` changes.
+- `useUnreadCount({ pollMs? })` — unread inbox items for a badge
+  (`client.notifications.unreadCount()`). Refreshes in the background every
+  `pollMs` (default 30000; `0` turns polling off) and whenever the page's
+  service worker posts `{ type: "takeal:push" }` (see [Devices](#devices)),
+  without flipping `loading`.
+
+`useNotifications({ unreadOnly?, category?, limit? })` returns the same shape
+plus `markRead(id)`, `markAllRead()`, `loadMore()` and `loadingMore`.
+`loadMore` fetches the next page by `next_cursor` and appends its items to
+`data.items`; the two mark helpers update `data` right away so the list
+doesn't flicker.
+
+```tsx
+function Inbox() {
+  const inbox = useNotifications({ limit: 20 });
+  const unread = useUnreadCount();
+
+  if (inbox.loading) return <Spinner />;
+  if (inbox.error) return <ErrorBanner onRetry={inbox.refetch} />;
+  return (
+    <>
+      <h2>Inbox {unread.data ? `(${unread.data})` : ""}</h2>
+      <button onClick={() => void inbox.markAllRead()}>Mark all read</button>
+      {inbox.data!.items.map((n) => (
+        <Row key={n.id} unread={!n.read_at} onClick={() => void inbox.markRead(n.id)}>
+          {n.title}
+        </Row>
+      ))}
+      {inbox.data!.next_cursor && (
+        <button disabled={inbox.loadingMore} onClick={() => void inbox.loadMore()}>More</button>
+      )}
+    </>
+  );
+}
+```
 
 `useClient()` exposes the raw client from context for one-off writes
 (e.g. `client.deposits.initiate(...)`) — it throws a clear error if called

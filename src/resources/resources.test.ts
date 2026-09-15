@@ -11,6 +11,8 @@ import { AuthResource, type JwtIssued, type User } from "./auth.js";
 import { SessionsResource } from "./sessions.js";
 import { PushResource, base64UrlToBytes } from "./push.js";
 import { MeResource } from "./me.js";
+import { NotificationsResource, type InboxItem, type NotificationPreferences } from "./notifications.js";
+import { DevicesResource, devicePlatformOf, type Device } from "./devices.js";
 import { isApiError, type ApiError } from "../error.js";
 
 /**
@@ -751,5 +753,293 @@ describe("PushResource", () => {
       },
     };
     await expect(new PushResource(http).enable(registration)).rejects.toThrow(/not enabled/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Notifications + devices
+// ---------------------------------------------------------------------------
+
+/** A fake fetch that answers per (method, path) so one test can drive a
+ *  multi-call flow. Unmatched requests get 404. */
+function router(routes: Record<string, { status?: number; body?: unknown }>) {
+  const captured: Captured[] = [];
+  const fake: FetchLike = async (url, init) => {
+    captured.push({ url: String(url), init: init ?? {} });
+    const u = new URL(String(url));
+    const key = `${init?.method ?? "GET"} ${u.pathname}`;
+    const route = routes[key];
+    if (!route) return new Response(JSON.stringify({ code: "not_found", message: key }), { status: 404 });
+    const status = route.status ?? 200;
+    if (status === 204 || route.body === undefined) return new Response(null, { status });
+    return new Response(JSON.stringify(route.body), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+  const http = new HttpClient("https://api.test", inMemoryStore(), fake);
+  return { captured, http };
+}
+
+const ITEM: InboxItem = {
+  id: "ntf_1",
+  event_type: "deposit_confirmed",
+  category: "money",
+  title: "Deposit confirmed",
+  body: "100.00 USD is in your wallet.",
+  href: "/deposits/dep_1",
+  data: { amount: "100.00", currency: "USD" },
+  locale: "en",
+  read_at: null,
+  created_at: "2026-09-15T00:00:00Z",
+};
+
+const PREFS: NotificationPreferences = {
+  primary_channel: null,
+  categories: { marketing: { email: true, telegram: false } },
+  locale: "ru",
+  available_channels: ["push", "telegram", "email"],
+};
+
+describe("NotificationsResource", () => {
+  it("list GETs /me/notifications with only the given query params", async () => {
+    const page = { items: [ITEM], next_cursor: "c2", unread_count: 3 };
+    const { captured, http } = rig(page);
+    const r = new NotificationsResource(http);
+
+    expect(await r.list()).toEqual(page);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/notifications");
+    expect(captured[0]!.init.method).toBe("GET");
+
+    await r.list({ cursor: "c2", limit: 20, unreadOnly: true, category: "money" });
+    const u = new URL(captured[1]!.url);
+    expect(u.pathname).toBe("/v1/me/notifications");
+    expect(Object.fromEntries(u.searchParams)).toEqual({
+      cursor: "c2",
+      limit: "20",
+      unread: "true",
+      category: "money",
+    });
+
+    await r.list({ unreadOnly: false, limit: 5 });
+    expect(new URL(captured[2]!.url).search).toBe("?limit=5");
+  });
+
+  it("unreadCount unwraps {unread}", async () => {
+    const { captured, http } = rig({ unread: 7 });
+    expect(await new NotificationsResource(http).unreadCount()).toBe(7);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/notifications/unread-count");
+  });
+
+  it("markRead POSTs /me/notifications/{id}/read and returns the item", async () => {
+    const read = { ...ITEM, read_at: "2026-09-15T01:00:00Z" };
+    const { captured, http } = rig(read);
+    expect(await new NotificationsResource(http).markRead("ntf 1")).toEqual(read);
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/notifications/ntf%201/read");
+    expect(bodyOf(captured[0]!)).toBeUndefined();
+  });
+
+  it("markAllRead POSTs read-all with an optional `before`", async () => {
+    const { captured, http } = rig({ marked: 4 });
+    const r = new NotificationsResource(http);
+    expect(await r.markAllRead()).toEqual({ marked: 4 });
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/notifications/read-all");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({});
+
+    await r.markAllRead("2026-09-15T00:00:00Z");
+    expect(bodyOf(captured[1]!)).toEqual({ before: "2026-09-15T00:00:00Z" });
+  });
+
+  it("remove DELETEs /me/notifications/{id}", async () => {
+    const { captured, http } = router({ "DELETE /v1/me/notifications/ntf_1": { status: 204 } });
+    await new NotificationsResource(http).remove("ntf_1");
+    expect(captured[0]!.init.method).toBe("DELETE");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/notifications/ntf_1");
+  });
+
+  it("getPreferences / setPreferences use /me/notification-preferences", async () => {
+    const { captured, http } = rig(PREFS);
+    const r = new NotificationsResource(http);
+    expect(await r.getPreferences()).toEqual(PREFS);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/notification-preferences");
+    expect(captured[0]!.init.method).toBe("GET");
+
+    await r.setPreferences({
+      primary_channel: null,
+      categories: { marketing: { email: true } },
+      locale: "ru",
+    });
+    expect(captured[1]!.init.method).toBe("PUT");
+    expect(captured[1]!.url).toBe("https://api.test/v1/me/notification-preferences");
+    expect(bodyOf(captured[1]!)).toEqual({
+      primary_channel: null,
+      categories: { marketing: { email: true } },
+      locale: "ru",
+    });
+
+    await r.setPreferences({ locale: "en" });
+    expect(bodyOf(captured[2]!)).toEqual({ locale: "en" });
+  });
+});
+
+const DEVICE: Device = {
+  id: "dev_1",
+  kind: "webpush",
+  platform: "pwa",
+  label: "Chrome on Mac",
+  locale: null,
+  app_version: "0.3.0",
+  created_at: "2026-09-15T00:00:00Z",
+  last_seen_at: "2026-09-15T00:00:00Z",
+  disabled_at: null,
+  is_current: true,
+};
+
+const KEY = "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U";
+const PWA = { platform: "pwa" as const, version: "0.3.0" };
+
+function fakeRegistration(state: { subscribed: boolean; usedKey?: Uint8Array; unsubscribed?: boolean }) {
+  return {
+    pushManager: {
+      getSubscription: async () =>
+        state.subscribed
+          ? {
+              unsubscribe: async () => {
+                state.unsubscribed = true;
+                return true;
+              },
+            }
+          : null,
+      subscribe: async (o: { userVisibleOnly: boolean; applicationServerKey: Uint8Array }) => {
+        state.usedKey = o.applicationServerKey;
+        state.subscribed = true;
+        return {
+          toJSON: () => ({
+            endpoint: "https://push.example/abc",
+            keys: { p256dh: "p256", auth: "auth" },
+          }),
+        };
+      },
+    },
+  };
+}
+
+describe("DevicesResource", () => {
+  it("list GETs /me/devices", async () => {
+    const { captured, http } = rig([DEVICE]);
+    expect(await new DevicesResource(http, PWA).list()).toEqual([DEVICE]);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/devices");
+    expect(captured[0]!.init.method).toBe("GET");
+  });
+
+  it("register PUTs /me/devices with the client version as app_version by default", async () => {
+    const out = { id: "dev_tg", kind: "telegram_miniapp", platform: "telegram", vapid_public_key: null };
+    const { captured, http } = rig(out, 201);
+    const r = new DevicesResource(http, PWA);
+    expect(
+      await r.register({ kind: "telegram_miniapp", platform: "telegram", credential: {}, locale: "ru" }),
+    ).toEqual(out);
+    expect(captured[0]!.init.method).toBe("PUT");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/devices");
+    expect(bodyOf(captured[0]!)).toEqual({
+      kind: "telegram_miniapp",
+      platform: "telegram",
+      credential: {},
+      locale: "ru",
+      app_version: "0.3.0",
+    });
+
+    await r.register({ kind: "fcm", platform: "android", credential: { token: "t" }, app_version: "9.9" });
+    expect(bodyOf(captured[1]!)).toEqual({
+      kind: "fcm",
+      platform: "android",
+      credential: { token: "t" },
+      app_version: "9.9",
+    });
+  });
+
+  it("remove DELETEs /me/devices/{id}", async () => {
+    const { captured, http } = router({ "DELETE /v1/me/devices/dev_1": { status: 204 } });
+    await new DevicesResource(http, PWA).remove("dev_1");
+    expect(captured[0]!.init.method).toBe("DELETE");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/devices/dev_1");
+  });
+
+  it("registerWebPush fetches the VAPID key, subscribes and PUTs a webpush device", async () => {
+    const registered = { id: "dev_1", kind: "webpush", platform: "pwa", vapid_public_key: KEY };
+    const { captured, http } = router({
+      "GET /v1/me/push-subscription": { body: { subscribed: false, vapid_public_key: KEY } },
+      "PUT /v1/me/devices": { status: 201, body: registered },
+    });
+    const state = { subscribed: false } as { subscribed: boolean; usedKey?: Uint8Array };
+    const out = await new DevicesResource(http, PWA).registerWebPush(fakeRegistration(state), {
+      label: "Chrome on Mac",
+    });
+    expect(out).toEqual(registered);
+    expect(state.usedKey).toEqual(base64UrlToBytes(KEY));
+    expect(captured.map((c) => [c.init.method, c.url])).toEqual([
+      ["GET", "https://api.test/v1/me/push-subscription"],
+      ["PUT", "https://api.test/v1/me/devices"],
+    ]);
+    expect(bodyOf(captured[1]!)).toEqual({
+      kind: "webpush",
+      platform: "pwa",
+      credential: { endpoint: "https://push.example/abc", keys: { p256dh: "p256", auth: "auth" } },
+      label: "Chrome on Mac",
+      app_version: "0.3.0",
+    });
+  });
+
+  it("registerWebPush skips the key lookup when given one, and maps telegram-miniapp to telegram", async () => {
+    const { captured, http } = router({
+      "PUT /v1/me/devices": { status: 200, body: { id: "dev_1", kind: "webpush", platform: "telegram", vapid_public_key: KEY } },
+    });
+    const state = { subscribed: false };
+    await new DevicesResource(http, { platform: "telegram-miniapp", version: "1.0" }).registerWebPush(
+      fakeRegistration(state),
+      { vapidPublicKey: KEY },
+    );
+    expect(captured).toHaveLength(1);
+    expect((bodyOf(captured[0]!) as { platform: string }).platform).toBe("telegram");
+    expect(devicePlatformOf("telegram-miniapp")).toBe("telegram");
+    expect(devicePlatformOf("ios")).toBe("ios");
+  });
+
+  it("registerWebPush refuses when the deployment has no VAPID key", async () => {
+    const { http } = router({
+      "GET /v1/me/push-subscription": { body: { subscribed: false, vapid_public_key: null } },
+    });
+    const state = { subscribed: false };
+    await expect(
+      new DevicesResource(http, PWA).registerWebPush(fakeRegistration(state)),
+    ).rejects.toThrow(/not enabled/);
+    expect(state.subscribed).toBe(false);
+  });
+
+  it("unregisterWebPush unsubscribes the browser and deletes this session's webpush devices", async () => {
+    const other: Device = { ...DEVICE, id: "dev_2", is_current: false };
+    const tg: Device = { ...DEVICE, id: "dev_3", kind: "telegram_miniapp", platform: "telegram" };
+    const { captured, http } = router({
+      "GET /v1/me/devices": { body: [DEVICE, other, tg] },
+      "DELETE /v1/me/devices/dev_1": { status: 204 },
+    });
+    const state = { subscribed: true } as { subscribed: boolean; unsubscribed?: boolean };
+    await new DevicesResource(http, PWA).unregisterWebPush(fakeRegistration(state));
+    expect(state.unsubscribed).toBe(true);
+    expect(captured.map((c) => [c.init.method, c.url])).toEqual([
+      ["GET", "https://api.test/v1/me/devices"],
+      ["DELETE", "https://api.test/v1/me/devices/dev_1"],
+    ]);
+  });
+
+  it("unregisterWebPush deletes exactly the given device id", async () => {
+    const { captured, http } = router({ "DELETE /v1/me/devices/dev_9": { status: 204 } });
+    const state = { subscribed: false };
+    await new DevicesResource(http, PWA).unregisterWebPush(fakeRegistration(state), { deviceId: "dev_9" });
+    expect(captured.map((c) => [c.init.method, c.url])).toEqual([
+      ["DELETE", "https://api.test/v1/me/devices/dev_9"],
+    ]);
   });
 });

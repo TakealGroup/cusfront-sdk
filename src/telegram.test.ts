@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   parseInitData,
   assertWellFormed,
@@ -12,6 +12,7 @@ import {
 import { inMemoryStore } from "./token-store.js";
 import { isApiError, type ApiError } from "./error.js";
 import type { FetchLike } from "./http.js";
+import { SDK_VERSION } from "./version.js";
 
 /**
  * Telegram Mini App adapter tests. No live backend — a captured fake `fetch`
@@ -26,6 +27,7 @@ function makeInitData(authDate: number, userId = 777000): string {
     first_name: "Alice",
     last_name: "Tester",
     username: "alice_tg",
+    language_code: "ru",
     is_premium: true,
   });
   const sp = new URLSearchParams();
@@ -37,6 +39,22 @@ function makeInitData(authDate: number, userId = 777000): string {
 }
 
 const NOW = 1_700_000_000;
+
+const JWT_SESSION = {
+  stage: "jwt",
+  access_token: "jwt-tg-123",
+  expires_at: "2026-06-24T00:00:00Z",
+  user: {
+    id: "usr_tg",
+    email: "tg-777000@telegram.local",
+    role: "user",
+    is_active: true,
+    email_pending: true,
+    created_at: "2026-06-23T00:00:00Z",
+    updated_at: "2026-06-23T00:00:00Z",
+  },
+  hub_access: false,
+};
 
 describe("parseInitData", () => {
   it("decodes the user JSON + numeric fields and keeps the raw string", () => {
@@ -133,16 +151,92 @@ describe("fromInitData", () => {
       { nowUnix: NOW + 5 },
     );
 
-    expect(captured).toHaveLength(1);
+    // Exchange, then the Mini App registers itself as a device.
+    expect(captured).toHaveLength(2);
     expect(captured[0]!.url).toBe("https://api.test/v1/auth/telegram/exchange");
     expect(captured[0]!.init.method).toBe("POST");
     expect(JSON.parse(captured[0]!.init.body as string)).toEqual({ init_data: raw });
     // Exchange is unauthenticated — no bearer on the request.
     const hdrs = (captured[0]!.init.headers ?? {}) as Record<string, string>;
     expect(hdrs["Authorization"]).toBeUndefined();
+    // The client announces the Mini App platform.
+    expect(hdrs["X-Takeal-Client"]).toBe(`telegram-miniapp; ${SDK_VERSION}`);
+    expect(client.client.platform).toBe("telegram-miniapp");
     // JWT persisted for subsequent client.* calls.
     expect(await client.tokens.get()).toBe("jwt-tg-123");
     expect(typeof client.auth.linkEmail).toBe("function");
+
+    expect(captured[1]!.url).toBe("https://api.test/v1/me/devices");
+    expect(captured[1]!.init.method).toBe("PUT");
+    const devHdrs = (captured[1]!.init.headers ?? {}) as Record<string, string>;
+    expect(devHdrs["Authorization"]).toBe("Bearer jwt-tg-123");
+    expect(JSON.parse(captured[1]!.init.body as string)).toEqual({
+      kind: "telegram_miniapp",
+      platform: "telegram",
+      credential: {},
+      locale: "ru",
+      app_version: SDK_VERSION,
+    });
+  });
+
+  it("keeps a given client version but forces the telegram-miniapp platform", async () => {
+    const captured: { url: string; init: RequestInit }[] = [];
+    const fake: FetchLike = async (url, init) => {
+      captured.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify({ stage: "unknown" }), { status: 200 });
+    };
+    await exchangeInitData(
+      makeInitData(NOW),
+      { baseUrl: "https://api.test", tokenStore: inMemoryStore(), fetch: fake, client: { platform: "web", version: "2.1.0" } },
+      { nowUnix: NOW + 5 },
+    );
+    const hdrs = (captured[0]!.init.headers ?? {}) as Record<string, string>;
+    expect(hdrs["X-Takeal-Client"]).toBe("telegram-miniapp; 2.1.0");
+  });
+
+  it("device registration is best-effort: a failure warns and the client is still returned", async () => {
+    const captured: { url: string; init: RequestInit }[] = [];
+    const fake: FetchLike = async (url, init) => {
+      captured.push({ url: String(url), init: init ?? {} });
+      if (String(url).endsWith("/me/devices")) {
+        return new Response(JSON.stringify({ code: "validation", message: "nope" }), { status: 400 });
+      }
+      return new Response(JSON.stringify(JWT_SESSION), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const client = await fromInitData(
+        makeInitData(NOW),
+        { baseUrl: "https://api.test", tokenStore: inMemoryStore(), fetch: fake },
+        { nowUnix: NOW + 5 },
+      );
+      expect(await client.tokens.get()).toBe("jwt-tg-123");
+      expect(captured).toHaveLength(2);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]![0])).toMatch(/could not register the Mini App/);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("registerDevice: false skips the device call", async () => {
+    const captured: { url: string; init: RequestInit }[] = [];
+    const fake: FetchLike = async (url, init) => {
+      captured.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify(JWT_SESSION), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+    await fromInitData(
+      makeInitData(NOW),
+      { baseUrl: "https://api.test", tokenStore: inMemoryStore(), fetch: fake },
+      { nowUnix: NOW + 5, registerDevice: false },
+    );
+    expect(captured.map((c) => c.url)).toEqual(["https://api.test/v1/auth/telegram/exchange"]);
   });
 
   it("fails fast on malformed initData without hitting the network", async () => {

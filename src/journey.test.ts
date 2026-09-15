@@ -227,6 +227,86 @@ describe.runIf(await reachable())("live Cusfront journey", () => {
     await client.auth.signOut();
   });
 
+  // Inbox, preferences and devices. Skips itself when the API under test
+  // predates the inbox (404 on the route).
+  it("notifications inbox + preferences, device register → list → remove", async () => {
+    const client = createClient({
+      baseUrl: LIVE,
+      tokenStore: inMemoryStore(),
+      client: { platform: "web", version: "journey" },
+    });
+    await client.auth.login({ email: EMAIL, password: PASSWORD });
+
+    const page = await client.notifications.list({ limit: 10 }).catch((e: unknown) => {
+      if (isApiError(e) && e.status === 404) return null;
+      throw e;
+    });
+    if (!page) {
+      console.warn("live journey: no notifications inbox on this API, skipping the scenario");
+      return;
+    }
+    expect(Array.isArray(page.items)).toBe(true);
+    expect(typeof page.unread_count).toBe("number");
+    expect(page.next_cursor === null || typeof page.next_cursor === "string").toBe(true);
+    for (const n of page.items) {
+      expect(n.id).toBeTruthy();
+      expect(["money", "card", "security", "account", "marketing"]).toContain(n.category);
+      expect(typeof n.title).toBe("string");
+      expect(n.href === null || n.href.startsWith("/")).toBe(true);
+    }
+    // The user_registered item may or may not exist for a seeded account;
+    // no assertion on it. Filters and the count endpoint still answer.
+    const unread = await client.notifications.list({ unreadOnly: true, category: "money" });
+    expect(unread.items.every((n) => n.read_at === null && n.category === "money")).toBe(true);
+    expect(typeof (await client.notifications.unreadCount())).toBe("number");
+    if (page.items[0]) {
+      const read = await client.notifications.markRead(page.items[0].id);
+      expect(read.id).toBe(page.items[0].id);
+      expect(read.read_at).not.toBeNull();
+    }
+    expect(typeof (await client.notifications.markAllRead()).marked).toBe("number");
+
+    const prefs = await client.notifications.getPreferences();
+    expect(Array.isArray(prefs.available_channels), `prefs (got ${JSON.stringify(prefs)})`).toBe(true);
+    expect(typeof prefs.categories).toBe("object");
+    const ru = await client.notifications.setPreferences({ locale: "ru" });
+    expect(ru.locale).toBe("ru");
+    const back = await client.notifications.setPreferences({ locale: prefs.locale });
+    expect(back.locale).toBe(prefs.locale);
+    // Unknown locale → 400, not 500.
+    const badLocale = await client.notifications
+      .setPreferences({ locale: "xx" })
+      .then(() => null)
+      .catch((e) => e);
+    expect(isApiError(badLocale), `expected ApiError, got ${badLocale}`).toBe(true);
+    expect((badLocale as ApiError).status).toBe(400);
+
+    const dev = await client.devices.register({
+      kind: "telegram_miniapp",
+      platform: "telegram",
+      credential: {},
+      label: "journey",
+    });
+    expect(dev.id, `device (got ${JSON.stringify(dev)})`).toBeTruthy();
+    expect(dev.kind).toBe("telegram_miniapp");
+    expect(dev.platform).toBe("telegram");
+    const devices = await client.devices.list();
+    const mine = devices.find((d) => d.id === dev.id);
+    expect(mine, "registered device appears in the list").toBeTruthy();
+    expect(mine!.is_current).toBe(true);
+    expect(mine!.app_version).toBe("journey");
+    // Registering the same marker again is idempotent (200, same id).
+    const again = await client.devices.register({ kind: "telegram_miniapp", platform: "telegram", credential: {} });
+    expect(again.id).toBe(dev.id);
+    await client.devices.remove(dev.id);
+    expect((await client.devices.list()).some((d) => d.id === dev.id)).toBe(false);
+    const gone = await client.devices.remove(dev.id).then(() => null).catch((e) => e);
+    expect(isApiError(gone), `expected ApiError, got ${gone}`).toBe(true);
+    expect((gone as ApiError).status).toBe(404);
+
+    await client.auth.signOut();
+  });
+
   // Error-shape contract a Cusfront relies on: predictable HTTP statuses +
   // typed ApiError. Catches backend regressions that turn a 4xx into a 500.
   it("surfaces typed errors with sane statuses", async () => {

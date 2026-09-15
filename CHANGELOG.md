@@ -8,6 +8,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `client.notifications` (sub-export `@takeal/cusfront-sdk/notifications`):
+  the inbox and notification preferences. `list({ cursor?, limit?,
+  unreadOnly?, category? })`, `unreadCount()`, `markRead(id)`,
+  `markAllRead(before?)`, `remove(id)`, `getPreferences()` and
+  `setPreferences({ primary_channel?, categories?, locale? })`. Types
+  `InboxItem`, `NotificationPage`, `NotificationPreferences`,
+  `NotificationCategory`, `NotificationChannel`.
+- `client.devices` (sub-export `@takeal/cusfront-sdk/devices`): `list()`,
+  `register(input)`, `remove(id)`, plus `registerWebPush(registration,
+  { label?, vapidPublicKey? })` and `unregisterWebPush(registration,
+  { deviceId? })`, which subscribe or unsubscribe the browser and keep the
+  device list in step. Types `Device`, `DeviceKind`, `DevicePlatform`,
+  `RegisterDeviceInput`, `RegisteredDevice`.
+- `createClient({ client: { platform, version? } })`. Every request now
+  carries `X-Takeal-Client: <platform>; <version>`. `platform` is detected
+  when omitted (`telegram-miniapp` inside Telegram, `pwa` when installed,
+  `web` otherwise); `version` defaults to the SDK version. The resolved
+  descriptor is readable as `client.client`; `SDK_VERSION`,
+  `detectClientPlatform` and `CLIENT_HEADER` are exported from the root.
+- `@takeal/cusfront-sdk/telegram`: the Mini App helpers announce
+  `telegram-miniapp` and, after a successful exchange, register the app as a
+  `telegram_miniapp` device (best-effort; `registerDevice: false` skips it).
+- `useNotifications(opts?)` and `useUnreadCount({ pollMs? })` in
+  `@takeal/cusfront-sdk/react`. The badge count refreshes on an interval and
+  on a `{ type: "takeal:push" }` message from the service worker;
+  `PUSH_MESSAGE_TYPE` carries the string.
+
 - Card catalog: `client.cards.listProducts()` and `client.cards.getProduct(id)`
   return the cards a user can order (`CardProduct`: name, description, type,
   currency, artwork, the designs to choose from, the issuance price after the
@@ -36,6 +63,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `TelegramUnknownError` (carries `initData`), thrown by `fromInitData` /
   `fromTelegramWebApp` when `provision: false` is set and the Telegram id
   has no account.
+
+### Deprecated
+
+- `client.push` (`enable`, `disable`, `save`, `remove`, `status`): the
+  endpoint keeps working as an alias over Web Push devices, but new code
+  should call `client.devices.registerWebPush` / `unregisterWebPush`.
+- `client.subscriptions`: announcement channels are now the `marketing`
+  category of the notification preferences. The endpoint keeps working; use
+  `client.notifications.setPreferences({ categories: { marketing: { ... } } })`.
 
 ### Changed
 

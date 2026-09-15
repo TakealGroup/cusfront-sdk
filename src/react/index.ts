@@ -15,6 +15,9 @@
  *  - {@link useMe} / {@link useDeposits} / {@link useCards} /
  *    {@link useCardProducts} / {@link useBalance} — read hooks over the matching resources, each
  *    returning `{ data, error, loading, refetch }`.
+ *  - {@link useNotifications} / {@link useUnreadCount} — the inbox with
+ *    paging and read-state helpers, and a badge count that refreshes on a
+ *    timer and on service-worker push messages.
  *
  * All hooks are SSR-safe (no top-level `window` / `document` access;
  * effects only) and free of third-party data-fetching deps.
@@ -30,5 +33,11 @@ export {
   useCards,
   useCardProducts,
   useBalance,
+  useNotifications,
+  useUnreadCount,
+  PUSH_MESSAGE_TYPE,
   type AsyncState,
+  type NotificationsState,
+  type UseNotificationsOptions,
+  type UseUnreadCountOptions,
 } from "./hooks.js";

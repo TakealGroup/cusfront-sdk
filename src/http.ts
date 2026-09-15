@@ -13,6 +13,8 @@ import type { TokenStore } from "./token-store.js";
  *  - Set `Content-Type: application/json` on bodies.
  *  - Parse JSON responses + map non-2xx to `ApiError`.
  *  - Forward `Idempotency-Key` when the caller passes one.
+ *  - Send the constructor's `defaultHeaders` (the `X-Takeal-Client`
+ *    descriptor) on every request.
  *  - Surface network failures (DNS, abort, broken pipe) as
  *    `NetworkError`.
  *
@@ -61,6 +63,9 @@ export class HttpClient {
     private readonly baseUrl: string,
     private readonly tokens: TokenStore,
     private readonly fetchImpl: FetchLike,
+    /** Headers sent on every request, below the per-call `headers`
+     *  (a caller can still override one). */
+    private readonly defaultHeaders: Record<string, string> = {},
   ) {
     if (!baseUrl) throw new Error("HttpClient: baseUrl is required");
   }
@@ -89,6 +94,7 @@ export class HttpClient {
     const url = this.absolute(path);
     const headers: Record<string, string> = {
       Accept: "application/json",
+      ...this.defaultHeaders,
     };
     if (opts.body !== undefined) headers["Content-Type"] = "application/json";
     if (opts.idempotencyKey) headers["Idempotency-Key"] = opts.idempotencyKey;

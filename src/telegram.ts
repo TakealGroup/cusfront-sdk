@@ -149,6 +149,11 @@ export interface FromInitDataOptions extends WellFormedOptions {
    *  {@link exchangeInitData} resolve with `session.stage === "unknown"`)
    *  instead of creating anything. */
   provision?: boolean;
+  /** After a successful exchange, register this Mini App as a
+   *  `telegram_miniapp` device so notifications reach the user as bot
+   *  messages. Default `true`. Best-effort: a failure is logged as a
+   *  warning and never fails the sign-in. */
+  registerDevice?: boolean;
 }
 
 /** Thrown by {@link fromInitData} / {@link fromTelegramWebApp} when
@@ -185,6 +190,13 @@ export interface InitDataExchange {
  *    `session` is `{ stage: "unknown" }` and the client is unauthenticated;
  *    continue with `client.auth.linkTelegram(...)` or
  *    `client.auth.exchangeTelegram({ initData, provision: true })`.
+ * 4. on `stage: "jwt"` the Mini App is registered as a `telegram_miniapp`
+ *    device (unless `registerDevice: false`), so the user's notifications
+ *    arrive as bot messages. Errors here are only logged.
+ *
+ * The client announces itself as `telegram-miniapp` in `X-Takeal-Client`
+ * whatever `config.client.platform` says; a given `config.client.version`
+ * is kept.
  *
  * Use this when the app wants to branch on the outcome itself;
  * {@link fromInitData} is the throwing shorthand.
@@ -195,12 +207,38 @@ export async function exchangeInitData(
   opts: FromInitDataOptions = {},
 ): Promise<InitDataExchange> {
   if (!opts.skipWellFormedCheck) assertWellFormed(initData, opts);
-  const client = createClient(config);
+  const client = createClient({
+    ...config,
+    client: { ...config.client, platform: "telegram-miniapp" },
+  });
   const session = await client.auth.exchangeTelegram({
     initData,
     ...(opts.provision !== undefined ? { provision: opts.provision } : {}),
   });
+  if (session.stage === "jwt" && opts.registerDevice !== false) {
+    await registerMiniAppDevice(client, initData);
+  }
   return { client, session };
+}
+
+/** Best-effort `telegram_miniapp` device registration. The Telegram
+ *  profile's `language_code` goes along as the device locale when present. */
+async function registerMiniAppDevice(client: CusfrontClient, initData: string): Promise<void> {
+  const locale = parseInitData(initData).user?.language_code;
+  try {
+    await client.devices.register({
+      kind: "telegram_miniapp",
+      platform: "telegram",
+      credential: {},
+      ...(locale ? { locale } : {}),
+    });
+  } catch (e) {
+    console.warn(
+      "@takeal/cusfront-sdk/telegram: could not register the Mini App as a device; " +
+        "notifications may not reach this user in Telegram",
+      e,
+    );
+  }
 }
 
 /**

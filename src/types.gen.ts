@@ -28,6 +28,28 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/card-designs/default.svg": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The deployment's default card design
+         * @description An SVG in the proportions of a card, drawn from the branding settings:
+         *     brand colours, the platform name and the logo. Used for every product and
+         *     card without a design of its own. No authentication.
+         */
+        get: operations["default_design_svg"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -66,6 +88,28 @@ export type paths = {
         get: operations["ready"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a brand image
+         * @description Stores a logo or favicon in the deployment's file storage and returns
+         *     its public URL, for the Branding settings. Needs file storage on the
+         *     deployment.
+         */
+        post: operations["upload_asset"];
         delete?: never;
         options?: never;
         head?: never;
@@ -171,6 +215,55 @@ export type paths = {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/card-designs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List card designs
+         * @description Every design, active and disabled, newest first.
+         */
+        get: operations["list_designs"];
+        put?: never;
+        /**
+         * Add a card design
+         * @description Either upload a PNG or WebP image (up to 512 KiB) or give the URL of an
+         *     image you host. Uploads need file storage on the deployment; without it
+         *     the call answers 503 and URL designs still work.
+         */
+        post: operations["create_design"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/card-designs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Disable a card design
+         * @description The image is kept: cards already using the design keep showing it, and
+         *     the design can be enabled again. Refused while an active program uses it
+         *     as its default design.
+         */
+        delete: operations["delete_design"];
+        options?: never;
+        head?: never;
+        /** Rename or enable / disable a card design */
+        patch: operations["patch_design"];
         trace?: never;
     };
     "/v1/admin/card-transactions": {
@@ -630,6 +723,29 @@ export type paths = {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/connectors/{slug}/programs/{program_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set what users see for a card program
+         * @description Name, description, designs, visibility and properties of one program in
+         *     the user catalog. Pricing stays under `/pricing`. Omitted fields keep
+         *     their value; `design_id: null` returns the program to the deployment's
+         *     default design.
+         */
+        patch: operations["patch_program"];
         trace?: never;
     };
     "/v1/admin/connectors/{slug}/programs/{program_code}/pricing": {
@@ -1848,6 +1964,83 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/users/{id}/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A user's devices */
+        get: operations["admin_list_devices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/devices/{device_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Disable a user's device
+         * @description Support action for a device that keeps buzzing or was left on a shared
+         *     computer. Needs the `users.write` permission. Audited.
+         */
+        patch: operations["admin_patch_device"];
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A user's notification preferences */
+        get: operations["admin_get_preferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a user was sent lately
+         * @description The user's inbox as they see it, newest first. For "why didn't I get a
+         *     notification?": an item here means it was sent; check the devices for
+         *     where.
+         */
+        get: operations["admin_list_notifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/users/{id}/role": {
         parameters: {
             query?: never;
@@ -2371,6 +2564,45 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/card-products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the cards you can issue
+         * @description Every card product this deployment offers, first the one you get when
+         *     you don't choose. Each carries its artwork, the designs you may pick and
+         *     what issuance costs you right now, your subscription discount included.
+         */
+        get: operations["list_products"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/card-products/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one card product */
+        get: operations["get_product"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/cards": {
         parameters: {
             query?: never;
@@ -2411,7 +2643,12 @@ export type paths = {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Rename a card or change its design
+         * @description Only the name and the design can change; the design must be one the
+         *     card's product offers.
+         */
+        patch: operations["patch_card"];
         trace?: never;
     };
     "/v1/me/cards/{id}/balance": {
@@ -2613,6 +2850,45 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your devices */
+        get: operations["list_devices"];
+        /**
+         * Register this device
+         * @description Idempotent on the credential: sending the same endpoint or token again
+         *     refreshes the device (and re-enables it) instead of adding another.
+         */
+        put: operations["register_device"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/devices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a device */
+        delete: operations["delete_device"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/email": {
         parameters: {
             query?: never;
@@ -2637,6 +2913,119 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get your notification preferences */
+        get: operations["get_preferences"];
+        /**
+         * Change your notification preferences
+         * @description Every field is optional; omitted ones keep their value. The inbox always
+         *     gets every notification. Security and money notices keep at least one
+         *     outward channel when any is available, whatever the switches say.
+         */
+        put: operations["put_preferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List your notifications
+         * @description Newest first, with a cursor for the next page. Every notification the
+         *     app would have shown as a push, a Telegram message or an email is here
+         *     too, whether or not that message arrived.
+         */
+        get: operations["list_notifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark every notification as read */
+        post: operations["mark_all_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many notifications you haven't read */
+        get: operations["unread_count"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/notifications/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a notification */
+        delete: operations["delete_notification"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark a notification as read */
+        post: operations["mark_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/push-subscription": {
         parameters: {
             query?: never;
@@ -2646,21 +3035,23 @@ export type paths = {
         };
         /**
          * Get your push subscription status
-         * @description Returns whether a subscription is stored and the VAPID public key the
-         *     browser needs to subscribe.
+         * @description Deprecated: use `GET /me/devices`. Returns whether a Web Push device is
+         *     registered and the VAPID public key the browser needs to subscribe.
          */
         get: operations["get_push_subscription"];
         /**
          * Store your push subscription
-         * @description Saves the subscription the browser returned from `pushManager.subscribe`.
-         *     One subscription per user: a new one replaces the previous.
+         * @description Deprecated: use `PUT /me/devices` with `kind: "webpush"`. Registers the
+         *     subscription the browser returned from `pushManager.subscribe` as a
+         *     device of yours; sending the same endpoint again refreshes it.
          */
         put: operations["put_push_subscription"];
         post?: never;
         /**
          * Remove your push subscription
-         * @description Deletes the stored subscription. The client should also unsubscribe in
-         *     the browser. Safe to call when nothing is stored.
+         * @description Deprecated: use `DELETE /me/devices/{id}`. Removes every Web Push device
+         *     of yours. The client should also unsubscribe in the browser. Safe to call
+         *     when nothing is stored.
          */
         delete: operations["delete_push_subscription"];
         options?: never;
@@ -3286,6 +3677,11 @@ export type components = {
             currency: string;
             customer?: null | components["schemas"]["CustomerInfo"];
             /**
+             * Format: uuid
+             * @description Design to show on the card; omit for the program's default design.
+             */
+            design_id?: string | null;
+            /**
              * @description Amount to load onto the card, decimal string. Debited from the user's wallet.
              * @example 1.00
              */
@@ -3296,6 +3692,8 @@ export type components = {
             metadata?: {
                 [key: string]: string;
             };
+            /** @description Name shown to the holder, 1 to 40 characters. Defaults to the program's name for users. */
+            name?: string | null;
             /** @description Program id from the connector's program list. Passed to the connector as `issuer_program_id`. */
             program_id?: string | null;
             /** @description Card type. Only `prepaid` is supported today, and it is the default. */
@@ -3741,6 +4139,11 @@ export type components = {
             /** @description ISO 4217 code of the card balance. */
             currency: string;
             /**
+             * Format: uuid
+             * @description The design the holder picked. Null means the product's default design.
+             */
+            design_id?: string | null;
+            /**
              * Format: int32
              * @description Expiry month, 1 to 12.
              */
@@ -3764,6 +4167,8 @@ export type components = {
             initial_amount?: string | null;
             /** @description Last four digits of the card number, once known. */
             last4?: string | null;
+            /** @description The holder's own name for the card. Null until they set one. */
+            name?: string | null;
             /**
              * @description Provider program or plan the card was issued under. Null when the
              *     provider has no program catalogue.
@@ -3796,8 +4201,32 @@ export type components = {
          * @description A card with a live balance from its connector. The card's own fields are
          *     at the top level; `live_balance` is nested.
          */
-        CardDetail: components["schemas"]["Card"] & {
+        CardDetail: components["schemas"]["CardView"] & {
             live_balance?: null | components["schemas"]["CardBalance"];
+        };
+        /** @description A card the user can issue. */
+        CardProductView: {
+            /** @description `prepaid`, `credit` or `gift`. */
+            card_type: string;
+            /** @description Currency the card is held in, or null when the product is multi-currency. */
+            currency?: string | null;
+            /** @description The operator's description for users, or null. */
+            description?: string | null;
+            /** @description The design a card gets unless another one is picked. */
+            design: components["schemas"]["DesignRef"];
+            /** @description Every design the user may pick for this product. */
+            designs: components["schemas"]["DesignRef"][];
+            /** @description Properties the operator entered, e.g. `{"scheme": "mastercard", "apple_pay": true, "reloadable": false, "min_load": "10", "max_load": "5000"}`. May be empty. */
+            features: Record<string, never>;
+            /**
+             * Format: uuid
+             * @description Product id. Pass it as `product_id` when creating a card.
+             */
+            id: string;
+            /** @description True for the product a card gets when none is chosen. */
+            is_default: boolean;
+            name: string;
+            price?: null | components["schemas"]["ProductPrice"];
         };
         CardRow: {
             /** @description `credit`, `prepaid` or `gift`. */
@@ -3811,6 +4240,8 @@ export type components = {
             created_at: string;
             /** @description ISO 4217 code. */
             currency: string;
+            /** @description The design shown for the card. */
+            design: components["schemas"]["DesignRef"];
             /** @description How the provider funds the card: `shared` or `standard`. Null when the provider does not distinguish. */
             funding_mode?: string | null;
             /**
@@ -3825,6 +4256,8 @@ export type components = {
             initial_amount?: string | null;
             /** @description Last four digits of the card number. The full number is never exposed. */
             last4?: string | null;
+            /** @description The holder's name for the card, or null. */
+            name?: string | null;
             /** @description Current card status. */
             status: string;
             /** @description Owner's login email. */
@@ -3913,6 +4346,15 @@ export type components = {
          * @enum {string}
          */
         CardType: "credit" | "prepaid" | "gift";
+        /**
+         * @description A card with its presentation: the stored row plus the resolved design
+         *     and the product it was issued on.
+         */
+        CardView: components["schemas"]["Card"] & {
+            /** @description The design shown for this card: the one the holder picked, else the product's, else the deployment default. */
+            design: components["schemas"]["DesignRef"];
+            product?: null | components["schemas"]["ProductRef"];
+        };
         ChangePasswordBody: {
             /** @description The password currently on the account. */
             current_password: string;
@@ -4039,13 +4481,19 @@ export type components = {
          * @example {
          *       "currency": "USD",
          *       "initial_amount": "50.00",
-         *       "type": "prepaid"
+         *       "name": "Groceries",
+         *       "product_id": "6c1c0a3e-1b7e-4b0e-9d9e-2f0f6f9a1234"
          *     }
          */
         CreateCardBody: {
             /** @description ISO 4217 code the card is held in. May differ from the wallet currency; the load is then converted at issuance. */
             currency: string;
             customer?: null | components["schemas"]["CustomerInfo"];
+            /**
+             * Format: uuid
+             * @description One of the product's designs. Omit or send `null` for the product's default design.
+             */
+            design_id?: string | null;
             /** @description Amount to load onto a prepaid card, decimal string, taken from the wallet. */
             initial_amount?: string | null;
             /** @description Optional. Slug of the card connector to use; when omitted, the first configured one issues the card. An unknown slug returns 400. */
@@ -4054,8 +4502,14 @@ export type components = {
             metadata?: {
                 [key: string]: string;
             };
-            /** @description `prepaid`, `credit` or `gift`. Only `prepaid` is available today; the other two return 400. */
-            type: components["schemas"]["CardType"];
+            /** @description Your name for the card, 1 to 40 characters. Defaults to the product name. */
+            name?: string | null;
+            /**
+             * Format: uuid
+             * @description The card product from `GET /me/card-products`. Sets the issuer, the program and the card type; without it the deployment's default product is used.
+             */
+            product_id?: string | null;
+            type?: null | components["schemas"]["CardType"];
         };
         CreateConnectorBody: {
             /** @description URL the platform will call the connector on. Must start with `http://` or `https://`. */
@@ -4102,6 +4556,23 @@ export type components = {
              * @description Required when `currency` differs from the wallet currency: id of the quote from `POST /me/deposits/quotes` this deposit executes against.
              */
             quote_id?: string | null;
+        };
+        /**
+         * @example {
+         *       "content_type": "image/png",
+         *       "image_base64": "iVBORw0KGgo...",
+         *       "name": "Midnight"
+         *     }
+         */
+        CreateDesignBody: {
+            /** @description MIME type of the upload: `image/png` or `image/webp`. Required with `image_base64`. */
+            content_type?: string | null;
+            /** @description The image, base64. Up to 512 KiB; 1586×1000 (the proportions of a plastic card) looks best. */
+            image_base64?: string | null;
+            /** @description Instead of an upload: an absolute `https://` URL of the image you host yourself. */
+            image_url?: string | null;
+            /** @description Shown to operators and users when they pick a design. */
+            name: string;
         };
         CreateEndpointBody: {
             /** @description Event types to deliver, e.g. `payment.succeeded`. Empty or omitted means every event. */
@@ -4454,6 +4925,68 @@ export type components = {
          * @enum {string}
          */
         DepositMethod: "card" | "crypto" | "bank_transfer";
+        /** @description A design as clients see it on a product or a card. */
+        DesignRef: {
+            /**
+             * Format: uuid
+             * @description Design id; null for the deployment's default design.
+             */
+            id?: string | null;
+            /** @description Where to load the image: an absolute URL, or `/card-designs/default.svg` relative to the API origin. */
+            image_url: string;
+            /** @description Display name. */
+            name: string;
+        };
+        /** @description A card design. */
+        DesignView: {
+            /** @description MIME type of an uploaded image; null for URL designs. */
+            content_type?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            id: string;
+            /** @description Where the image is served from. */
+            image_url: string;
+            name: string;
+            /** @description `upload` (kept in this deployment's file storage) or `url`. */
+            source: string;
+            /** @description `active` or `disabled`. Disabled designs stay on the cards that use them but can't be picked any more. */
+            status: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @description A device that can receive push notifications, or a Mini App marker. */
+        DeviceView: {
+            app_version?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description Set when the device no longer receives anything.
+             */
+            disabled_at?: string | null;
+            /** @description `gone` (the push service dropped it), `user` or `operator`. */
+            disabled_reason?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description True for the device registered from the current session. Absent in operator views. */
+            is_current?: boolean | null;
+            /** @description `webpush`, `fcm`, `apns` or `telegram_miniapp`. */
+            kind: string;
+            /** @description Free text from the client, e.g. "Chrome on Android". */
+            label?: string | null;
+            /** Format: date-time */
+            last_seen_at: string;
+            locale?: string | null;
+            /** @description `pwa`, `web`, `ios`, `android` or `telegram`. */
+            platform: string;
+        };
+        DisabledDesign: {
+            /** Format: uuid */
+            id: string;
+            /** @description Always `disabled`. */
+            status: string;
+        };
         /**
          * @description Lifecycle of a webhook endpoint. `archived` is soft-delete; the row
          *     stays for audit but no new outbox materialisation references it.
@@ -4514,6 +5047,39 @@ export type components = {
         ImageView: components["schemas"]["BlogImageMeta"] & {
             /** @description Public URL to use in post bodies. */
             url: string;
+        };
+        /** @description One notification as the user sees it. */
+        InboxItem: {
+            body: string;
+            /** @description `money`, `card`, `security`, `account` or `marketing`. */
+            category: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description The event's fields, for apps that render their own wording. */
+            data: Record<string, never>;
+            event_type: string;
+            /** @description Where the app should go when the item is opened, e.g. `/cards/<id>`; null when nowhere in particular. */
+            href?: string | null;
+            /** Format: uuid */
+            id: string;
+            locale: string;
+            /**
+             * Format: date-time
+             * @description When the user read it; null while unread.
+             */
+            read_at?: string | null;
+            title: string;
+        };
+        /** @description A page of the inbox. */
+        InboxPage: {
+            items: components["schemas"]["InboxItem"][];
+            /** @description Pass as `cursor` for the next page; null on the last one. */
+            next_cursor?: string | null;
+            /**
+             * Format: int64
+             * @description Unread items across the whole inbox, not just this page.
+             */
+            unread_count: number;
         };
         InviteBody: {
             /** @description Member's email. A holder account is created if the email is new. */
@@ -4617,6 +5183,10 @@ export type components = {
         MarkFailedBody: {
             /** @description Why the settlement failed, in plain words. Stored on the cycle and in the audit log. */
             reason: string;
+        };
+        MarkedCount: {
+            /** Format: int64 */
+            marked: number;
         };
         /**
          * @example {
@@ -4989,6 +5559,8 @@ export type components = {
             initial_amount?: string | null;
             /** @description Last four digits of the card number, once known. */
             last4?: string | null;
+            /** @description Name shown to the holder, or null. */
+            name?: string | null;
             /** @description Current lifecycle status. */
             status: components["schemas"]["CardStatus"];
             /** Format: date-time */
@@ -5149,6 +5721,21 @@ export type components = {
             /** @description The 6-digit code the user received. */
             code: string;
         };
+        /**
+         * @example {
+         *       "design_id": null,
+         *       "name": "Groceries"
+         *     }
+         */
+        PatchCardBody: {
+            /**
+             * Format: uuid
+             * @description Design to show; `null` picks the product's default. Omit to keep the current one.
+             */
+            design_id?: string | null;
+            /** @description New name, 1–40 characters. Omit to keep the current one. */
+            name?: string | null;
+        };
         PatchConfigurationKeyBody: {
             /** @description New plaintext value, up to 8 KiB. */
             value: string;
@@ -5159,9 +5746,39 @@ export type components = {
             /** @description `active` or `disabled`. */
             status?: string | null;
         };
+        PatchDesignBody: {
+            name?: string | null;
+            /** @description `active` or `disabled`. */
+            status?: string | null;
+        };
+        PatchDeviceBody: {
+            /** @description Only `true` is accepted: the device stops receiving anything. The user re-enables it by turning notifications on again in the app. */
+            disabled: boolean;
+        };
         PatchOrgBody: {
             /** @description New status: `active`, `suspended` or `closed`. */
             status: components["schemas"]["OrganizationStatus"];
+        };
+        /**
+         * @description What users see for one card program. Every field is optional; omitted
+         *     fields keep their value.
+         */
+        PatchProgramBody: {
+            /** @description Designs a user may pick besides the default. Replaces the list. */
+            allowed_design_ids?: string[] | null;
+            /** @description Description shown to users. Empty clears it. */
+            description?: string | null;
+            /**
+             * Format: uuid
+             * @description Default design; send `null` for the deployment's default design.
+             */
+            design_id?: string | null;
+            /** @description Name shown to users. Empty clears it (the provider label is shown then). */
+            display_name?: string | null;
+            /** @description Properties shown to users. Replaces the object. */
+            features?: Record<string, never> | null;
+            /** @description Show the program in the user catalog. */
+            visible_to_users?: boolean | null;
         };
         PatchRoleBody: {
             /** @description Name of an existing role. */
@@ -5273,11 +5890,54 @@ export type components = {
             tags?: string[] | null;
             title?: string | null;
         };
+        PreferencesBody: {
+            /** @description Replaces the switches. `security` and `money` keep at least one outward channel whatever is sent. */
+            categories?: Record<string, never> | null;
+            /** @description `en`, `ru` or null for the deployment default. Omit to keep. */
+            locale?: string | null;
+            /** @description `push`, `telegram`, `email`, `sms` or null for automatic. Omit to keep. */
+            primary_channel?: string | null;
+        };
+        /** @description How and where a user wants to be told. */
+        PreferencesView: {
+            /** @description Channels this deployment can deliver on right now. */
+            available_channels: string[];
+            /** @description Per-category switches: `{"marketing": {"push": false, "email": true}}`. A missing switch means on, except for `marketing`, which is opt-in. */
+            categories: Record<string, never>;
+            /** @description Language of notifications, `en` or `ru`; null = the deployment's default. */
+            locale?: string | null;
+            /** @description Channel to use first when it can reach the user; null = automatic (a mobile app, else the device used most recently). */
+            primary_channel?: string | null;
+        };
+        /** @description What issuing a card on this product costs the user right now. */
+        ProductPrice: {
+            /** @description What the user pays, decimal string, after their subscription discount. */
+            amount: string;
+            /** @description The list price before the discount, decimal string. */
+            base_amount: string;
+            /** @description ISO 4217 code of the price. */
+            currency: string;
+            /**
+             * Format: int32
+             * @description Discount applied, in basis points (1000 = 10%).
+             */
+            discount_bps: number;
+            /** @description Wording for the fee line, e.g. "Card issuance". */
+            label: string;
+        };
+        /** @description The product a card was issued on. */
+        ProductRef: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
         /**
          * @description One card program offered by a card connector, with the operator-set
          *     pricing. Pass `program_code` as `program_id` when creating a card.
          */
         ProgramView: {
+            /** @description Other designs a user may pick. */
+            allowed_design_ids: string[];
             /** @description Card BIN, if the provider reports one. */
             bin?: string | null;
             /** @description Card type: `credit`, `prepaid` or `gift`. */
@@ -5286,8 +5946,24 @@ export type components = {
             cost_price?: string | null;
             /** @description Card currency, ISO 4217 code, if the program is single-currency. */
             currency?: string | null;
+            /** @description Description shown to users. */
+            description?: string | null;
+            /**
+             * Format: uuid
+             * @description Default design; null = the deployment's default design.
+             */
+            design_id?: string | null;
+            /** @description Name shown to users; null falls back to `label`. */
+            display_name?: string | null;
+            /** @description Free-form properties shown to users, e.g. `{"scheme": "mastercard", "apple_pay": true}`. */
+            features: Record<string, never>;
             /** @description Label shown next to the fee in the client app. */
             fee_label?: string | null;
+            /**
+             * Format: uuid
+             * @description Product id users see in `GET /me/card-products` and send as `product_id`.
+             */
+            id: string;
             /** @description Human-readable program name. */
             label: string;
             /**
@@ -5301,6 +5977,8 @@ export type components = {
             sell_price?: string | null;
             /** @description `active` or `disabled`. */
             status: string;
+            /** @description False keeps the program for operator and business issuance only. */
+            visible_to_users: boolean;
         };
         /**
          * @description A published post as the client app receives it. The body comes both as
@@ -5445,6 +6123,13 @@ export type components = {
              */
             spread_bps: number;
         };
+        ReadAllBody: {
+            /**
+             * Format: date-time
+             * @description Only items created at or before this moment. Omit for everything.
+             */
+            before?: string | null;
+        };
         Readiness: {
             /** @description Result of each dependency check. */
             checks: components["schemas"]["ReadinessChecks"];
@@ -5472,6 +6157,43 @@ export type components = {
         ReconcileBody: {
             /** @description `close` terminates the card at the provider and marks it `terminated`. `adopt` charges the user the unpaid load and marks it `active`. */
             action: string;
+        };
+        /**
+         * @example {
+         *       "credential": {
+         *         "endpoint": "https://fcm.googleapis.com/fcm/send/...",
+         *         "keys": {
+         *           "auth": "k9...",
+         *           "p256dh": "BN..."
+         *         }
+         *       },
+         *       "kind": "webpush",
+         *       "label": "Chrome on Android",
+         *       "platform": "pwa"
+         *     }
+         */
+        RegisterDeviceBody: {
+            /** @description Version of the app on the device. */
+            app_version?: string | null;
+            /** @description `webpush`: `{ endpoint, keys: { p256dh, auth } }`; `fcm` / `apns`: `{ token }`; `telegram_miniapp`: `{}`. */
+            credential: Record<string, never>;
+            /** @description `webpush`, `fcm`, `apns` or `telegram_miniapp`. */
+            kind: string;
+            /** @description Shown to the user in their device list, e.g. "Chrome on Android". */
+            label?: string | null;
+            /** @description Language of this device, two letters. */
+            locale?: string | null;
+            /** @description `pwa`, `web`, `ios`, `android` or `telegram`. */
+            platform: string;
+        };
+        /** @description What a registration answers. */
+        RegisteredDevice: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            platform: string;
+            /** @description VAPID public key to subscribe with, for Web Push; null when push is not set up. */
+            vapid_public_key?: string | null;
         };
         ReloadBody: {
             /**
@@ -5929,6 +6651,10 @@ export type components = {
              */
             user_id: string;
         };
+        UnreadCount: {
+            /** Format: int64 */
+            unread: number;
+        };
         UpdateEndpointBody: {
             /** @description New event filter. Empty list means every event. */
             event_filter?: string[] | null;
@@ -5946,6 +6672,21 @@ export type components = {
             status?: null | components["schemas"]["EndpointStatus"];
             url?: string | null;
         };
+        /**
+         * @example {
+         *       "content_type": "image/png",
+         *       "data_base64": "iVBORw0KGgo...",
+         *       "filename": "logo.png"
+         *     }
+         */
+        UploadAssetBody: {
+            /** @description `image/png`, `image/webp`, `image/jpeg`, `image/svg+xml` or `image/x-icon`. */
+            content_type: string;
+            /** @description The file, base64 (a `data:` URL is accepted too). Up to 1 MiB. */
+            data_base64: string;
+            /** @description Original file name, kept for the audit trail only. */
+            filename?: string | null;
+        };
         UploadImageBody: {
             /** @description Alternative text, shown by screen readers and when the image fails to load. */
             alt?: string;
@@ -5955,6 +6696,10 @@ export type components = {
             data_base64: string;
             /** @description Original file name, optional. */
             filename?: string;
+        };
+        UploadedAsset: {
+            /** @description Permanent public URL of the file. Paste it into a branding setting. */
+            url: string;
         };
         UserBalanceResult: {
             /**
@@ -6206,6 +6951,26 @@ export interface operations {
             };
         };
     };
+    default_design_svg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description SVG image */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/svg+xml": unknown;
+                };
+            };
+        };
+    };
     health: {
         parameters: {
             query?: never;
@@ -6252,6 +7017,50 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Readiness"];
                 };
+            };
+        };
+    };
+    upload_asset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadAssetBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadedAsset"];
+                };
+            };
+            /** @description Unsupported or oversized file (`unsupported_image`, `image_too_large`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No file storage on this deployment (`object_store_not_configured`) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -6519,6 +7328,166 @@ export interface operations {
             };
             /** @description The channel is disabled on this deployment */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_designs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DesignView"][];
+                };
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_design: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDesignBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DesignView"];
+                };
+            };
+            /** @description Bad name, unsupported or oversized image, or neither an upload nor a URL (`validation`, `unsupported_image`, `image_too_large`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No file storage on this deployment (`object_store_not_configured`) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_design: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Design id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisabledDesign"];
+                };
+            };
+            /** @description Missing the settings.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such design */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An active program uses this design as its default (`design_in_use`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patch_design: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Design id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchDesignBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DesignView"];
+                };
+            };
+            /** @description Bad name or status */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such design */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7641,6 +8610,56 @@ export interface operations {
             };
             /** @description Connector unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patch_program: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Card connector slug */
+                slug: string;
+                /** @description Program id as returned by the program list */
+                program_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchProgramBody"];
+            };
+        };
+        responses: {
+            /** @description Updated program */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramView"];
+                };
+            };
+            /** @description A design that does not exist or is disabled (`unknown_design`), or `features` is not an object */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing connectors.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown program. Sync the connector first */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10267,6 +11286,165 @@ export interface operations {
             };
         };
     };
+    admin_list_devices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceView"][];
+                };
+            };
+            /** @description Missing the users.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_patch_device: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchDeviceBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceView"];
+                };
+            };
+            /** @description Only `disabled: true` is supported */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the users.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such device */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_get_preferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesView"];
+                };
+            };
+            /** @description Missing the users.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_list_notifications: {
+        parameters: {
+            query?: {
+                /** @description Page size, 1 to 100. Default 20. */
+                limit?: number | null;
+            };
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxPage"];
+                };
+            };
+            /** @description Missing the users.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     patch_user_role: {
         parameters: {
             query?: never;
@@ -11146,6 +12324,69 @@ export interface operations {
             };
         };
     };
+    list_products: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Products in the order they are issued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardProductView"][];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_product: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Product id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardProductView"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such product, or it is not offered right now */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     me_list_cards: {
         parameters: {
             query?: never;
@@ -11160,7 +12401,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CardView"][];
+                };
             };
         };
     };
@@ -11185,9 +12428,11 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CardView"];
+                };
             };
-            /** @description Missing Idempotency-Key, invalid body, unknown issuer_slug, or a card type that is not available yet */
+            /** @description Missing Idempotency-Key, invalid body, unknown issuer_slug, a card type that is not available yet, `unknown_product`, `product_mismatch`, `design_not_allowed` or `invalid_name` */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -11233,10 +12478,59 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CardView"];
+                };
             };
             /** @description Card belongs to another user */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such card */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patch_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchCardBody"];
+            };
+        };
+        responses: {
+            /** @description The card */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardView"];
+                };
+            };
+            /** @description `invalid_name` or `design_not_allowed` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid token */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11675,6 +12969,113 @@ export interface operations {
             };
         };
     };
+    list_devices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceView"][];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    register_device: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterDeviceBody"];
+            };
+        };
+        responses: {
+            /** @description Known device, refreshed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisteredDevice"];
+                };
+            };
+            /** @description New device */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisteredDevice"];
+                };
+            };
+            /** @description Bad kind, platform or credential */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Web Push is not enabled on this deployment (`push_disabled`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_device: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such device */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     set_email: {
         parameters: {
             query?: never;
@@ -11706,6 +13107,222 @@ export interface operations {
             };
             /** @description Email already in use */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_preferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesView"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    put_preferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferencesBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesView"];
+                };
+            };
+            /** @description Unknown channel, category or locale */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_notifications: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from a previous page. */
+                cursor?: string | null;
+                /** @description Page size, 1 to 100. Default 50. */
+                limit?: number | null;
+                /** @description `true` returns unread items only. */
+                unread?: boolean | null;
+                /** @description Only this category. */
+                category?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxPage"];
+                };
+            };
+            /** @description Bad cursor or unknown category */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    mark_all_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadAllBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarkedCount"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    unread_count: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadCount"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_notification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such notification */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    mark_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxItem"];
+                };
+            };
+            /** @description No such notification */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

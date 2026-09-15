@@ -3,18 +3,11 @@ import type { HttpClient } from "../http.js";
 /**
  * Push resource — `client.push.*`.
  *
- * Web Push for the signed-in user. The API keeps one subscription per user
- * (the newest wins) and sends a notification for the user's own events:
- * a confirmed deposit, a card transaction and so on.
- *
- * The usual browser flow is one call:
- *
- * ```ts
- * const reg = await navigator.serviceWorker.ready;
- * if ((await Notification.requestPermission()) === "granted") {
- *   await client.push.enable(reg);
- * }
- * ```
+ * Web Push for the signed-in user, through the older single-subscription
+ * endpoint. The API now keeps one device per browser (see
+ * `client.devices`), and this endpoint is an alias over the Web Push
+ * devices: it keeps working, but new code should call
+ * `client.devices.registerWebPush(reg)` / `unregisterWebPush(reg)` instead.
  *
  * Your service worker shows the notification: the payload is JSON with
  * `title`, `body` and `url` (where a click should lead).
@@ -62,19 +55,22 @@ export class PushResource {
   }
 
   /** Store a subscription you created yourself.
-   *  409 `push_disabled` when the deployment has no VAPID keys. */
+   *  409 `push_disabled` when the deployment has no VAPID keys.
+   *  @deprecated Use `client.devices.register({ kind: "webpush", ... })`. */
   async save(input: PushSubscriptionInput): Promise<PushStatus> {
     return this.http.put<PushStatus>("/me/push-subscription", { body: input });
   }
 
-  /** Delete the stored subscription. Safe when nothing is stored. */
+  /** Delete the stored subscription. Safe when nothing is stored.
+   *  @deprecated Use `client.devices.remove(id)` or `client.devices.unregisterWebPush(reg)`. */
   async remove(): Promise<void> {
     await this.http.delete<void>("/me/push-subscription");
   }
 
   /** Subscribe this browser and store the subscription. Ask for
    *  notification permission before calling. Throws when push isn't set up
-   *  on the deployment. */
+   *  on the deployment.
+   *  @deprecated Use `client.devices.registerWebPush(registration)`. */
   async enable(registration: PushCapableRegistration): Promise<PushStatus> {
     const { vapid_public_key } = await this.status();
     if (!vapid_public_key) {
@@ -94,7 +90,8 @@ export class PushResource {
     });
   }
 
-  /** Unsubscribe this browser and delete the stored subscription. */
+  /** Unsubscribe this browser and delete the stored subscription.
+   *  @deprecated Use `client.devices.unregisterWebPush(registration)`. */
   async disable(registration: PushCapableRegistration): Promise<void> {
     const sub = await registration.pushManager.getSubscription();
     if (sub) await sub.unsubscribe();

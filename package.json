@@ -1,7 +1,7 @@
 {
   "name": "@takeal/cusfront-sdk",
   "version": "0.2.8",
-  "description": "Typed client for the Takeal end-user API: sign-up and login, wallet, deposits, cards, sessions, push, webhook verification.",
+  "description": "Typed client for the Takeal end-user API: sign-up and login, wallet, deposits, cards, sessions, notifications, devices, webhook verification.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -66,6 +66,16 @@
       "types": "./dist/resources/push.d.ts",
       "import": "./dist/resources/push.js",
       "require": "./dist/resources/push.cjs"
+    },
+    "./notifications": {
+      "types": "./dist/resources/notifications.d.ts",
+      "import": "./dist/resources/notifications.js",
+      "require": "./dist/resources/notifications.cjs"
+    },
+    "./devices": {
+      "types": "./dist/resources/devices.d.ts",
+      "import": "./dist/resources/devices.js",
+      "require": "./dist/resources/devices.cjs"
     },
     "./me": {
       "types": "./dist/resources/me.d.ts",
