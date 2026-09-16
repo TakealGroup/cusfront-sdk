@@ -4,6 +4,19 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.12] — 2026-09-16
+
+Checked against platform `v0.3.12`.
+
+### Changed
+
+- `client.cards.reveal(id)` takes no re-auth: the signed-in session is enough
+  (the API stopped asking for the password and the TOTP code). The old
+  `RevealCardInput` argument is still accepted and ignored; it is deprecated
+  and goes away in the next major.
+- `Card` no longer carries `connector_slug` and `provider_reference`: the API
+  keeps those for operators. `product` and `design` say what a holder needs.
+
 ## [0.3.7] — 2026-09-16
 
 Checked against platform `v0.3.7` (API `0.3.6`, nothing in the end-user

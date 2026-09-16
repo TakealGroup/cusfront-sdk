@@ -502,8 +502,8 @@ Algorithm: HMAC-SHA256, header `X-Takeal-Signature: sha256=<hex>`, signed over
 the raw body bytes (no timestamp). Comparison is constant-time.
 
 > **Card details:** `client.cards.reveal()` returns the full card number and
-> CVV. It asks for the user's password again (and a TOTP code if they have one
-> enrolled), and the API rate-limits and logs every call. The rest of
+> CVV to the signed-in user; no password or code is asked again, and the API
+> rate-limits and logs every call. The rest of
 > `client.cards` is listProducts, getProduct, create, get, list, update,
 > balance, freeze, unfreeze and terminate.
 

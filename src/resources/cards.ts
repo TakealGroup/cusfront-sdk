@@ -115,10 +115,6 @@ export interface Card {
   id: string;
   user_id: string;
   card_type: CardType;
-  /** Slug of the issuer that minted this card, as configured by the deployment. */
-  connector_slug: string;
-  /** The connector's own reference, populated once it responds. */
-  provider_reference: string | null;
   status: CardStatus;
   /** Last four digits of the PAN — safe to display. */
   last4: string | null;
@@ -198,11 +194,14 @@ export interface UpdateCardInput {
   designId?: string | null;
 }
 
-/** Re-auth gate for {@link CardsResource.reveal}. */
+/**
+ * Kept for callers written against 0.3.x: the API no longer asks for a
+ * password or a code on reveal, the session is enough. Both fields are
+ * ignored and will be dropped in the next major.
+ * @deprecated
+ */
 export interface RevealCardInput {
-  /** The user's account password — mandatory re-auth. */
-  password: string;
-  /** TOTP code; required only when the user has TOTP enrolled. */
+  password?: string;
   totpCode?: string;
 }
 
@@ -307,8 +306,8 @@ export class CardsResource {
   }
 
   /**
-   * Reveal the FULL PAN + CVV for the caller's own card. Re-auth gated
-   * (password, + TOTP when the user has it enrolled) and rate-limited
+   * Reveal the FULL PAN + CVV for the caller's own card. The signed-in
+   * session is all the API asks for; the call is rate-limited and audited
    * server-side. The Takeal API never persists this data and marks the
    * response no-store; the SDK returns it verbatim and holds nothing.
    *
@@ -319,11 +318,8 @@ export class CardsResource {
    * 401 bad re-auth · 403 not your card · 429 rate-limited · 501 connector
    * has no sensitive-data endpoint · 503 provider error.
    */
-  async reveal(id: string, input: RevealCardInput): Promise<RevealedCard> {
-    return this.http.post<RevealedCard>(
-      `/me/cards/${encodeURIComponent(id)}/reveal`,
-      { body: { password: input.password, totp_code: input.totpCode } },
-    );
+  async reveal(id: string, _input?: RevealCardInput): Promise<RevealedCard> {
+    return this.http.post<RevealedCard>(`/me/cards/${encodeURIComponent(id)}/reveal`);
   }
 
   /** Unfreeze a previously-frozen card. Idempotent on an already-active card. */

@@ -296,7 +296,7 @@ describe("CardsResource", () => {
     expect(bodyOf(captured[0]!)).toEqual({ reason: "lost" });
   });
 
-  it("reveal POSTs /me/cards/{id}/reveal with the re-auth body", async () => {
+  it("reveal POSTs /me/cards/{id}/reveal with no re-auth body", async () => {
     const revealed = {
       pan: "4111111111111111",
       cvv: "123",
@@ -307,13 +307,12 @@ describe("CardsResource", () => {
     };
     const { captured, http } = rig(revealed);
     const out = await new CardsResource(http).reveal("card_1", {
-      password: "pw",
-      totpCode: "123456",
+      password: "ignored since 0.3.12",
     });
     expect(out).toEqual(revealed);
     expect(captured[0]!.url).toBe("https://api.test/v1/me/cards/card_1/reveal");
     expect(captured[0]!.init.method).toBe("POST");
-    expect(bodyOf(captured[0]!)).toEqual({ password: "pw", totp_code: "123456" });
+    expect(captured[0]!.init.body ?? null).toBeNull();
   });
 });
 

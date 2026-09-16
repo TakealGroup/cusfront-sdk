@@ -110,18 +110,11 @@ describe.runIf(await reachable())("live Cusfront journey", () => {
     expect(cb.currency).toBe(CCY);
     expect(typeof cb.amount).toBe("string");
 
-    // reveal: re-auth with password → full (mock) PAN + CVV.
-    const revealed = await client.cards.reveal(card.id, { password: PASSWORD });
+    // reveal: the session is enough → full (mock) PAN + CVV.
+    const revealed = await client.cards.reveal(card.id);
     expect(revealed.pan.length, `pan (${JSON.stringify(revealed)})`).toBeGreaterThanOrEqual(12);
     expect(revealed.cvv).toBeTruthy();
     expect(revealed.expires_in_seconds).toBeGreaterThan(0);
-    // Wrong password → 401 (re-auth gate holds even with a valid session).
-    const badReveal = await client.cards
-      .reveal(card.id, { password: "definitely-wrong" })
-      .then(() => null)
-      .catch((e) => e);
-    expect(isApiError(badReveal), `expected ApiError, got ${badReveal}`).toBe(true);
-    expect((badReveal as ApiError).status).toBe(401);
 
     // freeze → unfreeze → terminate.
     const frozen = await client.cards.freeze(card.id, "journey test");
