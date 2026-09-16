@@ -35,12 +35,6 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /**
-         * The deployment's default card design
-         * @description An SVG in the proportions of a card, drawn from the branding settings:
-         *     brand colours, the platform name and the logo. Used for every product and
-         *     card without a design of its own. No authentication.
-         */
         get: operations["default_design_svg"];
         put?: never;
         post?: never;
@@ -2645,8 +2639,9 @@ export type paths = {
         head?: never;
         /**
          * Rename a card or change its design
-         * @description Only the name and the design can change; the design must be one the
-         *     card's product offers.
+         * @description Only the name and the design can change, and the card is not reissued:
+         *     this is the picture you see, nothing else. Pick a design the card's
+         *     product offers or one this deployment offers on every product.
          */
         patch: operations["patch_card"];
         trace?: never;
@@ -4559,18 +4554,26 @@ export type components = {
         };
         /**
          * @example {
-         *       "content_type": "image/png",
-         *       "image_base64": "iVBORw0KGgo...",
+         *       "content_type": "image/webp",
+         *       "image_base64": "UklGRiQAAABXRUJQ...",
          *       "name": "Midnight"
          *     }
          */
         CreateDesignBody: {
-            /** @description MIME type of the upload: `image/png` or `image/webp`. Required with `image_base64`. */
+            /** @description Who may pick this design: `product` (only where a product offers it, the default) or `all` (on every product). */
+            availability?: string | null;
+            /** @description MIME type of the upload: `image/webp`. Required with `image_base64`. */
             content_type?: string | null;
-            /** @description The image, base64. Up to 512 KiB; 1586×1000 (the proportions of a plastic card) looks best. */
+            /** @description MIME type of the back upload: `image/webp`. Defaults to `content_type`. */
+            content_type_back?: string | null;
+            /** @description The front of the card, base64 WebP. Up to 512 KiB; 1586×1000 (the proportions of a card) looks best, and an animated WebP is fine. */
             image_base64?: string | null;
+            /** @description The back of the card, base64 WebP. Optional: a one-sided design shows its front wherever the back would go. */
+            image_base64_back?: string | null;
             /** @description Instead of an upload: an absolute `https://` URL of the image you host yourself. */
             image_url?: string | null;
+            /** @description The back of the card at an `https://` URL of your own, next to `image_url`. */
+            image_url_back?: string | null;
             /** @description Shown to operators and users when they pick a design. */
             name: string;
         };
@@ -4934,11 +4937,15 @@ export type components = {
             id?: string | null;
             /** @description Where to load the image: an absolute URL, or `/card-designs/default.svg` relative to the API origin. */
             image_url: string;
+            /** @description The back of the card, when the design has one; null when it is one-sided. */
+            image_url_back?: string | null;
             /** @description Display name. */
             name: string;
         };
         /** @description A card design. */
         DesignView: {
+            /** @description `product` — only where a product offers it; `all` — on every product. */
+            availability: string;
             /** @description MIME type of an uploaded image; null for URL designs. */
             content_type?: string | null;
             /** Format: date-time */
@@ -4947,6 +4954,8 @@ export type components = {
             id: string;
             /** @description Where the image is served from. */
             image_url: string;
+            /** @description The back of the card, when the design has one. */
+            image_url_back?: string | null;
             name: string;
             /** @description `upload` (kept in this deployment's file storage) or `url`. */
             source: string;
@@ -5747,6 +5756,8 @@ export type components = {
             status?: string | null;
         };
         PatchDesignBody: {
+            /** @description `product` (only where a product offers it) or `all` (on every product). */
+            availability?: string | null;
             name?: string | null;
             /** @description `active` or `disabled`. */
             status?: string | null;
@@ -6953,7 +6964,10 @@ export interface operations {
     };
     default_design_svg: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `back` for the back of the card; omit for the front */
+                side?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;

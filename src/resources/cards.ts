@@ -51,16 +51,22 @@ export type CardStatus =
   | "failed";
 
 /**
- * A card design: the artwork a card is shown with. `image_url` is either an
- * absolute URL or a path relative to the API origin (the deployment's default
- * design is `/card-designs/default.svg`) — pass it through
- * `client.assetUrl()` before rendering. `id` is `null` for the deployment
- * default, which is rendered from the branding settings.
+ * A card design: the artwork a card is shown with. `image_url` is the front,
+ * `image_url_back` the back; both are either absolute URLs or paths relative
+ * to the API origin (the deployment's default design is
+ * `/card-designs/default.svg`, its back `/card-designs/default.svg?side=back`)
+ * — pass them through `client.assetUrl()` before rendering. `image_url_back`
+ * is `null` or absent for a one-sided design: show the front on both sides.
+ * The picture is in the proportions of a plastic card (1586×1000) and draws
+ * no chip or card data; the client renders the number, name and expiry on
+ * top. `id` is `null` for the deployment default, which is rendered from the
+ * branding settings.
  */
 export interface CardDesignRef {
   id: string | null;
   name?: string;
   image_url: string;
+  image_url_back?: string | null;
 }
 
 /**

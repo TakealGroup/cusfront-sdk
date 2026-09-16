@@ -4,6 +4,30 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.7] — 2026-09-16
+
+Checked against platform `v0.3.7` (API `0.3.6`, nothing in the end-user
+surface changed between the two).
+
+### Added
+
+- `CardDesignRef.image_url_back`: the back of the card, when the design has
+  one (`null` or absent for a one-sided design — show the front on both
+  sides). The default design's back is `/card-designs/default.svg?side=back`.
+  Pass it through `client.assetUrl()` like `image_url`.
+- `CardOtpData` and `isCardOtp(item)` for the `card_otp` inbox item: the
+  confirmation code the issuer sent for a 3-D Secure payment (`purpose:
+  "payment"`) or for adding the card to Apple Pay / Google Pay (`purpose:
+  "wallet"`), with the merchant, amount, card last four and
+  `expires_in_minutes`.
+
+### Changed
+
+- Types regenerated from the `v0.3.6` API: card designs are two-sided and
+  WebP only; `PATCH /me/cards/{id}` also accepts the designs a deployment
+  offers on every product. `client.cards.update(id, { designId })` is the
+  helper for that; there is no reissue.
+
 ## [0.3.0] — 2026-09-15
 
 ### Added

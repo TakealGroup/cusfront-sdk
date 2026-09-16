@@ -109,11 +109,13 @@ export type {
   PushSubscriptionInput,
   PushCapableRegistration,
 } from "./resources/push.js";
+export { isCardOtp } from "./resources/notifications.js";
 export type {
   NotificationCategory,
   NotificationChannel,
   NotificationLocale,
   InboxItem,
+  CardOtpData,
   NotificationPage,
   ListNotificationsParams,
   NotificationCategoryPreferences,

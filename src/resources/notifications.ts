@@ -29,9 +29,36 @@ export type NotificationChannel = "push" | "telegram" | "email" | "sms";
 /** Language the user reads notifications in. */
 export type NotificationLocale = "en" | "ru" | (string & {});
 
+/**
+ * `data` of a `card_otp` item: a confirmation code the card issuer sent for a
+ * 3-D Secure payment (`purpose: "payment"`) or for adding the card to Apple
+ * Pay / Google Pay (`purpose: "wallet"`). The code is what the user needs
+ * right now, so show it prominently with a copy button and a countdown from
+ * `expires_in_minutes`; `merchant_name`, `amount` and `currency` are absent
+ * for wallet codes. Narrow with `isCardOtp(item)`.
+ */
+export interface CardOtpData {
+  otp: string;
+  purpose: "payment" | "wallet";
+  merchant_name?: string;
+  amount?: string;
+  currency?: string;
+  last4?: string;
+  card_id?: string;
+  expires_in_minutes?: number;
+}
+
+/** True when the item carries a card confirmation code (`CardOtpData`). */
+export function isCardOtp(
+  item: InboxItem,
+): item is InboxItem & { event_type: "card_otp"; data: CardOtpData } {
+  return item.event_type === "card_otp" && typeof item.data?.otp === "string";
+}
+
 export interface InboxItem {
   id: string;
-  /** What happened, e.g. `deposit_confirmed`, `card_transaction`, `login_new_device`. */
+  /** What happened, e.g. `deposit_confirmed`, `card_transaction`,
+   *  `login_new_device`, `card_otp` (see `CardOtpData`). */
   event_type: string;
   category: NotificationCategory;
   title: string;

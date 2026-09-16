@@ -1,6 +1,6 @@
 {
   "name": "@takeal/cusfront-sdk",
-  "version": "0.3.0",
+  "version": "0.3.7",
   "description": "Typed client for the Takeal end-user API: sign-up and login, wallet, deposits, cards, sessions, notifications, devices, webhook verification.",
   "license": "MIT",
   "type": "module",
@@ -119,8 +119,12 @@
     "zod": ">=3.22 <4"
   },
   "peerDependenciesMeta": {
-    "react": { "optional": true },
-    "zod": { "optional": true }
+    "react": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@testing-library/react": "^16.0.0",
