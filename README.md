@@ -67,6 +67,8 @@ walks it from the list to the issued card:
 ```ts
 // 1. The catalog: what the user can order, default product first.
 const products = await client.cards.listProducts();
+// Before sign-in (a landing page), the same list at list prices:
+// const products = await client.cards.catalog();
 
 for (const p of products) {
   // Artwork: `image_url` is absolute for uploaded designs and a path
@@ -504,8 +506,8 @@ the raw body bytes (no timestamp). Comparison is constant-time.
 > **Card details:** `client.cards.reveal()` returns the full card number and
 > CVV to the signed-in user; no password or code is asked again, and the API
 > rate-limits and logs every call. The rest of
-> `client.cards` is listProducts, getProduct, create, get, list, update,
-> balance, freeze, unfreeze and terminate.
+> `client.cards` is catalog, listProducts, getProduct, create, get, list,
+> update, balance, freeze, unfreeze and terminate.
 
 ## React hooks (`@takeal/cusfront-sdk/react`)
 

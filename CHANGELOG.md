@@ -4,6 +4,25 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.17] — 2026-09-20
+
+Checked against platform `v0.3.17`.
+
+### Added
+
+- `client.cards.catalog()`: the card catalog without a session
+  (`GET /card-products`), for a landing page or the cabinet before sign-in.
+  Same shape as `listProducts()`, list prices, cacheable for a minute.
+
+### Changed
+
+- `InitiateDepositInput.metadata` documents the two cross-connector keys:
+  `return_url` for the post-3DS return, and `mock_scenario` on test
+  deployments (`happy`, `pending`, `redirect`, `fail`). The `redirect`
+  scenario now lands on a hosted page that approves or declines and comes
+  back to `return_url`, so the whole redirect path can be built against the
+  mock.
+
 ## [0.3.12] — 2026-09-16
 
 Checked against platform `v0.3.12`.

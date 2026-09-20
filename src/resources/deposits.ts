@@ -104,7 +104,15 @@ export interface InitiateDepositInput {
    * funder list → 503.
    */
   funder_slug?: string;
-  /** Provider-specific extras. The mock funder reads `mock_scenario`. */
+  /**
+   * Passed to the funding connector and stored with the deposit. Two keys
+   * work across connectors: `return_url`, where the provider sends the user
+   * back after a 3-D Secure step (pair it with `redirect_required`), and on
+   * test deployments with the mock funder `mock_scenario`, which picks the
+   * outcome: `happy` (confirmed at once, the default), `pending` (confirmed
+   * about 15 s later), `redirect` (a hosted page where the user approves or
+   * declines) or `fail`.
+   */
   metadata?: Record<string, string>;
   /** Structured billing details — real PSPs require these for 3DS / compliance. */
   customer?: CustomerInfo;

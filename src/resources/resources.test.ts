@@ -246,6 +246,14 @@ describe("CardsResource", () => {
     expect(c2[0]!.url).toBe("https://api.test/v1/me/card-products/prod%201");
   });
 
+  it("catalog GETs the public /card-products", async () => {
+    const { captured, http } = rig([PRODUCT]);
+    const list = await new CardsResource(http).catalog();
+    expect(list).toEqual([PRODUCT]);
+    expect(captured[0]!.url).toBe("https://api.test/v1/card-products");
+    expect(captured[0]!.init.method).toBe("GET");
+  });
+
   it("update PATCHes /me/cards/{id} with only the given fields, snake_cased", async () => {
     const { captured, http } = rig({ ...CARD, name: "Coffee" });
     const out = await new CardsResource(http).update("card_1", { name: "Coffee" });

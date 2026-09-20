@@ -8,7 +8,8 @@ import type { CustomerInfo } from "../types/customer.js";
  * their wallet balance via an issuer connector. Mirrors the Takeal API's
  * `/me/cards` routes:
  *
- *   GET    /me/card-products         → listProducts (the catalog)
+ *   GET    /card-products            → catalog (public, before sign-in)
+ *   GET    /me/card-products         → listProducts (the catalog, personal price)
  *   GET    /me/card-products/{id}    → getProduct
  *   POST   /me/cards                 → create
  *   GET    /me/cards                 → list (most recent first)
@@ -256,6 +257,17 @@ export class CardsResource {
     return this.http.get<CardProduct>(
       `/me/card-products/${encodeURIComponent(id)}`,
     );
+  }
+
+  /**
+   * The public catalog: the same products, order and default as
+   * {@link listProducts}, but readable before sign-in, for a landing page or
+   * the cabinet's first screen. Prices are list prices (`discount_bps` is
+   * always 0); once the user is signed in, {@link listProducts} shows what
+   * they pay. The API lets caches keep this response for a minute.
+   */
+  async catalog(): Promise<CardProduct[]> {
+    return this.http.get<CardProduct[]>("/card-products");
   }
 
   /**
