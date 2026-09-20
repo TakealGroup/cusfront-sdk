@@ -474,7 +474,9 @@ export type paths = {
         /**
          * Terminate a card
          * @description Permanently closes the card. This cannot be undone. Terminating a card that
-         *     is already terminated returns it unchanged. Audited.
+         *     is already terminated returns it unchanged. A closed card that never had a
+         *     transaction is removed altogether: the response still carries it, a later
+         *     read answers 404. Audited.
          */
         post: operations["terminate_card"];
         delete?: never;
@@ -709,8 +711,9 @@ export type paths = {
         /**
          * Sync a card connector's programs
          * @description Asks the connector for the programs it offers and updates the label, card
-         *     type, currency and BIN of each one. Pricing set by operators is kept.
-         *     Returns the full list after the sync.
+         *     type, currency and BIN of each one. Pricing set by operators is kept. A
+         *     program the connector no longer offers is removed when no card was issued
+         *     on it, and disabled otherwise. Returns the full list after the sync.
          */
         post: operations["sync_programs"];
         delete?: never;
@@ -2536,6 +2539,31 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/card-products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the cards this deployment offers
+         * @description The catalog for a landing page or a cabinet before sign-in. No
+         *     authentication needed. Same products, order and default as
+         *     `GET /me/card-products`, with the list price instead of a personal one
+         *     (`price.discount_bps` is always 0). Products the operator hid are left
+         *     out. The response carries an `ETag`; send it back in `If-None-Match` to
+         *     get a 304 when nothing changed. Caches may keep it for a minute.
+         */
+        get: operations["list_public_products"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/balance": {
         parameters: {
             query?: never;
@@ -2700,8 +2728,8 @@ export type paths = {
         put?: never;
         /**
          * Reveal card details
-         * @description Returns the full card number and CVV of your own card. Needs the account
-         *     password and, when enrolled, a TOTP code. Rate limited per card and per
+         * @description Returns the full card number and CVV of your own card. The session is
+         *     enough: no password or code is asked again. Rate limited per card and per
          *     user. The response is marked no-store and the details are never kept on
          *     the platform.
          */
@@ -2724,7 +2752,8 @@ export type paths = {
         /**
          * Terminate a card
          * @description Only the card's owner can terminate it. This cannot be undone; calling it
-         *     again on a terminated card is a no-op.
+         *     again on a terminated card is a no-op. A closed card that never had a
+         *     transaction disappears from the list; this response still carries it.
          */
         post: operations["me_terminate_card"];
         delete?: never;
@@ -2771,10 +2800,13 @@ export type paths = {
          * Create a deposit
          * @description Starts a top-up through a funding connector. When the connector confirms
          *     right away the wallet is credited in the same call; otherwise the deposit
-         *     comes back `pending` or `redirect_required` and is confirmed later. The
-         *     `Idempotency-Key` header is required: the same key with the same body
-         *     returns the original deposit, the same key with a different body returns
-         *     409.
+         *     comes back `pending` or `redirect_required` and is confirmed later. With
+         *     `redirect_required`, send the user to `redirect_url`; the provider brings
+         *     them back to `metadata.return_url` once they are done, and the deposit
+         *     turns `confirmed` or `failed` on its own. Poll `GET /me/deposits/{id}`
+         *     for the final state. The `Idempotency-Key` header is required: the same
+         *     key with the same body returns the original deposit, the same key with a
+         *     different body returns 409.
          */
         post: operations["create_deposit"];
         delete?: never;
@@ -4540,7 +4572,7 @@ export type components = {
             customer?: null | components["schemas"]["CustomerInfo"];
             /** @description Optional. Slug of the funding connector to use; when omitted, the first configured one handles the deposit. An unknown slug returns 400. */
             funder_slug?: string | null;
-            /** @description Free-form key/value pairs stored with the deposit. */
+            /** @description Key/value pairs passed to the funding connector and stored with the deposit. Two keys are understood across connectors: `return_url`, where the provider sends the user back after a 3-D Secure step (used with `redirect_required`), and on test deployments with the mock funder `mock_scenario`, which picks the outcome: `happy` (confirmed at once, the default), `pending` (confirmed about 15 seconds later), `redirect` (a hosted confirmation page where the user approves or declines) or `fail`. Other keys are provider specific. */
             metadata?: {
                 [key: string]: string;
             };
@@ -6233,12 +6265,6 @@ export type components = {
              */
             user_id: string;
         };
-        RevealBody: {
-            /** @description Your account password; required every time. */
-            password: string;
-            /** @description Current authenticator code; required when TOTP is enrolled on the account, ignored otherwise. */
-            totp_code?: string | null;
-        };
         RevealResponse: {
             /** @description Card security code. */
             cvv: string;
@@ -6574,6 +6600,13 @@ export type components = {
             password: string;
         };
         TerminateBody: {
+            /**
+             * @description Close a card that never reached the issuer (creation pending or failed
+             *     before the issuer was called). Without it such a card answers 409
+             *     `creation_pending`. Nothing is sent to the issuer and nothing is
+             *     refunded: the card was never charged, or was refunded when it failed.
+             */
+            force?: boolean;
             /** @description Extra key-value pairs passed to the provider, e.g. `{ "reason_code": "LOST_OR_STOLEN" }`. */
             metadata?: {
                 [key: string]: string;
@@ -6724,6 +6757,42 @@ export type components = {
              * Format: uuid
              * @description User UUID.
              */
+            user_id: string;
+        };
+        /**
+         * @description The card as its holder sees it: the presentation without the operator's
+         *     fields. Which connector issued it, its reference there, the program code
+         *     and the funding model are deployment internals; the holder gets the
+         *     product and the design instead.
+         */
+        UserCardView: {
+            card_type: components["schemas"]["CardType"];
+            /** Format: date-time */
+            created_at: string;
+            currency: string;
+            /** @description The design shown for this card. */
+            design: components["schemas"]["DesignRef"];
+            /** Format: int32 */
+            expiry_month?: number | null;
+            /** Format: int32 */
+            expiry_year?: number | null;
+            /** @description Why issuance failed, for a `failed` card. */
+            failure_reason?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description The amount loaded at issuance, decimal string. */
+            initial_amount?: string | null;
+            /** @description Last four digits of the card number. */
+            last4?: string | null;
+            /** @description The name the holder gave the card. */
+            name?: string | null;
+            product?: null | components["schemas"]["ProductRef"];
+            /** @description Gift cards only, returned once on creation. */
+            redemption_code?: string | null;
+            status: components["schemas"]["CardStatus"];
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: uuid */
             user_id: string;
         };
         UserDetail: {
@@ -8022,6 +8091,13 @@ export interface operations {
             };
             /** @description No such card */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The card never reached the issuer; send `force: true` to close it anyway */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12316,6 +12392,33 @@ export interface operations {
             };
         };
     };
+    list_public_products: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Products in the order they are issued, the default first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardProductView"][];
+                };
+            };
+            /** @description Not modified since the `If-None-Match` tag */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     get_balance: {
         parameters: {
             query?: {
@@ -12416,7 +12519,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CardView"][];
+                    "application/json": components["schemas"]["UserCardView"][];
                 };
             };
         };
@@ -12443,7 +12546,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CardView"];
+                    "application/json": components["schemas"]["UserCardView"];
                 };
             };
             /** @description Missing Idempotency-Key, invalid body, unknown issuer_slug, a card type that is not available yet, `unknown_product`, `product_mismatch`, `design_not_allowed` or `invalid_name` */
@@ -12493,7 +12596,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CardView"];
+                    "application/json": components["schemas"]["UserCardView"];
                 };
             };
             /** @description Card belongs to another user */
@@ -12533,7 +12636,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CardView"];
+                    "application/json": components["schemas"]["UserCardView"];
                 };
             };
             /** @description `invalid_name` or `design_not_allowed` */
@@ -12637,11 +12740,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RevealBody"];
-            };
-        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {
@@ -12650,13 +12749,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RevealResponse"];
                 };
-            };
-            /** @description Wrong password or TOTP code */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description The card belongs to another user */
             403: {

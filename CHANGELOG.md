@@ -4,9 +4,9 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.17] — 2026-09-20
+## [0.3.18] — 2026-09-20
 
-Checked against platform `v0.3.17`.
+Checked against platform `v0.3.18` (API `0.3.18`).
 
 ### Added
 
