@@ -4,6 +4,18 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.20] — 2026-09-21
+
+Checked against platform `v0.3.20`.
+
+### Added
+
+- `client.cards.topUpTerms(id)` and `client.cards.topUp(id, { amount, idempotencyKey })`:
+  a user moves money from the wallet onto their own card
+  (`GET` / `POST /me/cards/{id}/topup`). The result carries the card, its new
+  balance and the wallet balance. Types `TopUpTerms`, `TopUpInput`,
+  `CardTopUp`, `TopUpResult`.
+
 ## [0.3.18] — 2026-09-20
 
 Checked against platform `v0.3.18` (API `0.3.18`).

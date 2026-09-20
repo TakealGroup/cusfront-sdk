@@ -74,6 +74,10 @@ export type {
   CreateCardInput,
   UpdateCardInput,
   CardBalance,
+  TopUpTerms,
+  TopUpInput,
+  CardTopUp,
+  TopUpResult,
   RevealCardInput,
   RevealedCard,
 } from "./resources/cards.js";

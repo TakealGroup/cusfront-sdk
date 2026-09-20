@@ -254,6 +254,25 @@ describe("CardsResource", () => {
     expect(captured[0]!.init.method).toBe("GET");
   });
 
+  it("topUpTerms GETs and topUp POSTs /me/cards/{id}/topup with the idempotency key", async () => {
+    const terms = { available: true, reason: null, currency: "USD",
+      wallet_available: { amount: "91", currency: "USD" }, min: { amount: "10", currency: "USD" }, max: null };
+    const { captured, http } = rig(terms);
+    expect(await new CardsResource(http).topUpTerms("card_1")).toEqual(terms);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/cards/card_1/topup");
+    expect(captured[0]!.init.method).toBe("GET");
+
+    const result = { topup: { id: "t1", status: "confirmed" }, card: CARD,
+      card_balance: { amount: "25", currency: "USD" }, wallet: { amount: "66", currency: "USD" } };
+    const { captured: c2, http: h2 } = rig(result);
+    const out = await new CardsResource(h2).topUp("card_1", { amount: "15.00", idempotencyKey: "idem-topup-1" });
+    expect(out).toEqual(result);
+    expect(c2[0]!.url).toBe("https://api.test/v1/me/cards/card_1/topup");
+    expect(c2[0]!.init.method).toBe("POST");
+    expect(bodyOf(c2[0]!)).toEqual({ amount: "15.00" });
+    expect(new Headers(c2[0]!.init.headers).get("Idempotency-Key")).toBe("idem-topup-1");
+  });
+
   it("update PATCHes /me/cards/{id} with only the given fields, snake_cased", async () => {
     const { captured, http } = rig({ ...CARD, name: "Coffee" });
     const out = await new CardsResource(http).update("card_1", { name: "Coffee" });

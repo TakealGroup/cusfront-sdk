@@ -11,6 +11,8 @@ import type { CustomerInfo } from "../types/customer.js";
  *   GET    /card-products            → catalog (public, before sign-in)
  *   GET    /me/card-products         → listProducts (the catalog, personal price)
  *   GET    /me/card-products/{id}    → getProduct
+ *   GET    /me/cards/{id}/topup      → topUpTerms
+ *   POST   /me/cards/{id}/topup      → topUp
  *   POST   /me/cards                 → create
  *   GET    /me/cards                 → list (most recent first)
  *   GET    /me/cards/{id}            → get
@@ -184,6 +186,57 @@ export interface CardBalance {
   currency: string;
 }
 
+/** What a top-up of a card can be right now, from `GET /me/cards/{id}/topup`. */
+export interface TopUpTerms {
+  /** Whether the card can be topped up at this moment. */
+  available: boolean;
+  /** Why not, in plain words, when `available` is false. */
+  reason: string | null;
+  /** Currency top-ups are made in: the card's. */
+  currency: string;
+  /** What the wallet holds right now, in the wallet's currency. */
+  wallet_available: CardBalance;
+  /** Smallest single top-up the product allows, or `null` for no floor. */
+  min: CardBalance | null;
+  /** Largest single top-up the product allows, or `null` for no cap. */
+  max: CardBalance | null;
+}
+
+export interface TopUpInput {
+  /** Amount to add, decimal string, in the card's currency. */
+  amount: string;
+  /**
+   * Required. Same key + same amount replays the first outcome; same key +
+   * different amount is 409. Use a stable UUID per attempt so a retried
+   * network call cannot move the money twice.
+   */
+  idempotencyKey: string;
+}
+
+/** One top-up attempt as the API records it. */
+export interface CardTopUp {
+  id: string;
+  card_id: string;
+  status: "pending" | "confirmed" | "failed";
+  /** What landed on the card, decimal string, in `currency`. */
+  amount: string;
+  currency: string;
+  /** What the wallet paid, decimal string, in `wallet_currency`. */
+  wallet_amount: string;
+  wallet_currency: string;
+  failure_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A completed top-up with the state to redraw: card, its balance, the wallet. */
+export interface TopUpResult {
+  topup: CardTopUp;
+  card: Card;
+  card_balance: CardBalance;
+  wallet: CardBalance;
+}
+
 /** Fields a user can change on their own card. Omitted fields are left as they are. */
 export interface UpdateCardInput {
   /** New name, 1–40 characters. Sent as `name`. */
@@ -303,6 +356,33 @@ export class CardsResource {
     return this.http.get<CardBalance>(
       `/me/cards/${encodeURIComponent(id)}/balance?${q}`,
     );
+  }
+
+  /**
+   * What a top-up of this card can be right now: whether it is possible, the
+   * currency, the wallet balance, and the product's floor and cap for one
+   * top-up. Read it before drawing the form. 404 if the card isn't the caller's.
+   */
+  async topUpTerms(id: string): Promise<TopUpTerms> {
+    return this.http.get<TopUpTerms>(`/me/cards/${encodeURIComponent(id)}/topup`);
+  }
+
+  /**
+   * Move money from the wallet onto the caller's own card. The wallet is
+   * debited first, then the card's provider loads the card; if the provider
+   * refuses, the money is back on the wallet and the error says so. Resolves
+   * to the card, its new balance and the wallet balance, so no second call
+   * is needed. Errors carry a sentence the user can read: 400 outside the
+   * floor or cap · 402 not enough in the wallet · 404 not the caller's card ·
+   * 409 card frozen, closed or still being issued · 501 provider can't top
+   * up · 502/503 provider declined or unreachable (wallet untouched).
+   */
+  async topUp(id: string, input: TopUpInput): Promise<TopUpResult> {
+    const { idempotencyKey, amount } = input;
+    return this.http.post<TopUpResult>(`/me/cards/${encodeURIComponent(id)}/topup`, {
+      body: { amount },
+      idempotencyKey,
+    });
   }
 
   /**

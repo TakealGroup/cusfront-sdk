@@ -122,6 +122,28 @@ the deployment picks the product.
 `resolveAssetUrl(baseUrl, url)` is the same helper as a standalone function,
 exported from the package root, for code that has no client at hand.
 
+
+## Topping up a card
+
+Money moves from the wallet onto the user's own card in one call. Read the
+terms first: they say whether the card can be topped up now, what the wallet
+holds and the product's floor and cap for one top-up.
+
+```ts
+const terms = await client.cards.topUpTerms(card.id);
+if (!terms.available) showError(terms.reason);
+
+const { card: updated, card_balance, wallet } = await client.cards.topUp(card.id, {
+  amount: "15.00",                 // in terms.currency
+  idempotencyKey: crypto.randomUUID(),
+});
+```
+
+Every error is a sentence the user can read (`error.message`): not enough in
+the wallet (402), amount outside the floor or cap (400), card frozen or still
+being issued (409), provider declined or unreachable (502/503, the wallet is
+untouched).
+
 ## Telegram Mini App
 
 Run inside a Telegram Mini App? Exchange the Telegram-signed `initData` for a
@@ -507,7 +529,7 @@ the raw body bytes (no timestamp). Comparison is constant-time.
 > CVV to the signed-in user; no password or code is asked again, and the API
 > rate-limits and logs every call. The rest of
 > `client.cards` is catalog, listProducts, getProduct, create, get, list,
-> update, balance, freeze, unfreeze and terminate.
+> update, balance, topUpTerms, topUp, freeze, unfreeze and terminate.
 
 ## React hooks (`@takeal/cusfront-sdk/react`)
 
