@@ -2762,6 +2762,39 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/cards/{id}/topup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Terms of a card top-up
+         * @description What the client needs before it draws the top-up form: whether the card
+         *     can be topped up now, the currency, what the wallet holds, and the floor
+         *     and cap the card's product puts on a single top-up. Someone else's card
+         *     returns 404.
+         */
+        get: operations["get_topup_terms"];
+        put?: never;
+        /**
+         * Top up a card from the wallet
+         * @description Moves `amount` from the wallet onto the caller's own card. The wallet is
+         *     debited first and the card's provider then loads the card; if the
+         *     provider refuses, the money is back on the wallet and the call says so.
+         *     The response carries the card and both balances, so no second request is
+         *     needed. The `Idempotency-Key` header is required: the same key with the
+         *     same amount returns the first outcome, the same key with a different
+         *     amount returns 409. Someone else's card returns 404.
+         */
+        post: operations["topup_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/cards/{id}/unfreeze": {
         parameters: {
             query?: never;
@@ -4300,6 +4333,27 @@ export type components = {
          * @enum {string}
          */
         CardStatus: "pending_payment" | "active" | "frozen" | "terminated" | "redeemed" | "failed";
+        /** @description One top-up attempt as stored in `card_topups`. */
+        CardTopup: {
+            /** @description What landed on the card, decimal string, in `currency`. */
+            amount: string;
+            /** Format: uuid */
+            card_id: string;
+            /** Format: date-time */
+            created_at: string;
+            currency: string;
+            /** @description Why it failed, for a `failed` top-up. */
+            failure_reason?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description `pending`, `confirmed` or `failed`. */
+            status: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description What the wallet paid, decimal string, in `wallet_currency`. */
+            wallet_amount: string;
+            wallet_currency: string;
+        };
         CardTxnRow: {
             /**
              * @description Signed amount, decimal string. Negative is spend.
@@ -6626,6 +6680,37 @@ export type components = {
             amount: string;
             /** @description ISO 4217 code. Defaults to the organization's billing currency. */
             currency?: string | null;
+        };
+        /**
+         * @example {
+         *       "amount": "25.00"
+         *     }
+         */
+        TopupCardBody: {
+            /** @description Amount to add to the card, decimal string, in the card's currency. It is taken from the wallet; a wallet held in another currency pays the converted amount, priced at the moment of the call. */
+            amount: string;
+        };
+        /** @description A completed top-up with the state the client needs to redraw. */
+        TopupResult: {
+            card: components["schemas"]["UserCardView"];
+            /** @description The card balance after the top-up, in the card's currency. */
+            card_balance: components["schemas"]["BalanceResponse"];
+            topup: components["schemas"]["CardTopup"];
+            /** @description The wallet balance after the top-up, in the wallet's currency. */
+            wallet: components["schemas"]["BalanceResponse"];
+        };
+        /** @description What a top-up of this card can be right now. */
+        TopupTerms: {
+            /** @description Whether the card can be topped up at this moment. */
+            available: boolean;
+            /** @description Currency top-ups are made in: the card's. */
+            currency: string;
+            max?: null | components["schemas"]["BalanceResponse"];
+            min?: null | components["schemas"]["BalanceResponse"];
+            /** @description Why not, in plain words, when `available` is false. */
+            reason?: string | null;
+            /** @description What the wallet holds right now, in the wallet's currency. */
+            wallet_available: components["schemas"]["BalanceResponse"];
         };
         TotpStepBody: {
             /** @description The `challenge_token` from the login response. */
@@ -12817,6 +12902,112 @@ export interface operations {
                 content?: never;
             };
             /** @description Connector unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_topup_terms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopupTerms"];
+                };
+            };
+            /** @description No such card */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    topup_card: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Required. The same key with the same amount returns the original result; the same key with a different amount returns 409. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopupCardBody"];
+            };
+        };
+        responses: {
+            /** @description Card topped up */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopupResult"];
+                };
+            };
+            /** @description Missing Idempotency-Key, amount not positive, or outside the product's floor and cap (`amount_below_minimum`, `amount_above_maximum`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not enough money in the wallet (`insufficient_funds`) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such card */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Card frozen, closed or still being issued (`card_not_active`, `card_pending`), or Idempotency-Key reused with a different amount */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The card's provider does not support top-ups */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The provider declined the top-up; the wallet is whole */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The provider is not responding; the wallet is whole */
             503: {
                 headers: {
                     [name: string]: unknown;
