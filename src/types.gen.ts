@@ -2640,9 +2640,12 @@ export type paths = {
         put?: never;
         /**
          * Create a card
-         * @description Issues a card through a card connector and, for a prepaid card, loads
-         *     `initial_amount` from the wallet. Only `prepaid` is available today;
-         *     `credit` and `gift` return 400. The `Idempotency-Key` header is required.
+         * @description Issues a card through a card connector for the product's price, taken
+         *     from the wallet. The card starts empty unless its product includes a
+         *     starting balance (see `starting_balance` in the catalog), which is part
+         *     of the price; money is added afterwards with `POST /me/cards/{id}/topup`.
+         *     Only `prepaid` is available today; `credit` and `gift` return 400. The
+         *     `Idempotency-Key` header is required.
          */
         post: operations["me_create_card"];
         delete?: never;
@@ -4287,6 +4290,7 @@ export type components = {
             is_default: boolean;
             name: string;
             price?: null | components["schemas"]["ProductPrice"];
+            starting_balance?: null | components["schemas"]["MoneyView"];
         };
         CardRow: {
             /** @description `credit`, `prepaid` or `gift`. */
@@ -4561,13 +4565,12 @@ export type components = {
         /**
          * @example {
          *       "currency": "USD",
-         *       "initial_amount": "50.00",
          *       "name": "Groceries",
          *       "product_id": "6c1c0a3e-1b7e-4b0e-9d9e-2f0f6f9a1234"
          *     }
          */
         CreateCardBody: {
-            /** @description ISO 4217 code the card is held in. May differ from the wallet currency; the load is then converted at issuance. */
+            /** @description ISO 4217 code the card is held in. May differ from the wallet currency; the price is then converted at issuance. */
             currency: string;
             customer?: null | components["schemas"]["CustomerInfo"];
             /**
@@ -4575,8 +4578,6 @@ export type components = {
              * @description One of the product's designs. Omit or send `null` for the product's default design.
              */
             design_id?: string | null;
-            /** @description Amount to load onto a prepaid card, decimal string, taken from the wallet. */
-            initial_amount?: string | null;
             /** @description Optional. Slug of the card connector to use; when omitted, the first configured one issues the card. An unknown slug returns 400. */
             issuer_slug?: string | null;
             /** @description Free-form key/value pairs stored with the card. */
@@ -5446,6 +5447,11 @@ export type components = {
             /** @description Plaintext secret, sent as `X-Organization-Secret`. Shown only once. */
             secret: string;
         };
+        /** @description An amount with its currency, as decimal string and ISO 4217 code. */
+        MoneyView: {
+            amount: string;
+            currency: string;
+        };
         /** @description Fields for adding a bank account. */
         NewBankAccount: {
             account_number?: string;
@@ -6063,6 +6069,8 @@ export type components = {
             id: string;
             /** @description Human-readable program name. */
             label: string;
+            /** @description Smallest starting balance the connector requires on a new card, as it advertised it; null when a card may start empty. The platform funds it at issuance, so price it into `sell_price`. */
+            min_initial_amount?: string | null;
             /**
              * Format: int32
              * @description Order in which programs are tried within this connector. Lower comes first.
@@ -6865,7 +6873,7 @@ export type components = {
             failure_reason?: string | null;
             /** Format: uuid */
             id: string;
-            /** @description The amount loaded at issuance, decimal string. */
+            /** @description The starting balance the card was issued with, decimal string; null or 0 for a card issued empty. */
             initial_amount?: string | null;
             /** @description Last four digits of the card number. */
             last4?: string | null;
@@ -12641,7 +12649,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Wallet balance is too low for the prepaid load */
+            /** @description Wallet balance is too low for the card's price */
             402: {
                 headers: {
                     [name: string]: unknown;
