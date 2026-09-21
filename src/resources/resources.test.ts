@@ -190,9 +190,9 @@ describe("CardsResource", () => {
     expect(captured[0]!.url).toBe("https://api.test/v1/me/cards");
     expect(captured[0]!.init.method).toBe("POST");
     expect(headersOf(captured[0]!)["Idempotency-Key"]).toBe("idem-card");
+    // initial_amount is deprecated and never reaches the wire.
     expect(bodyOf(captured[0]!)).toEqual({
       type: "prepaid",
-      initial_amount: "50.00",
       currency: "USD",
     });
   });
@@ -213,7 +213,6 @@ describe("CardsResource", () => {
       product_id: "prod_1",
       name: "Groceries",
       design_id: "dsg_1",
-      initial_amount: "50.00",
       currency: "USD",
     });
   });

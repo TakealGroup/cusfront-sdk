@@ -123,6 +123,13 @@ the deployment picks the product.
 exported from the package root, for code that has no client at hand.
 
 
+## What a card costs
+
+A card is issued for its product's `price`, nothing else is taken from the
+wallet. Some providers insist on a starting balance; when the product has one
+it is shown as `starting_balance` and is already part of the price. Everything
+beyond that goes onto the card with `topUp()`.
+
 ## Topping up a card
 
 Money moves from the wallet onto the user's own card in one call. Read the

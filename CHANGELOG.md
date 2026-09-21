@@ -4,6 +4,17 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.21] — 2026-09-21
+
+Checked against platform `v0.3.21`.
+
+### Changed
+
+- A card is issued for its product price alone. `CreateCardInput.initial_amount`
+  is deprecated and no longer sent (the API ignores it); the balance a card
+  starts with, when its product includes one, is part of the price and shown
+  as `CardProduct.starting_balance`. Load money afterwards with `cards.topUp()`.
+
 ## [0.3.20] — 2026-09-21
 
 Checked against platform `v0.3.20`.

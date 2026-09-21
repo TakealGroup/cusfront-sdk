@@ -104,6 +104,11 @@ export interface CardProduct {
   design: CardDesignRef;
   designs: CardDesignRef[];
   price: CardProductPrice | null;
+  /**
+   * The balance a new card comes with, already included in `price`; `null`
+   * when the card starts empty and is funded with `topUp()` afterwards.
+   */
+  starting_balance: CardBalance | null;
   /** True for the product the deployment issues when none is chosen. */
   is_default: boolean;
 }
@@ -125,7 +130,7 @@ export interface Card {
   expiry_year: number | null;
   /** Gift cards only, present once on create then scrubbed. */
   redemption_code?: string;
-  /** Decimal as a string. */
+  /** The balance the card was issued with, decimal string; `null` or `"0"` for a card issued empty. */
   initial_amount: string | null;
   currency: string;
   failure_reason: string | null;
@@ -160,7 +165,12 @@ export interface CreateCardInput {
    * Optional when `productId` is given, required otherwise.
    */
   type?: CardType;
-  /** Decimal as a string. The prepaid load amount drained from wallet balance. */
+  /**
+   * @deprecated Ignored since 0.3.21. A card is issued for its product price;
+   * the balance it starts with, if the product includes one, is part of that
+   * price (see `CardProduct.starting_balance`). Money is added afterwards
+   * with {@link CardsResource.topUp}. The field is no longer sent.
+   */
   initial_amount?: string;
   /** ISO 4217 code, e.g. `"USD"`. */
   currency: string;
@@ -284,7 +294,7 @@ export class CardsResource {
    * `failure_reason` on the result.
    */
   async create(input: CreateCardInput): Promise<Card> {
-    const { idempotencyKey, productId, name, designId, ...rest } = input;
+    const { idempotencyKey, productId, name, designId, initial_amount: _ignored, ...rest } = input;
     const body: Record<string, unknown> = { ...rest };
     if (productId !== undefined) body["product_id"] = productId;
     if (name !== undefined) body["name"] = name;
