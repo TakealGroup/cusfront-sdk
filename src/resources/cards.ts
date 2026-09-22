@@ -20,6 +20,7 @@ import type { CustomerInfo } from "../types/customer.js";
  *   GET    /me/cards/{id}/balance    → balance (prepaid remaining)
  *   POST   /me/cards/{id}/freeze     → freeze
  *   POST   /me/cards/{id}/unfreeze   → unfreeze
+ *   POST   /me/cards/{id}/transfer   → transfer (to another of their cards)
  *   POST   /me/cards/{id}/terminate  → terminate (one-way)
  *
  * The lifecycle actions are ownership-gated server-side: a caller can only
@@ -280,8 +281,64 @@ export interface RevealedCard {
   expiry_month: number;
   expiry_year: number;
   holder_name: string;
+  /**
+   * The address the card is registered at — what a merchant's checkout asks
+   * for, and the postal code some of them decline a payment over. Absent
+   * when the deployment has not set one.
+   */
+  billing_address?: BillingAddress;
   /** Display window before the client should auto-clear the data. */
   expires_in_seconds: number;
+}
+
+/** Postal address a card is registered at. Which parts exist depends on the country. */
+export interface BillingAddress {
+  line1?: string;
+  line2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+}
+
+/** What to move, and the key that makes a retry safe. */
+export interface TransferInput {
+  /** The card the money lands on. Must be the caller's, and of the same kind and currency. */
+  toCardId: string;
+  /** Amount to move, decimal string, in the cards' currency. */
+  amount: string;
+  /**
+   * Required. The same key with the same body replays the first outcome; a
+   * different body on the same key is 409.
+   */
+  idempotencyKey: string;
+}
+
+/** One transfer attempt as the API records it. */
+export interface CardTransfer {
+  id: string;
+  from_card_id: string;
+  to_card_id: string;
+  /**
+   * `confirmed` — the money is on the other card. `on_wallet` — it came off
+   * the first card but the second did not take it, so it is on the wallet
+   * and `failure_reason` says so in words. `pending` / `failed` otherwise.
+   */
+  status: "pending" | "confirmed" | "on_wallet" | "failed";
+  amount: string;
+  currency: string;
+  failure_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A finished transfer with the balances to redraw both cards and the wallet. */
+export interface TransferResult {
+  transfer: CardTransfer;
+  from_balance: CardBalance;
+  to_balance: CardBalance;
+  /** Holds the money when `transfer.status` is `on_wallet`. */
+  wallet: CardBalance;
 }
 
 export class CardsResource {
@@ -393,6 +450,26 @@ export class CardsResource {
       body: { amount },
       idempotencyKey,
     });
+  }
+
+  /**
+   * Move money from one of the caller's cards to another. Both must be
+   * theirs, active, in the same currency and of the same kind. The money
+   * travels through the wallet one leg at a time: when the second leg does
+   * not go through, the call still resolves, `transfer.status` is
+   * `on_wallet` and the money is on the wallet — never between two cards.
+   * Errors carry a sentence the user can read: 400 the same card twice,
+   * different currencies or different kinds · 402 the card holds less than
+   * that · 404 one of the cards isn't theirs · 409 a card is frozen, closed
+   * or still being issued, or the key was reused with a different body ·
+   * 501/502/503 the provider cannot or will not move it.
+   */
+  async transfer(fromCardId: string, input: TransferInput): Promise<TransferResult> {
+    const { toCardId, amount, idempotencyKey } = input;
+    return this.http.post<TransferResult>(
+      `/me/cards/${encodeURIComponent(fromCardId)}/transfer`,
+      { body: { to_card_id: toCardId, amount }, idempotencyKey },
+    );
   }
 
   /**

@@ -80,6 +80,10 @@ export type {
   TopUpResult,
   RevealCardInput,
   RevealedCard,
+  BillingAddress,
+  TransferInput,
+  CardTransfer,
+  TransferResult,
 } from "./resources/cards.js";
 export type { Balance } from "./resources/balance.js";
 export type { Branding } from "./resources/branding.js";

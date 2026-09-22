@@ -1367,6 +1367,105 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/notification-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List notification templates
+         * @description Every stored text, ordered by event and language. A `render_error` means
+         *     the last message that needed this text could not be built from it: the
+         *     send used the previous version and the operator should fix it.
+         */
+        get: operations["list_templates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notification-templates/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview a notification template
+         * @description Renders the text you pass — saved or not — on sample values, and returns
+         *     what each channel would show. Send `data` to preview with your own
+         *     values.
+         */
+        post: operations["preview_template"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notification-templates/{event_type}/{locale}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one notification template
+         * @description The current text, the earlier ones, and the sample values the preview
+         *     uses.
+         */
+        get: operations["get_template"];
+        /**
+         * Save a notification template
+         * @description Creates the text for this event and language, or replaces it. The text is
+         *     rendered against sample values before it is stored, so a template that
+         *     cannot be built never reaches a recipient: a broken one comes back as 400
+         *     with the reason. The previous text is kept in the history, and the next
+         *     message uses the new one — nothing is deployed.
+         */
+        put: operations["put_template"];
+        post?: never;
+        /**
+         * Delete a notification template
+         * @description Drops the stored text and its history. The event falls back to the text
+         *     shipped with the release, so messages keep going out.
+         */
+        delete: operations["delete_template"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notification-templates/{event_type}/{locale}/test-send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a notification template to yourself
+         * @description Sends this event to your own account with sample values, through the
+         *     channel you would normally receive it on. Exactly what a user gets.
+         */
+        post: operations["test_send_template"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/organizations": {
         parameters: {
             query?: never;
@@ -2731,10 +2830,10 @@ export type paths = {
         put?: never;
         /**
          * Reveal card details
-         * @description Returns the full card number and CVV of your own card. The session is
-         *     enough: no password or code is asked again. Rate limited per card and per
-         *     user. The response is marked no-store and the details are never kept on
-         *     the platform.
+         * @description Returns the full card number and CVV of your own card, along with the
+         *     billing address it is registered at. The session is enough: no password
+         *     or code is asked again. Rate limited per card and per user. The response
+         *     is marked no-store and the details are never kept on the platform.
          */
         post: operations["reveal_card"];
         delete?: never;
@@ -2792,6 +2891,33 @@ export type paths = {
          *     amount returns 409. Someone else's card returns 404.
          */
         post: operations["topup_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/cards/{id}/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move money between your own cards
+         * @description Takes `amount` off the card in the path and puts it on `to_card_id`. Both
+         *     cards must be yours, active, in the same currency and of the same kind.
+         *     The money travels through your wallet, one leg at a time: if the second
+         *     leg does not go through, the transfer comes back with the status
+         *     `on_wallet` and the money is on your wallet, never between the two cards.
+         *     The `Idempotency-Key` header is required: the same key with the same body
+         *     returns the first outcome, the same key with a different body returns 409.
+         *     Someone else's card returns 404.
+         */
+        post: operations["transfer_card"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4261,10 +4387,11 @@ export type components = {
             currency?: string | null;
         };
         /**
-         * @description A card with a live balance from its connector. The card's own fields are
-         *     at the top level; `live_balance` is nested.
+         * @description A card with a live balance from its connector and the billing address it
+         *     was issued with. The card's own fields are at the top level.
          */
         CardDetail: components["schemas"]["CardView"] & {
+            billing_address?: null | components["schemas"]["Address"];
             live_balance?: null | components["schemas"]["CardBalance"];
         };
         /** @description A card the user can issue. */
@@ -4357,6 +4484,29 @@ export type components = {
             /** @description What the wallet paid, decimal string, in `wallet_currency`. */
             wallet_amount: string;
             wallet_currency: string;
+        };
+        /** @description One transfer attempt as stored in `card_transfers`. */
+        CardTransfer: {
+            amount: string;
+            /** Format: date-time */
+            created_at: string;
+            currency: string;
+            /** @description Why it stopped, for a `failed` or `on_wallet` transfer. */
+            failure_reason?: string | null;
+            /** Format: uuid */
+            from_card_id: string;
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description `pending`, `confirmed`, `on_wallet` or `failed`. `on_wallet` means the
+             *     money came off the source card but could not be put on the
+             *     destination, so it is sitting on the wallet.
+             */
+            status: string;
+            /** Format: uuid */
+            to_card_id: string;
+            /** Format: date-time */
+            updated_at: string;
         };
         CardTxnRow: {
             /**
@@ -4570,8 +4720,8 @@ export type components = {
          *     }
          */
         CreateCardBody: {
-            /** @description ISO 4217 code the card is held in. May differ from the wallet currency; the price is then converted at issuance. */
-            currency: string;
+            /** @description ISO 4217 code the card is held in. Optional with `product_id`; the product names the currency, and a different code here returns 400 `product_mismatch`. May differ from the wallet currency, in which case the price is converted at issuance. */
+            currency?: string | null;
             customer?: null | components["schemas"]["CustomerInfo"];
             /**
              * Format: uuid
@@ -6012,6 +6162,11 @@ export type components = {
             /** @description Channel to use first when it can reach the user; null = automatic (a mobile app, else the device used most recently). */
             primary_channel?: string | null;
         };
+        /** @description What to preview: the fields, and optionally the values to fill them with. */
+        PreviewBody: components["schemas"]["TemplateBody"] & {
+            /** @description Values for the placeholders. Omit for generated samples. */
+            data?: unknown;
+        };
         /** @description What issuing a card on this product costs the user right now. */
         ProductPrice: {
             /** @description What the user pays, decimal string, after their subscription discount. */
@@ -6318,6 +6473,21 @@ export type components = {
              */
             reload_id: string;
         };
+        /** @description A template rendered for one recipient, in every shape a channel needs. */
+        RenderedMessage: {
+            /** @description Full HTML: paragraphs and lists, for email. */
+            body_html: string;
+            /** @description The body with the values filled in, still Markdown — what the inbox stores. */
+            body_markdown: string;
+            /** @description Inline tags only, bullets as `•` — what Telegram's HTML parse mode accepts. */
+            body_telegram: string;
+            /** @description No markup at all, for push and the text part of an email. */
+            body_text: string;
+            button_href?: string | null;
+            button_label?: string | null;
+            image_url?: string | null;
+            title: string;
+        };
         ResetTotpResult: {
             /** @description True when a two-factor enrolment was removed, false when the user had none. */
             removed: boolean;
@@ -6328,6 +6498,7 @@ export type components = {
             user_id: string;
         };
         RevealResponse: {
+            billing_address?: null | components["schemas"]["Address"];
             /** @description Card security code. */
             cvv: string;
             /**
@@ -6661,6 +6832,89 @@ export type components = {
             /** @description Password of the existing account. */
             password: string;
         };
+        /**
+         * @description The fields an operator edits.
+         * @example {
+         *       "body_markdown": "**{{ amount }} {{ currency }}** is in your balance.",
+         *       "button_href": "/wallet",
+         *       "button_label": "Open the wallet",
+         *       "title": "Deposit confirmed: {{ amount }} {{ currency }}"
+         *     }
+         */
+        TemplateBody: {
+            /** @description The message. Paragraphs, `- ` lists, `**bold**`, `*italic*`, `[text](url)`, `` `code` ``. */
+            body_markdown: string;
+            /** @description Where the button goes. */
+            button_href?: string | null;
+            /** @description Optional button label. Needs `button_href` to appear. */
+            button_label?: string | null;
+            /** @description Optional image shown above the message where the channel can show one. */
+            image_url?: string | null;
+            /** @description Headline: the email subject, the inbox and push title. Placeholders allowed. */
+            title: string;
+        };
+        /** @description One template plus everything the editor needs around it. */
+        TemplateDetail: components["schemas"]["TemplateRow"] & {
+            /** @description Earlier texts, newest first. */
+            history: components["schemas"]["TemplateVersion"][];
+            /** @description Values the preview fills the placeholders with. */
+            sample_data: unknown;
+        };
+        /** @description What a message looks like on every channel. */
+        TemplatePreview: components["schemas"]["RenderedMessage"] & {
+            /** @description The values the placeholders were filled with. */
+            data: unknown;
+            /** @description The email exactly as it is sent, shell included. */
+            email_html: string;
+            /** @description The plain-text part of the email. */
+            email_text: string;
+        };
+        /** @description One editable template: an event type in one locale. */
+        TemplateRow: {
+            /**
+             * @description The message itself. Markdown subset: paragraphs, `- ` lists,
+             *     `**bold**`, `*italic*`, `[text](url)`, `` `code` ``.
+             */
+            body_markdown: string;
+            /** @description Where the button goes. A path is resolved against the deployment's site. */
+            button_href?: string | null;
+            /** @description Label of the button; needs `button_href` to show. */
+            button_label?: string | null;
+            /** @description The event this is the text for, e.g. `deposit_confirmed`. */
+            event_type: string;
+            /** Format: uuid */
+            id: string;
+            /** @description Shown above the message where the channel supports it. */
+            image_url?: string | null;
+            /** @description Two-letter language code. */
+            locale: string;
+            /** @description Set when a send could not render this row. Cleared on the next save. */
+            render_error?: string | null;
+            /** @description Headline: the email subject, the inbox and push title. */
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /**
+         * @description One saved edit, kept so the operator can see what changed and the sender
+         *     has something to fall back to.
+         */
+        TemplateVersion: {
+            body_markdown: string;
+            button_href?: string | null;
+            button_label?: string | null;
+            /** Format: date-time */
+            changed_at: string;
+            /**
+             * Format: uuid
+             * @description The operator who saved it; null for the versions the migration brought in.
+             */
+            changed_by?: string | null;
+            /** Format: uuid */
+            id: string;
+            image_url?: string | null;
+            title: string;
+        };
         TerminateBody: {
             /**
              * @description Close a card that never reached the issuer (creation pending or failed
@@ -6778,6 +7032,34 @@ export type components = {
             next_page_token: string;
             /** @description Transactions on this page, newest first. */
             transactions: components["schemas"]["TransactionItem"][];
+        };
+        /**
+         * @example {
+         *       "amount": "25.00",
+         *       "to_card_id": "6f1e9a4c-6c1a-4f8e-9a1f-2b3c4d5e6f70"
+         *     }
+         */
+        TransferCardBody: {
+            /**
+             * @description Amount to move, decimal string, in the cards' currency.
+             * @example 25.00
+             */
+            amount: string;
+            /**
+             * Format: uuid
+             * @description The card to move the money to. Must be yours, active, in the same currency and of the same kind as the card in the path.
+             */
+            to_card_id: string;
+        };
+        /** @description A finished transfer with the state the client needs to redraw both cards. */
+        TransferResult: {
+            /** @description Balance of the card the money left, in the cards' currency. */
+            from_balance: components["schemas"]["BalanceResponse"];
+            /** @description Balance of the card the money went to. */
+            to_balance: components["schemas"]["BalanceResponse"];
+            transfer: components["schemas"]["CardTransfer"];
+            /** @description The wallet after the transfer. It holds the money when `transfer.status` is `on_wallet`. */
+            wallet: components["schemas"]["BalanceResponse"];
         };
         UnlinkTelegramResult: {
             /** @description True when a Telegram link was removed, false when the user had none. */
@@ -10182,6 +10464,228 @@ export interface operations {
             };
         };
     };
+    list_templates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stored templates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateRow"][];
+                };
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    preview_template: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewBody"];
+            };
+        };
+        responses: {
+            /** @description What the message looks like */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplatePreview"];
+                };
+            };
+            /** @description The text does not render (`template_broken`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_template: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Event slug, e.g. `deposit_confirmed` */
+                event_type: string;
+                /** @description Two-letter language code */
+                locale: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The template with its history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateDetail"];
+                };
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No stored template for this event and language */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    put_template: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_type: string;
+                locale: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateBody"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateRow"];
+                };
+            };
+            /** @description The text does not render (`template_broken`), or a field is empty */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_template: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_type: string;
+                locale: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted; the shipped text is used again */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No stored template for this event and language */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    test_send_template: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_type: string;
+                locale: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued for your account */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No stored template for this event and language */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The notification substrate is not reachable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_organizations: {
         parameters: {
             query?: never;
@@ -13016,6 +13520,85 @@ export interface operations {
                 content?: never;
             };
             /** @description The provider is not responding; the wallet is whole */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    transfer_card: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Required. The same key with the same body returns the original result; the same key with a different body returns 409. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description The card the money comes from */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferCardBody"];
+            };
+        };
+        responses: {
+            /** @description Transfer finished, or stopped with the money on the wallet (`status: on_wallet`) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferResult"];
+                };
+            };
+            /** @description Missing Idempotency-Key, amount not positive, the same card twice, different currencies (`currency_mismatch`) or two cards of different kinds (`card_kind_mismatch`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The card does not hold that much (`insufficient_funds`) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description One of the cards is not yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A card is frozen, closed or still being issued, or Idempotency-Key reused with a different body */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The card's provider cannot move money off a card */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The provider refused; the money is where it started or on your wallet */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The provider is not responding; nothing moved */
             503: {
                 headers: {
                     [name: string]: unknown;

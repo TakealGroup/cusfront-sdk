@@ -272,6 +272,40 @@ describe("CardsResource", () => {
     expect(new Headers(c2[0]!.init.headers).get("Idempotency-Key")).toBe("idem-topup-1");
   });
 
+  it("transfer POSTs /me/cards/{id}/transfer with the other card in the body", async () => {
+    const result = {
+      transfer: { id: "tr1", from_card_id: "card_1", to_card_id: "card_2",
+        status: "confirmed", amount: "8.00", currency: "USD", failure_reason: null },
+      from_balance: { amount: "12", currency: "USD" },
+      to_balance: { amount: "8", currency: "USD" },
+      wallet: { amount: "40", currency: "USD" },
+    };
+    const { captured, http } = rig(result);
+    const out = await new CardsResource(http).transfer("card_1", {
+      toCardId: "card_2",
+      amount: "8.00",
+      idempotencyKey: "idem-transfer-1",
+    });
+    expect(out).toEqual(result);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/cards/card_1/transfer");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({ to_card_id: "card_2", amount: "8.00" });
+    expect(headersOf(captured[0]!)["Idempotency-Key"]).toBe("idem-transfer-1");
+  });
+
+  it("reveal hands back the billing address the card is registered at", async () => {
+    const revealed = {
+      pan: "4242424242424242", cvv: "123", expiry_month: 9, expiry_year: 2029,
+      holder_name: "Alex Doe", expires_in_seconds: 30,
+      billing_address: { line1: "12 Marylebone Road", city: "London",
+        postal_code: "NW1 5LA", country: "GB" },
+    };
+    const { captured, http } = rig(revealed);
+    const out = await new CardsResource(http).reveal("card_1");
+    expect(out.billing_address?.postal_code).toBe("NW1 5LA");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/cards/card_1/reveal");
+  });
+
   it("update PATCHes /me/cards/{id} with only the given fields, snake_cased", async () => {
     const { captured, http } = rig({ ...CARD, name: "Coffee" });
     const out = await new CardsResource(http).update("card_1", { name: "Coffee" });
