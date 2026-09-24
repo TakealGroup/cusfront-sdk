@@ -65,24 +65,30 @@ The API publishes a catalog of the cards a user can order, and the client
 walks it from the list to the issued card:
 
 ```ts
-// 1. The catalog: what the user can order, default product first.
+// 1. The catalog: what the user can order, in the order the operator
+//    arranged the storefront. `is_default` marks the product issued when
+//    the user does not choose; it can sit anywhere in the list.
 const products = await client.cards.listProducts();
 // Before sign-in (a landing page), the same list at list prices:
 // const products = await client.cards.catalog();
 
 for (const p of products) {
-  // Artwork: `image_url` is absolute for uploaded designs and a path
-  // relative to the API for the deployment default. `assetUrl` handles both.
-  const img = client.assetUrl(p.design.image_url);
+  // The tile: the operator's picture when there is one, the card design
+  // otherwise. `image_url` is absolute for uploaded designs and a path
+  // relative to the API for the deployment default; `assetUrl` handles both.
+  const img = client.assetUrl(p.tile_image_url ?? p.design.image_url);
 
   // Price after the user's subscription discount; `null` means free.
+  // `price.currency` is what the user pays in (their wallet currency once
+  // signed in), which need not be the currency the card is held in.
   const price = p.price
     ? p.price.discount_bps > 0
       ? `${p.price.amount} ${p.price.currency} (was ${p.price.base_amount}, ${p.price.discount_bps / 100}% off)`
       : `${p.price.amount} ${p.price.currency}`
     : "free";
 
-  console.log(p.name, p.card_type, p.currency, price, img, p.description);
+  // The product card: name, one-line tagline, selling points, description.
+  console.log(p.name, p.tagline, p.benefits, p.description, p.card_type, p.currency, price, img);
 }
 
 // 2. Issue from a product. `type` and `issuer_slug` are no longer needed:

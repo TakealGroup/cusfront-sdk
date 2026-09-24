@@ -4396,6 +4396,8 @@ export type components = {
         };
         /** @description A card the user can issue. */
         CardProductView: {
+            /** @description Selling points to list on the product card, in order. May be empty. */
+            benefits: string[];
             /** @description `prepaid`, `credit` or `gift`. */
             card_type: string;
             /** @description Currency the card is held in, or null when the product is multi-currency. */
@@ -4418,6 +4420,10 @@ export type components = {
             name: string;
             price?: null | components["schemas"]["ProductPrice"];
             starting_balance?: null | components["schemas"]["MoneyView"];
+            /** @description One line under the name, or null. */
+            tagline?: string | null;
+            /** @description Picture for the product tile, absolute URL, or null: show the design then. */
+            tile_image_url?: string | null;
         };
         CardRow: {
             /** @description `credit`, `prepaid` or `gift`. */
@@ -6171,9 +6177,9 @@ export type components = {
         ProductPrice: {
             /** @description What the user pays, decimal string, after their subscription discount. */
             amount: string;
-            /** @description The list price before the discount, decimal string. */
+            /** @description The list price before the discount, decimal string, in the same currency. */
             base_amount: string;
-            /** @description ISO 4217 code of the price. */
+            /** @description ISO 4217 code of the price: the currency the buyer pays in. For a signed-in user this is their wallet currency, converted at the rate issuance will use. */
             currency: string;
             /**
              * Format: int32

@@ -4,6 +4,26 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- The product card on `CardProduct`: `tagline` (one line under the name),
+  `benefits` (selling points, in order) and `tile_image_url` (a picture for
+  the tile; fall back to `design.image_url` when `null`). Both
+  `listProducts()` and `catalog()` carry them.
+
+### Changed
+
+- `listProducts()` and `catalog()` come in the order the operator arranged
+  the storefront. `is_default` still marks the product issued when none is
+  chosen, but it is no longer necessarily the first item.
+- `price.currency` is the currency the buyer pays in: for a signed-in user
+  their wallet currency, converted the way issuance charges it; in the
+  public catalog the currency the operator priced the card in. It may
+  differ from `CardProduct.currency`, the currency the card is held in.
+- `price.label` is always the platform's own wording of the fee line.
+
 ## [0.3.21] — 2026-09-21
 
 Checked against platform `v0.3.21`.

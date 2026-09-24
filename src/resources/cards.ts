@@ -80,25 +80,46 @@ export interface CardDesignRef {
  * operator's wording for the fee line ("Card issuance").
  */
 export interface CardProductPrice {
+  /** What the user pays, decimal string, after their subscription discount. */
   amount: string;
+  /**
+   * ISO 4217 code: the currency the buyer pays in. A signed-in user sees
+   * their wallet currency, converted the way issuance will charge it; the
+   * public catalog shows the currency the operator priced the card in. It
+   * is not necessarily the currency the card is held in (`CardProduct.currency`).
+   */
   currency: string;
+  /** Wording for the fee line, e.g. "Card issuance". */
   label: string;
+  /** The list price before the discount, decimal string, in the same currency. */
   base_amount: string;
+  /** Discount applied, in basis points (1000 = 10%). */
   discount_bps: number;
 }
 
 /**
  * A card the user can order, as listed by `GET /me/card-products`. The id is
- * opaque — it names a product, never a provider. `designs` is the set the
- * user may pick from (may be empty when only the default applies); `design`
- * is what the card gets when no choice is made. `price` is `null` for a
- * free card. `features` is an operator-defined object (scheme, wallet
+ * opaque — it names a product, never a provider. The list comes in the
+ * order the operator arranged the storefront; `is_default` marks the
+ * product issued when none is chosen, wherever it sits. `designs` is the
+ * set the user may pick from (may be empty when only the default applies);
+ * `design` is what the card gets when no choice is made. `price` is `null`
+ * for a free card. `features` is an operator-defined object (scheme, wallet
  * support, load limits, …) with no fixed keys.
  */
 export interface CardProduct {
   id: string;
   name: string;
+  /** One line under the name on the tile, or `null`. */
+  tagline: string | null;
   description: string | null;
+  /** Selling points to list on the product card, in order. May be empty. */
+  benefits: string[];
+  /**
+   * Picture for the product tile, absolute URL, or `null`: show the card
+   * design (`design.image_url`) then.
+   */
+  tile_image_url: string | null;
   card_type: CardType;
   currency: string | null;
   features: Record<string, unknown>;
@@ -363,10 +384,12 @@ export class CardsResource {
   }
 
   /**
-   * The cards the caller can order, in the order the deployment offers them
-   * (the default product first). Each item carries its name, description,
-   * artwork, the issuance price after the caller's subscription discount,
-   * and the currency. Pass an item's `id` as `productId` to {@link create}.
+   * The cards the caller can order, in the order the storefront shows them
+   * (`is_default` marks the one issued when none is chosen). Each item
+   * carries its product card (name, tagline, benefits, tile picture),
+   * artwork, and the issuance price after the caller's subscription
+   * discount, in the caller's wallet currency. Pass an item's `id` as
+   * `productId` to {@link create}.
    */
   async listProducts(): Promise<CardProduct[]> {
     return this.http.get<CardProduct[]>("/me/card-products");
