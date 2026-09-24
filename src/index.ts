@@ -25,6 +25,7 @@ import { PushResource } from "./resources/push.js";
 import { MeResource } from "./resources/me.js";
 import { NotificationsResource } from "./resources/notifications.js";
 import { DevicesResource } from "./resources/devices.js";
+import { AttributionResource } from "./resources/attribution.js";
 import {
   CLIENT_HEADER,
   clientHeaderValue,
@@ -111,6 +112,16 @@ export type {
   LinkTelegramInput,
 } from "./resources/auth.js";
 export type { MeResource } from "./resources/me.js";
+export { anonymousKey, currentTouch } from "./resources/attribution.js";
+export type {
+  TouchFields,
+  TouchInput,
+  TouchResult,
+  SignupAttribution,
+  SurveyAnswer,
+  AttributionStatus,
+  AnonymousKeyOptions,
+} from "./resources/attribution.js";
 export type { UserSession } from "./resources/sessions.js";
 export type {
   PushStatus,
@@ -203,6 +214,8 @@ export interface CusfrontClient {
   readonly devices: DevicesResource;
   /** Profile actions for the signed-in user: link or unlink Telegram. */
   readonly me: MeResource;
+  /** Where users come from: record visits, ask "how did you hear about us". */
+  readonly attribution: AttributionResource;
   /** Direct access to the token store (e.g. for an explicit sign-out
    *  on Capacitor's lifecycle "app pausing" event). */
   readonly tokens: TokenStore;
@@ -249,6 +262,7 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     me: new MeResource(http),
     notifications: new NotificationsResource(http),
     devices: new DevicesResource(http, client),
+    attribution: new AttributionResource(http),
   };
 }
 

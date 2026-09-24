@@ -13,6 +13,7 @@ import { PushResource, base64UrlToBytes } from "./push.js";
 import { MeResource } from "./me.js";
 import { NotificationsResource, type InboxItem, type NotificationPreferences } from "./notifications.js";
 import { DevicesResource, devicePlatformOf, type Device } from "./devices.js";
+import { AttributionResource, anonymousKey, currentTouch } from "./attribution.js";
 import { isApiError, type ApiError } from "../error.js";
 
 /**
@@ -1100,5 +1101,105 @@ describe("DevicesResource", () => {
     expect(captured.map((c) => [c.init.method, c.url])).toEqual([
       ["DELETE", "https://api.test/v1/me/devices/dev_9"],
     ]);
+  });
+});
+
+describe("AttributionResource", () => {
+  it("touch POSTs /attribution/touches without a bearer", async () => {
+    const { captured, http } = rig({ recorded: true });
+    const out = await new AttributionResource(http).touch({
+      anonymous_key: "k-12345678",
+      url: "https://site.test/?utm_campaign=spring",
+      referrer: "https://t.me/",
+    });
+    expect(out.recorded).toBe(true);
+    expect(captured[0]!.url).toBe("https://api.test/v1/attribution/touches");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(new Headers(captured[0]!.init.headers).get("Authorization")).toBeNull();
+    expect(JSON.parse(String(captured[0]!.init.body))).toEqual({
+      anonymous_key: "k-12345678",
+      url: "https://site.test/?utm_campaign=spring",
+      referrer: "https://t.me/",
+    });
+  });
+
+  it("answerSurvey PUTs the answer and keeps other_text only when given", async () => {
+    const { captured, http } = rig({ survey_pending: false, survey_answer: "skipped" });
+    await new AttributionResource(http).answerSurvey("skipped");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/attribution/survey");
+    expect(captured[0]!.init.method).toBe("PUT");
+    expect(JSON.parse(String(captured[0]!.init.body))).toEqual({ answer: "skipped" });
+  });
+
+  it("status GETs /me/attribution", async () => {
+    const { captured, http } = rig({ survey_pending: true, survey_answer: null });
+    const out = await new AttributionResource(http).status();
+    expect(out.survey_pending).toBe(true);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/attribution");
+  });
+
+  it("the anonymous key is the Telegram id in the Mini App, undefined outside a browser", () => {
+    const g = globalThis as { Telegram?: unknown };
+    expect(anonymousKey()).toBeUndefined();
+    g.Telegram = { WebApp: { initDataUnsafe: { user: { id: 777 }, start_param: "tg-post" } } };
+    try {
+      expect(anonymousKey()).toBe("tg:777");
+      expect(currentTouch()).toEqual({ campaign_code: "tg-post", platform: "miniapp" });
+    } finally {
+      delete g.Telegram;
+    }
+  });
+
+  it("the anonymous key survives losing either the cookie or the storage", () => {
+    const store = new Map<string, string>();
+    const g = globalThis as { document?: unknown; localStorage?: unknown };
+    let cookie = "";
+    g.document = {
+      get cookie() { return cookie; },
+      set cookie(v: string) { cookie = v.split(";")[0]!; },
+      referrer: "",
+    };
+    g.localStorage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+    };
+    try {
+      const first = anonymousKey()!;
+      expect(first).toMatch(/^[A-Za-z0-9_-]{8,64}$/);
+      store.clear();
+      expect(anonymousKey()).toBe(first);
+      cookie = "";
+      expect(anonymousKey()).toBe(first);
+    } finally {
+      delete g.document;
+      delete g.localStorage;
+    }
+  });
+});
+
+describe("AuthResource (attribution at sign-up)", () => {
+  it("register sends the attribution block as given", async () => {
+    const { captured, http } = rig({ access_token: "t", expires_at: "2026-01-01T00:00:00Z", user: {} });
+    await new AuthResource(http, inMemoryStore()).register({
+      email: "a@example.invalid",
+      password: "Correct-Horse-Battery-9",
+      attribution: { anonymous_key: "k-12345678", posthog_distinct_id: "ph" },
+    });
+    expect(JSON.parse(String(captured[0]!.init.body)).attribution).toEqual({
+      anonymous_key: "k-12345678",
+      posthog_distinct_id: "ph",
+    });
+  });
+
+  it("exchangeTelegram passes attribution through", async () => {
+    const { captured, http } = rig({ stage: "jwt", access_token: "t", expires_at: "x", user: {} });
+    await new AuthResource(http, inMemoryStore()).exchangeTelegram({
+      initData: "a=b",
+      attribution: { metrika_client_id: "ym" },
+    });
+    expect(JSON.parse(String(captured[0]!.init.body))).toEqual({
+      init_data: "a=b",
+      attribution: { metrika_client_id: "ym" },
+    });
   });
 });

@@ -47,6 +47,11 @@
       "import": "./dist/resources/blog.js",
       "require": "./dist/resources/blog.cjs"
     },
+    "./attribution": {
+      "types": "./dist/resources/attribution.d.ts",
+      "import": "./dist/resources/attribution.js",
+      "require": "./dist/resources/attribution.cjs"
+    },
     "./subscriptions": {
       "types": "./dist/resources/subscriptions.d.ts",
       "import": "./dist/resources/subscriptions.js",

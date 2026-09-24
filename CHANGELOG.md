@@ -8,6 +8,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `client.attribution`: `touch()` records a visit (no session needed; a
+  visit with nothing new is not stored), `status()` says whether to ask
+  "how did you hear about us", `answerSurvey()` answers it once.
+- `anonymousKey()` keeps the visitor's anonymous id in a cookie and in
+  `localStorage` for a year and restores one from the other; in the
+  Telegram Mini App it is `tg:<telegram id>`. `currentTouch()` reads the
+  page address, the referrer, the Mini App's start code and the Metrica
+  and Google Analytics cookies.
+- `auth.register({ attribution })` and `auth.exchangeTelegram({ attribution })`
+  credit the new account with the visitor's touches and analytics ids.
+
 - The product card on `CardProduct`: `tagline` (one line under the name),
   `benefits` (selling points, in order) and `tile_image_url` (a picture for
   the tile; fall back to `design.image_url` when `null`). Both

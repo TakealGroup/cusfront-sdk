@@ -298,6 +298,44 @@ type User = {
 };
 ```
 
+## Where users come from
+
+Every account gets a record of where its owner came from: the first visit,
+the last one before sign-up and how many there were in between. The app's
+part is to report visits and to pass the visitor's key at sign-up.
+
+```ts
+import { anonymousKey, currentTouch } from "@takeal/cusfront-sdk";
+
+// On every page load. A visit with nothing new is not stored, so there is
+// no need to decide on the client side.
+const key = anonymousKey();
+if (key) await client.attribution.touch({ anonymous_key: key, ...currentTouch() });
+
+// In the sign-up form.
+await client.auth.register({ email, password, attribution: { anonymous_key: key } });
+```
+
+`anonymousKey()` keeps a random id in a cookie and in `localStorage` for a
+year. If one of the two is cleared, the id comes back from the other. Pass
+`{ cookieDomain: ".example.com" }` when the site and the app live on
+different subdomains. In the Telegram Mini App the key is the Telegram id,
+and the server reads the `startapp` code from `initData` itself.
+
+A visit counts as your campaign only when its code is in the operator's
+campaign directory. Put the code in `utm_campaign`, or in a Telegram link as
+`startapp=<code>`.
+
+After sign-up, ask how the user heard about you, once:
+
+```ts
+const { survey_pending } = await client.attribution.status();
+if (survey_pending) {
+  // "friend" | "telegram_channel" | "search" | "ads" | "review" | "other" | "skipped"
+  await client.attribution.answerSurvey("other", "A podcast");
+}
+```
+
 ## Notifications (inbox)
 
 Everything the API tells a user (a confirmed deposit, a card transaction, a
@@ -514,6 +552,7 @@ Available now:
 - `@takeal/cusfront-sdk/notifications` — `NotificationsResource` (the inbox and notification preferences).
 - `@takeal/cusfront-sdk/devices` — `DevicesResource` (Web Push, mobile push tokens, the Telegram Mini App marker).
 - `@takeal/cusfront-sdk/me` — `MeResource` (link or unlink Telegram for the signed-in user).
+- `@takeal/cusfront-sdk/attribution` — `AttributionResource`, `anonymousKey`, `currentTouch` (where users come from).
 - `@takeal/cusfront-sdk/webhooks` — HMAC-SHA256 signature verifier (no network, isomorphic).
 - `@takeal/cusfront-sdk/react` — optional React hooks layer (`ClientProvider` + `useMe` / `useDeposits` / `useCards` / `useCardProducts` / `useBalance` / `useNotifications` / `useUnreadCount`). React is a `peerDependency`, never bundled.
 - `@takeal/cusfront-sdk/telegram` — Telegram Mini App `initData` → authenticated client bridge.

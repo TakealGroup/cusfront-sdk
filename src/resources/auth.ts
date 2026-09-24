@@ -1,6 +1,7 @@
 import type { HttpClient } from "../http.js";
 import type { TokenStore } from "../token-store.js";
 import { isApiError } from "../error.js";
+import type { SignupAttribution } from "./attribution.js";
 
 /**
  * Auth resource — `client.auth.*`.
@@ -49,6 +50,9 @@ export interface TelegramLink {
 export interface ExchangeTelegramInput {
   /** Raw `window.Telegram.WebApp.initData`, passed to the server verbatim. */
   initData: string;
+  /** Analytics ids for a new account. The Telegram id is the anonymous key
+   *  here, and a `startapp` code in `initData` is read by the server. */
+  attribution?: SignupAttribution;
   /** Create an account for a Telegram id the deployment has not seen before.
    *  Default `true`. With `false` the exchange resolves to
    *  `{ stage: "unknown" }` instead, so the app can offer "create an account"
@@ -133,6 +137,10 @@ export interface RegisterInput {
   password: string;
   /** ISO 4217 code for the new wallet; must be offered by the deployment. */
   wallet_currency?: string;
+  /** Where the new user came from: the anonymous key their visits were
+   *  sent with (`client.attribution.touch`) and the analytics ids. Without
+   *  it the account is recorded with an unknown source. */
+  attribution?: SignupAttribution;
 }
 
 /** A signed-in session without the login `stage` marker — what
@@ -266,8 +274,11 @@ export class AuthResource {
   exchangeTelegram(input: { initData: string; provision?: true }): Promise<JwtIssued>;
   exchangeTelegram(input: ExchangeTelegramInput): Promise<JwtIssued | TelegramUnknown>;
   async exchangeTelegram(input: ExchangeTelegramInput): Promise<JwtIssued | TelegramUnknown> {
-    const body: { init_data: string; provision?: boolean } = { init_data: input.initData };
+    const body: { init_data: string; provision?: boolean; attribution?: SignupAttribution } = {
+      init_data: input.initData,
+    };
     if (input.provision !== undefined) body.provision = input.provision;
+    if (input.attribution !== undefined) body.attribution = input.attribution;
     let resp: JwtIssued;
     try {
       resp = await this.http.post<JwtIssued>("/auth/telegram/exchange", {
