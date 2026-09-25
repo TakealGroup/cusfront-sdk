@@ -8,6 +8,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `client.history.list({ cardId?, cursor?, limit?, lang? })` and
+  `client.history.all()`: everything that happened to the user's money in
+  one list, newest first. Card payments (declines too, with the reason in
+  plain words), refunds, card issuance with its fee, card top-ups,
+  transfers between the user's cards as one entry, wallet top-ups with the
+  conversion and the rate, fees and corrections. `kind`, `status` and
+  `direction` stay open strings, so a kind added later doesn't break a
+  build.
+
 - `client.attribution`: `touch()` records a visit (no session needed; a
   visit with nothing new is not stored), `status()` says whether to ask
   "how did you hear about us", `answerSurvey()` answers it once.

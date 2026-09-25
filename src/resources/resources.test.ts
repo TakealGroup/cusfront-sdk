@@ -14,6 +14,7 @@ import { MeResource } from "./me.js";
 import { NotificationsResource, type InboxItem, type NotificationPreferences } from "./notifications.js";
 import { DevicesResource, devicePlatformOf, type Device } from "./devices.js";
 import { AttributionResource, anonymousKey, currentTouch } from "./attribution.js";
+import { HistoryResource } from "./history.js";
 import { isApiError, type ApiError } from "../error.js";
 
 /**
@@ -1201,5 +1202,30 @@ describe("AuthResource (attribution at sign-up)", () => {
       init_data: "a=b",
       attribution: { metrika_client_id: "ym" },
     });
+  });
+});
+
+describe("HistoryResource", () => {
+  it("list GETs /me/history with the filters it was given", async () => {
+    const { captured, http } = rig({ items: [], next_cursor: null });
+    await new HistoryResource(http).list({ cardId: "c1", limit: 10, lang: "ru", cursor: "abc" });
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/history?card_id=c1&cursor=abc&limit=10&lang=ru");
+  });
+
+  it("all() follows next_cursor to the end", async () => {
+    const pages = [
+      { items: [{ id: "a" }, { id: "b" }], next_cursor: "p2" },
+      { items: [{ id: "c" }], next_cursor: null },
+    ];
+    const urls: string[] = [];
+    const fake: FetchLike = async (url) => {
+      urls.push(String(url));
+      return new Response(JSON.stringify(pages.shift()), { status: 200, headers: { "Content-Type": "application/json" } });
+    };
+    const http = new HttpClient("https://api.test", inMemoryStore(), fake);
+    const ids: string[] = [];
+    for await (const item of new HistoryResource(http).all({ limit: 2 })) ids.push(item.id);
+    expect(ids).toEqual(["a", "b", "c"]);
+    expect(urls[1]).toContain("cursor=p2");
   });
 });

@@ -298,6 +298,33 @@ type User = {
 };
 ```
 
+## Money history
+
+One list of everything that happened to the user's money, newest first:
+card payments and declines, refunds, card issuance, card top-ups, transfers
+between the user's own cards, wallet top-ups, fees.
+
+```ts
+const page = await client.history.list({ limit: 30 });           // lang: "ru" for Russian titles
+const older = await client.history.list({ cursor: page.next_cursor! });
+const oneCard = await client.history.list({ cardId: card.id });
+```
+
+Each entry reads the same way: `title`, `amount` (always positive) with
+`direction` (`out`, `in` or `internal`), `status` and `occurred_at`.
+
+- `amount` is in the currency the operation happened in. When there was a
+  conversion, `counter_amount` holds the other side and `fx_rate` the rate:
+  a purchase in euros billed in dollars, or a top-up paid in roubles that
+  arrived in dollars.
+- A declined payment has `status: "declined"` and a `decline_reason` with a
+  stable `code` and a `text` to show as is.
+- A transfer between cards is one entry with `card` and `to_card`.
+- `pending` means the operation isn't finished yet.
+
+New kinds will be added. Show an entry of an unknown `kind` with its
+`title`, `amount` and `status` rather than hiding it.
+
 ## Where users come from
 
 Every account gets a record of where its owner came from: the first visit,
@@ -552,6 +579,7 @@ Available now:
 - `@takeal/cusfront-sdk/notifications` — `NotificationsResource` (the inbox and notification preferences).
 - `@takeal/cusfront-sdk/devices` — `DevicesResource` (Web Push, mobile push tokens, the Telegram Mini App marker).
 - `@takeal/cusfront-sdk/me` — `MeResource` (link or unlink Telegram for the signed-in user).
+- `@takeal/cusfront-sdk/history` — `HistoryResource` (the user's money history).
 - `@takeal/cusfront-sdk/attribution` — `AttributionResource`, `anonymousKey`, `currentTouch` (where users come from).
 - `@takeal/cusfront-sdk/webhooks` — HMAC-SHA256 signature verifier (no network, isomorphic).
 - `@takeal/cusfront-sdk/react` — optional React hooks layer (`ClientProvider` + `useMe` / `useDeposits` / `useCards` / `useCardProducts` / `useBalance` / `useNotifications` / `useUnreadCount`). React is a `peerDependency`, never bundled.

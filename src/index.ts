@@ -26,6 +26,7 @@ import { MeResource } from "./resources/me.js";
 import { NotificationsResource } from "./resources/notifications.js";
 import { DevicesResource } from "./resources/devices.js";
 import { AttributionResource } from "./resources/attribution.js";
+import { HistoryResource } from "./resources/history.js";
 import {
   CLIENT_HEADER,
   clientHeaderValue,
@@ -112,6 +113,15 @@ export type {
   LinkTelegramInput,
 } from "./resources/auth.js";
 export type { MeResource } from "./resources/me.js";
+export type {
+  HistoryKind,
+  HistoryStatus,
+  HistoryAmount,
+  HistoryCard,
+  HistoryItem,
+  HistoryPage,
+  ListHistoryParams,
+} from "./resources/history.js";
 export { anonymousKey, currentTouch } from "./resources/attribution.js";
 export type {
   TouchFields,
@@ -216,6 +226,8 @@ export interface CusfrontClient {
   readonly me: MeResource;
   /** Where users come from: record visits, ask "how did you hear about us". */
   readonly attribution: AttributionResource;
+  /** Everything that happened to the user's money in one list, or one card's part of it. */
+  readonly history: HistoryResource;
   /** Direct access to the token store (e.g. for an explicit sign-out
    *  on Capacitor's lifecycle "app pausing" event). */
   readonly tokens: TokenStore;
@@ -263,6 +275,7 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     notifications: new NotificationsResource(http),
     devices: new DevicesResource(http, client),
     attribution: new AttributionResource(http),
+    history: new HistoryResource(http),
   };
 }
 
