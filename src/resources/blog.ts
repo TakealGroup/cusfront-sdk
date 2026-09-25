@@ -3,6 +3,12 @@ import type { HttpClient } from "../http.js";
 /**
  * Blog resource — `client.blog.*`.
  *
+ * @deprecated The blog is a category of Documents now. Use
+ * `client.documents.list({ category: "blog" })` and `client.documents.get(slug)`:
+ * same posts, same slugs, same block shape, plus the folder trail and the
+ * version history. `/blog/*` on the API answers for one more release and then
+ * goes away; this class goes with it.
+ *
  * Posts are public: these calls work before the user logs in, which is what
  * a marketing page or a Mini App landing screen needs.
  *
@@ -81,6 +87,7 @@ export interface BlogList {
   per_page: number;
 }
 
+/** @deprecated See the module docs: use `client.documents`. */
 export class BlogResource {
   constructor(private readonly http: HttpClient) {}
 

@@ -8,6 +8,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `client.documents`: `list({ category?, folderId?, tag?, locale?, q?, page?, perPage? })`,
+  `tree({ category? })` for a sidebar, `tags()`, `get(slug, { at? })`,
+  `versions(slug)` and `version(slug, n)`. Blog posts, the knowledge base
+  and legal pages in one tree; the calls work before sign-in and show more
+  with a session. Each document carries `category`, `path`, `read_scope`,
+  `version`, `effective_from` and `site_path`.
+
+### Deprecated
+
+- `client.blog`: the blog is a category of Documents now. Use
+  `client.documents.list({ category: "blog" })` and `client.documents.get(slug)`.
+  The old API paths answer for one more release.
+
 - `client.history.list({ cardId?, cursor?, limit?, lang? })` and
   `client.history.all()`: everything that happened to the user's money in
   one list, newest first. Card payments (declines too, with the reason in

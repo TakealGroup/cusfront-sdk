@@ -19,6 +19,7 @@ import { BalanceResource } from "./resources/balance.js";
 import { BrandingResource } from "./resources/branding.js";
 import { WalletResource } from "./resources/wallet.js";
 import { BlogResource } from "./resources/blog.js";
+import { DocumentsResource } from "./resources/documents.js";
 import { SubscriptionsResource } from "./resources/subscriptions.js";
 import { SessionsResource } from "./resources/sessions.js";
 import { PushResource } from "./resources/push.js";
@@ -91,6 +92,20 @@ export type { Balance } from "./resources/balance.js";
 export type { Branding } from "./resources/branding.js";
 export type { Wallet } from "./resources/wallet.js";
 export type { BlogPost, BlogBlock, BlogList, BlogListInput } from "./resources/blog.js";
+export type {
+  Document,
+  DocumentBlock,
+  DocumentCategory,
+  DocumentScope,
+  DocumentPathStep,
+  DocumentList,
+  DocumentListInput,
+  DocumentFolder,
+  DocumentTree,
+  DocumentTreeEntry,
+  DocumentVersionSummary,
+  DocumentTag,
+} from "./resources/documents.js";
 export type {
   Subscriptions,
   BroadcastChannel,
@@ -208,7 +223,10 @@ export interface CusfrontClient {
   readonly wallet: WalletResource;
   /** Runtime white-label config (`GET /branding`, public): names, logo, wallet label. */
   readonly branding: BrandingResource;
-  /** Public blog posts, returned as structured blocks to render in your own style. */
+  /** Documents: blog posts, the knowledge base, legal pages. Public before sign-in, more once signed in. */
+  readonly documents: DocumentsResource;
+  /** Public blog posts, returned as structured blocks to render in your own style.
+   *  @deprecated Use `documents.list({ category: "blog" })` and `documents.get(slug)`; the blog is a category of Documents now. The old paths answer for one more release. */
   readonly blog: BlogResource;
   /** The user's announcement channel subscriptions.
    *  @deprecated Use `notifications.setPreferences({ categories: { marketing: {...} } })`. */
@@ -267,6 +285,7 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     balance: new BalanceResource(http),
     wallet: new WalletResource(http),
     branding: new BrandingResource(http),
+    documents: new DocumentsResource(http),
     blog: new BlogResource(http),
     subscriptions: new SubscriptionsResource(http),
     sessions: new SessionsResource(http),

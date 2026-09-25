@@ -17,6 +17,7 @@ export default defineConfig({
     "resources/balance": "src/resources/balance.ts",
     "resources/branding": "src/resources/branding.ts",
     "resources/blog": "src/resources/blog.ts",
+    "resources/documents": "src/resources/documents.ts",
     "resources/subscriptions": "src/resources/subscriptions.ts",
     "resources/wallet": "src/resources/wallet.ts",
     "resources/sessions": "src/resources/sessions.ts",

@@ -325,6 +325,62 @@ Each entry reads the same way: `title`, `amount` (always positive) with
 New kinds will be added. Show an entry of an unknown `kind` with its
 `title`, `amount` and `status` rather than hiding it.
 
+## Documents
+
+Everything the operators write lives in one tree: blog posts, the knowledge
+base, legal pages. `client.documents` reads it. The calls work before the
+user signs in and show more once they have: a signed-in user also gets the
+articles marked for users. The SDK attaches the session token when it has
+one, so the same call serves the public site and the cabinet.
+
+```ts
+// The public blog, newest first.
+const { documents, total } = await client.documents.list({ category: "blog", perPage: 10 });
+
+// The knowledge base for a sidebar: folders plus the articles in them.
+const tree = await client.documents.tree({ category: "knowledge-base" });
+const roots = tree.folders.filter((f) => f.parent_id === null);
+
+// One document by its permanent address.
+const doc = await client.documents.get("how-to-top-up");
+
+// Tags work across categories.
+const tagged = await client.documents.list({ tag: "fees" });
+const tags = await client.documents.tags();
+```
+
+A document comes as `body_blocks` (typed nodes to map onto your components)
+and `body_markdown` (for your own renderer). Image URLs are relative to the
+API origin; `client.assetUrl(url)` makes them absolute.
+
+Links between documents arrive as site paths: `/blog/<slug>` for a post,
+`/docs/<slug>` for anything else. Each document's `site_path` says which one
+it lives at. Route those two prefixes to your document pages and the links
+keep working when a document is renamed or moved.
+
+### Legal pages and their history
+
+Every saved text is a version with the date it took effect. The footer
+links to the current text; a contract page can show what applied on a given
+day.
+
+```ts
+const offer = await client.documents.get("offer");               // in force now
+const history = await client.documents.versions("offer");        // newest first
+const old = await client.documents.get("offer", { at: "2026-01-01T00:00:00Z" });
+const v2 = await client.documents.version("offer", 2);
+```
+
+A version dated ahead stays out of `get()` until its day comes, so a new
+redaction can be prepared in advance.
+
+### From `client.blog`
+
+`client.blog` still works for one release and is marked deprecated. Same
+posts, same slugs: `client.blog.list()` is `client.documents.list({ category: "blog" })`
+with `documents` instead of `posts` in the result, and `client.blog.get(slug)`
+is `client.documents.get(slug)`.
+
 ## Where users come from
 
 Every account gets a record of where its owner came from: the first visit,
@@ -571,7 +627,8 @@ Available now:
 - `@takeal/cusfront-sdk/deposits` — `DepositsResource` (money IN via a funder connector).
 - `@takeal/cusfront-sdk/cards` — `CardsResource` (cards backed by the wallet balance).
 - `@takeal/cusfront-sdk/balance` — `BalanceResource` (per-currency wallet balance).
-- `@takeal/cusfront-sdk/blog` — `BlogResource` (public posts as structured blocks).
+- `@takeal/cusfront-sdk/documents` — `DocumentsResource` (blog posts, the knowledge base, legal pages; see [Documents](#documents)).
+- `@takeal/cusfront-sdk/blog` — `BlogResource` (deprecated: the blog is a category of Documents now).
 - `@takeal/cusfront-sdk/subscriptions` — `SubscriptionsResource` (announcement channels; deprecated, see [Preferences](#preferences)).
 - `@takeal/cusfront-sdk/wallet` — `WalletResource` (the wallet's currency).
 - `@takeal/cusfront-sdk/sessions` — `SessionsResource` (where the user is signed in).

@@ -47,6 +47,11 @@
       "import": "./dist/resources/blog.js",
       "require": "./dist/resources/blog.cjs"
     },
+    "./documents": {
+      "types": "./dist/resources/documents.d.ts",
+      "import": "./dist/resources/documents.js",
+      "require": "./dist/resources/documents.cjs"
+    },
     "./history": {
       "types": "./dist/resources/history.d.ts",
       "import": "./dist/resources/history.js",

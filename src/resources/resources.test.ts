@@ -6,6 +6,7 @@ import { CardsResource, type Card, type CardBalance, type CardProduct } from "./
 import { BalanceResource, type Balance } from "./balance.js";
 import { BrandingResource, type Branding } from "./branding.js";
 import { BlogResource } from "./blog.js";
+import { DocumentsResource } from "./documents.js";
 import { SubscriptionsResource } from "./subscriptions.js";
 import { AuthResource, type JwtIssued, type User } from "./auth.js";
 import { SessionsResource } from "./sessions.js";
@@ -37,8 +38,9 @@ function rig(responseBody: unknown, status = 200) {
       headers: { "Content-Type": "application/json" },
     });
   };
-  const http = new HttpClient("https://api.test", inMemoryStore(), fake);
-  return { captured, http };
+  const tokens = inMemoryStore();
+  const http = new HttpClient("https://api.test", tokens, fake);
+  return { captured, http, tokens };
 }
 
 function headersOf(c: Captured): Record<string, string> {
@@ -412,6 +414,61 @@ describe("DepositsResource (fx quotes)", () => {
     expect(bodyOf(rig2.captured[0]!)).toEqual({
       amount: "5000", currency: "RUB", method: "card", quote_id: "q1",
     });
+  });
+});
+
+describe("DocumentsResource", () => {
+  it("list passes every filter and sends the session when there is one", async () => {
+    const page = { documents: [], total: 0, page: 2, per_page: 5 };
+    const { captured, http, tokens } = rig(page);
+    await tokens.set("jwt-1");
+    const out = await new DocumentsResource(http).list({
+      category: "knowledge-base", folderId: "f1", tag: "fees", locale: "ru", q: "top up", page: 2, perPage: 5,
+    });
+    expect(out).toEqual(page);
+    expect(captured[0]!.url).toBe(
+      "https://api.test/v1/documents?category=knowledge-base&folder_id=f1&tag=fees&locale=ru&q=top+up&page=2&per_page=5",
+    );
+    expect(new Headers(captured[0]!.init.headers).get("authorization")).toBe("Bearer jwt-1");
+  });
+
+  it("list works without a session", async () => {
+    const { captured, http } = rig({ documents: [], total: 0, page: 1, per_page: 10 });
+    await new DocumentsResource(http).list({ category: "blog" });
+    expect(captured[0]!.url).toBe("https://api.test/v1/documents?category=blog");
+    expect(new Headers(captured[0]!.init.headers).get("authorization")).toBeNull();
+  });
+
+  it("get takes a moment and returns the structured body", async () => {
+    const doc = {
+      slug: "offer", title: "Offer", excerpt: "", body_markdown: "# H",
+      body_blocks: [{ type: "heading", level: 1, text: "H" }], tags: [], reading_minutes: 1,
+      published_at: null, updated_at: "2026-09-25T00:00:00Z", category: "legal",
+      path: [{ id: "c", key: "legal", title: "Legal documents" }], read_scope: "public",
+      version: 2, effective_from: "2026-01-01T00:00:00Z", site_path: "/docs/offer",
+    };
+    const { captured, http } = rig(doc);
+    const r = new DocumentsResource(http);
+    const out = await r.get("offer", { at: new Date("2026-03-01T00:00:00Z") });
+    expect(out.site_path).toBe("/docs/offer");
+    expect(captured[0]!.url).toBe("https://api.test/v1/documents/offer?at=2026-03-01T00%3A00%3A00.000Z");
+    await r.get("offer");
+    expect(captured[1]!.url).toBe("https://api.test/v1/documents/offer");
+  });
+
+  it("tree, tags and versions hit their paths", async () => {
+    const { captured, http } = rig([]);
+    const r = new DocumentsResource(http);
+    await r.tree({ category: "knowledge-base" });
+    await r.tags();
+    await r.versions("offer");
+    await r.version("offer", 2);
+    expect(captured.map((c) => c.url)).toEqual([
+      "https://api.test/v1/documents/tree?category=knowledge-base",
+      "https://api.test/v1/documents/tags",
+      "https://api.test/v1/documents/offer/versions",
+      "https://api.test/v1/documents/offer/versions/2",
+    ]);
   });
 });
 
