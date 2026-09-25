@@ -76,6 +76,11 @@ export interface LinkTelegramInput {
 export interface LoginInput {
   email: string;
   password: string;
+  /** Keep this browser signed in: the SDK stores the remember token it gets
+   *  and renews the session by itself when it ends. For accounts with a
+   *  second factor, pass it again to `verifyTotp` / `verifyOtp` /
+   *  `completeTotpSetup`. */
+  remember?: boolean;
 }
 
 /** Discriminated union — `stage` is the discriminator. */
@@ -86,6 +91,10 @@ export interface JwtIssued {
   access_token: string;
   expires_at: string;
   user: User;
+  /** Present when the sign-in was remembered. The SDK keeps it in the
+   *  remember store; you don't need to. */
+  remember_token?: string;
+  remember_expires_at?: string;
   /** True iff the user's role grants `system.view_hub`.
    *  Cusfront ignores this; the operator console uses it to gate `/dashboard`. */
   hub_access?: boolean;
@@ -119,12 +128,16 @@ export interface TotpVerifyInput {
   challenge_token: string;
   /** 6-digit TOTP code OR `XXXX-XXXX` backup code. */
   code: string;
+  /** Keep this browser signed in, as in `login`. */
+  remember?: boolean;
 }
 
 export interface OtpVerifyInput {
   challenge_token: string;
   /** 6-digit one-time code delivered via the selected channel. */
   code: string;
+  /** Keep this browser signed in, as in `login`. */
+  remember?: boolean;
 }
 
 export interface SwitchMethodInput {
@@ -137,6 +150,8 @@ export interface RegisterInput {
   password: string;
   /** ISO 4217 code for the new wallet; must be offered by the deployment. */
   wallet_currency?: string;
+  /** Keep this browser signed in, as in `login`. */
+  remember?: boolean;
   /** Where the new user came from: the anonymous key their visits were
    *  sent with (`client.attribution.touch`) and the analytics ids. Without
    *  it the account is recorded with an unknown source. */
@@ -168,21 +183,85 @@ export interface OtpSentResponse {
   available_methods: AvailableMethod[];
 }
 
+/** Send `remember` as the API's `remember_me`. */
+function withRemember<T extends { remember?: boolean }>(input: T): Omit<T, "remember"> & { remember_me?: boolean } {
+  const { remember, ...rest } = input;
+  return remember ? { ...rest, remember_me: true } : rest;
+}
+
 export class AuthResource {
   constructor(
     private readonly http: HttpClient,
     private readonly tokens: TokenStore,
-  ) {}
+    private readonly remembered?: TokenStore,
+  ) {
+    if (remembered) http.setRefresher(() => this.renew().then((r) => r.kind !== "gone"));
+  }
+
+  /** Store what a finished sign-in returned. */
+  private async keep(resp: { access_token: string; remember_token?: string }): Promise<void> {
+    await Promise.resolve(this.tokens.set(resp.access_token));
+    if (resp.remember_token && this.remembered) {
+      await Promise.resolve(this.remembered.set(resp.remember_token));
+    }
+  }
+
+  /** Renew a remembered sign-in: a new session and a new remember token,
+   *  both stored. Resolves `null` (and forgets the remember token) when there
+   *  is none or it no longer works; the app then shows the sign-in form.
+   *  The SDK does this by itself on a 401; call it on app start to resume a
+   *  session without a request failing first. */
+  async refresh(): Promise<JwtIssued | null> {
+    const r = await this.renew();
+    if (r.kind === "renewed") return r.resp;
+    if (r.kind === "taken_over") {
+      // Another tab renewed first: its session is already stored.
+      const access = await Promise.resolve(this.tokens.get());
+      const user = await this.me();
+      return { stage: "jwt", access_token: access ?? "", expires_at: "", user };
+    }
+    return null;
+  }
+
+  /** The renewal itself, for the 401 path: it must not call the API again
+   *  through the client, or a second 401 would wait on this very renewal. */
+  private async renew(): Promise<
+    { kind: "renewed"; resp: JwtIssued } | { kind: "taken_over" } | { kind: "gone" }
+  > {
+    const token = this.remembered ? await Promise.resolve(this.remembered.get()) : null;
+    if (!token) return { kind: "gone" };
+    try {
+      const resp = await this.http.post<JwtIssued>("/auth/refresh", {
+        body: { remember_token: token },
+        skipAuth: true,
+      });
+      await this.keep(resp);
+      return { kind: "renewed", resp };
+    } catch (e) {
+      if (isApiError(e) && e.status === 401) {
+        // Another tab of the same browser may have renewed first; its
+        // tokens are then already in the (shared) stores.
+        const now = await Promise.resolve(this.remembered!.get());
+        if (now && now !== token && (await Promise.resolve(this.tokens.get()))) {
+          return { kind: "taken_over" };
+        }
+        await Promise.resolve(this.remembered!.clear());
+        await Promise.resolve(this.tokens.clear());
+        return { kind: "gone" };
+      }
+      throw e;
+    }
+  }
 
   /** Password-auth entry. May resolve to a JWT, or to a step-up
    *  challenge that needs `verifyTotp` / `verifyOtp` next. */
   async login(input: LoginInput): Promise<LoginResponse> {
     const resp = await this.http.post<LoginResponse>("/auth/login", {
-      body: input,
+      body: withRemember(input),
       skipAuth: true,
     });
     if (resp.stage === "jwt") {
-      await Promise.resolve(this.tokens.set(resp.access_token));
+      await this.keep(resp);
     }
     return resp;
   }
@@ -191,10 +270,10 @@ export class AuthResource {
    *  `totp_required` challenge. On success the JWT is stored. */
   async verifyTotp(input: TotpVerifyInput): Promise<JwtIssued> {
     const resp = await this.http.post<JwtIssued>("/auth/login/totp", {
-      body: input,
+      body: withRemember(input),
       skipAuth: true,
     });
-    await Promise.resolve(this.tokens.set(resp.access_token));
+    await this.keep(resp);
     return resp;
   }
 
@@ -202,10 +281,10 @@ export class AuthResource {
    *  `otp_sent` challenge. */
   async verifyOtp(input: OtpVerifyInput): Promise<JwtIssued> {
     const resp = await this.http.post<JwtIssued>("/auth/login/otp/verify", {
-      body: input,
+      body: withRemember(input),
       skipAuth: true,
     });
-    await Promise.resolve(this.tokens.set(resp.access_token));
+    await this.keep(resp);
     return resp;
   }
 
@@ -216,10 +295,10 @@ export class AuthResource {
    *  Errors: 400 `validation` / `currency_not_allowed`, 409 email taken. */
   async register(input: RegisterInput): Promise<Session> {
     const resp = await this.http.post<Session>("/auth/register", {
-      body: input,
+      body: withRemember(input),
       skipAuth: true,
     });
-    await Promise.resolve(this.tokens.set(resp.access_token));
+    await this.keep(resp);
     return resp;
   }
 
@@ -229,10 +308,10 @@ export class AuthResource {
    *  the user right away and don't keep them on the device. */
   async completeTotpSetup(input: TotpVerifyInput): Promise<TotpSetupComplete> {
     const resp = await this.http.post<TotpSetupComplete>("/auth/login/totp-setup", {
-      body: input,
+      body: withRemember(input),
       skipAuth: true,
     });
-    await Promise.resolve(this.tokens.set(resp.access_token));
+    await this.keep(resp);
     return resp;
   }
 
@@ -328,10 +407,20 @@ export class AuthResource {
     return this.http.get<User>("/auth/me");
   }
 
-  /** Local sign-out: forgets the stored JWT. To end the session on the
-   *  server as well, revoke it first with `client.sessions.revoke(jti)`
-   *  (the current one is marked `current: true` in `client.sessions.list()`). */
+  /** Sign out: ends this session and the remembered sign-in on the
+   *  server (best effort: a network failure still signs out locally), then
+   *  forgets both tokens. */
   async signOut(): Promise<void> {
+    const remember = this.remembered ? await Promise.resolve(this.remembered.get()) : null;
+    try {
+      await this.http.post<void>("/auth/logout", {
+        body: remember ? { remember_token: remember } : {},
+        retried: true,
+      });
+    } catch {
+      // Signed out locally either way.
+    }
     await Promise.resolve(this.tokens.clear());
+    if (this.remembered) await Promise.resolve(this.remembered.clear());
   }
 }

@@ -196,6 +196,10 @@ export interface CreateClientOptions {
   /** Token persistence. Defaults to `defaultBrowserStore()` when
    *  `window.localStorage` is present, else `inMemoryStore()`. */
   tokenStore?: TokenStore;
+  /** Where the remember token of a "remember me" sign-in is kept. Defaults
+   *  to `localStorage` under `takeal_remember` in a browser, in memory
+   *  elsewhere. Native wrappers should pass secure storage. */
+  rememberStore?: TokenStore;
   /** Override the `fetch` implementation — useful for Node < 18,
    *  React Native < 0.74, MSW intercept layers, etc. */
   fetch?: FetchLike;
@@ -268,6 +272,7 @@ export interface CusfrontClient {
  */
 export function createClient(opts: CreateClientOptions): CusfrontClient {
   const tokens = opts.tokenStore ?? pickDefaultStore();
+  const remembered = opts.rememberStore ?? pickDefaultStore("takeal_remember");
   const fetchImpl = opts.fetch ?? defaultFetch();
   const client = resolveClientDescriptor(opts.client);
   const http = new HttpClient(opts.baseUrl, tokens, fetchImpl, {
@@ -279,7 +284,7 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     client,
     tokens,
     assetUrl: (url: string) => resolveAssetUrl(opts.baseUrl, url),
-    auth: new AuthResource(http, tokens),
+    auth: new AuthResource(http, tokens, remembered),
     deposits: new DepositsResource(http),
     cards: new CardsResource(http),
     balance: new BalanceResource(http),
@@ -298,9 +303,9 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
   };
 }
 
-function pickDefaultStore(): TokenStore {
+function pickDefaultStore(key?: string): TokenStore {
   if (typeof globalThis !== "undefined" && "localStorage" in globalThis) {
-    return defaultBrowserStore();
+    return defaultBrowserStore(key);
   }
   return inMemoryStore();
 }

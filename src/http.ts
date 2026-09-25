@@ -18,9 +18,9 @@ import type { TokenStore } from "./token-store.js";
  *  - Surface network failures (DNS, abort, broken pipe) as
  *    `NetworkError`.
  *
- * Auto-refresh + retry policies are deliberately NOT in here — they
- * belong to the resource layer (auth.refresh) which has the right
- * context for "is this refreshable" decisions.
+ * A 401 on an authenticated call asks the refresher (set by the auth
+ * resource when a remembered sign-in exists) for a new session once, and
+ * repeats the call when it got one. Concurrent 401s share one refresh.
  */
 
 export type FetchLike = typeof fetch;
@@ -56,6 +56,8 @@ export interface HttpOptions {
   skipAuth?: boolean;
   /** AbortSignal forwarded to fetch. */
   signal?: AbortSignal;
+  /** Internal: this is the repeat after a refresh. */
+  retried?: boolean;
 }
 
 export class HttpClient {
@@ -68,6 +70,27 @@ export class HttpClient {
     private readonly defaultHeaders: Record<string, string> = {},
   ) {
     if (!baseUrl) throw new Error("HttpClient: baseUrl is required");
+  }
+
+  private refresher: (() => Promise<boolean>) | undefined;
+  private refreshing: Promise<boolean> | undefined;
+
+  /** Called once on a 401; resolves `true` when a new session was stored. */
+  setRefresher(fn: (() => Promise<boolean>) | undefined): void {
+    this.refresher = fn;
+  }
+
+  /** One refresh at a time, whoever asks. */
+  refreshOnce(): Promise<boolean> {
+    if (!this.refresher) return Promise.resolve(false);
+    if (!this.refreshing) {
+      this.refreshing = this.refresher()
+        .catch(() => false)
+        .finally(() => {
+          this.refreshing = undefined;
+        });
+    }
+    return this.refreshing;
   }
 
   async get<T>(path: string, opts: HttpOptions = {}): Promise<T> {
@@ -126,6 +149,11 @@ export class HttpClient {
       );
     }
 
+    if (resp.status === 401 && !opts.skipAuth && !opts.retried && this.refresher) {
+      if (await this.refreshOnce()) {
+        return this.request<T>(method, path, { ...opts, retried: true });
+      }
+    }
     return parseResponse<T>(resp);
   }
 

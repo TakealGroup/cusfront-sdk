@@ -8,6 +8,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- "Remember me": `auth.login({ remember: true })` (and `verifyTotp`,
+  `verifyOtp`, `completeTotpSetup`, `register`) keeps the remember token
+  the API returns in a `rememberStore` (localStorage `takeal_remember` by
+  default). A 401 then renews the session once by itself and repeats the
+  call; `auth.refresh()` does it on demand, e.g. on app start. The token
+  only works from the browser that signed in.
+
+### Changed
+
+- `auth.signOut()` now also ends the session and the remembered sign-in on
+  the server (`POST /auth/logout`), then clears both tokens.
+
 - `client.documents`: `list({ category?, folderId?, tag?, locale?, q?, page?, perPage? })`,
   `tree({ category? })` for a sidebar, `tags()`, `get(slug, { at? })`,
   `versions(slug)` and `version(slug, n)`. Blog posts, the knowledge base

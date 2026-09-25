@@ -1286,3 +1286,89 @@ describe("HistoryResource", () => {
     expect(urls[1]).toContain("cursor=p2");
   });
 });
+
+describe("AuthResource (remember me)", () => {
+  function routed(routes: Record<string, (init: RequestInit) => { status?: number; body?: unknown }>) {
+    const calls: { url: string; init: RequestInit }[] = [];
+    const fake: FetchLike = async (url, init) => {
+      const u = String(url);
+      calls.push({ url: u, init: init ?? {} });
+      const key = `${init?.method ?? "GET"} ${u.replace("https://api.test", "")}`;
+      const r = routes[key]?.(init ?? {}) ?? { status: 404, body: { code: "not_found", message: key } };
+      return new Response(r.body === undefined ? null : JSON.stringify(r.body), {
+        status: r.status ?? 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+    return { calls, fake };
+  }
+
+  it("login with remember sends remember_me and keeps the remember token", async () => {
+    const { calls, fake } = routed({
+      "POST /v1/auth/login": () => ({ body: { stage: "jwt", access_token: "a1", expires_at: "x", user: {}, remember_token: "r1" } }),
+    });
+    const tokens = inMemoryStore();
+    const remembered = inMemoryStore();
+    await new AuthResource(new HttpClient("https://api.test", tokens, fake), tokens, remembered).login({
+      email: "a@example.invalid",
+      password: "p",
+      remember: true,
+    });
+    expect(JSON.parse(String(calls[0]!.init.body))).toEqual({ email: "a@example.invalid", password: "p", remember_me: true });
+    expect(tokens.get()).toBe("a1");
+    expect(remembered.get()).toBe("r1");
+  });
+
+  it("a 401 renews the session once and repeats the call", async () => {
+    let meCalls = 0;
+    const { calls, fake } = routed({
+      "GET /v1/auth/me": (init) => {
+        meCalls++;
+        const auth = new Headers(init.headers).get("Authorization");
+        return auth === "Bearer a2" ? { body: { id: "u1" } } : { status: 401, body: { code: "unauthenticated", message: "x" } };
+      },
+      "POST /v1/auth/refresh": () => ({ body: { stage: "jwt", access_token: "a2", expires_at: "x", user: {}, remember_token: "r2" } }),
+    });
+    const tokens = inMemoryStore();
+    tokens.set("a1");
+    const remembered = inMemoryStore();
+    remembered.set("r1");
+    const http = new HttpClient("https://api.test", tokens, fake);
+    const auth = new AuthResource(http, tokens, remembered);
+    const [a, b] = await Promise.all([auth.me(), auth.me()]);
+    expect(a.id).toBe("u1");
+    expect(b.id).toBe("u1");
+    expect(calls.filter((c) => c.url.endsWith("/auth/refresh")).length).toBe(1);
+    expect(JSON.parse(String(calls.find((c) => c.url.endsWith("/auth/refresh"))!.init.body))).toEqual({ remember_token: "r1" });
+    expect(tokens.get()).toBe("a2");
+    expect(remembered.get()).toBe("r2");
+    expect(meCalls).toBe(4);
+  });
+
+  it("a refused remember token signs out locally and the 401 comes through", async () => {
+    const { fake } = routed({
+      "GET /v1/auth/me": () => ({ status: 401, body: { code: "unauthenticated", message: "x" } }),
+      "POST /v1/auth/refresh": () => ({ status: 401, body: { code: "remember_token_invalid", message: "x" } }),
+    });
+    const tokens = inMemoryStore();
+    tokens.set("a1");
+    const remembered = inMemoryStore();
+    remembered.set("r1");
+    const auth = new AuthResource(new HttpClient("https://api.test", tokens, fake), tokens, remembered);
+    await expect(auth.me()).rejects.toMatchObject({ status: 401 });
+    expect(tokens.get()).toBeNull();
+    expect(remembered.get()).toBeNull();
+  });
+
+  it("signOut ends the session and the remembered sign-in on the server", async () => {
+    const { calls, fake } = routed({ "POST /v1/auth/logout": () => ({ status: 204 }) });
+    const tokens = inMemoryStore();
+    tokens.set("a1");
+    const remembered = inMemoryStore();
+    remembered.set("r1");
+    await new AuthResource(new HttpClient("https://api.test", tokens, fake), tokens, remembered).signOut();
+    expect(JSON.parse(String(calls[0]!.init.body))).toEqual({ remember_token: "r1" });
+    expect(tokens.get()).toBeNull();
+    expect(remembered.get()).toBeNull();
+  });
+});
