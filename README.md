@@ -400,6 +400,43 @@ const top = await client.deposits.initiate({ amount: "25", currency: "USD", meth
 - In your copy, call bonuses a discount. Keep words like funds, withdraw or
   exchange away from them.
 
+## Promo and referral codes
+
+A code goes with the operation it is for. At sign-up an unknown or expired
+code never blocks the account: it is created, and `code_result` says why the
+code wasn't applied.
+
+```ts
+// Sign-up on the site, with the code from the form or the link.
+const s = await client.auth.register({ email, password, code: "SPRING" });
+// s.code_result: { status: "applied" | "rejected", reason, message, effects }
+
+// Mini App: a `startapp=<code>` link is read by the server; `code` overrides it.
+const tg = await client.auth.exchangeTelegram({ initData });
+// tg.code_result is set for a new account opened with a code
+
+// Check a code before the user pays; nothing is used up.
+const c = await client.codes.validate({ code: "SPRING", operation: "card_issuance", amount: "10", currency: "USD" });
+// c.valid, c.discount, c.discount_value "5", c.effects
+
+await client.cards.create({ productId, currency: "USD", promoCode: "SPRING", idempotencyKey });
+await client.deposits.initiate({ amount: "100", currency: "USD", method: "card", promo_code: "SPRING", idempotencyKey });
+await client.subscription.setPromoCode("SPRING"); // the monthly fee, while the code allows
+
+// For referrers: the code, the link to share, friends (no names) and rewards.
+const ref = await client.referral.get();
+```
+
+- A code that can't be used on a card or a top-up fails the request with
+  400 `promo_code_<reason>` and a sentence to show.
+- A code the user signed up with keeps working on the operations its
+  program covers, within its limits, so "half off the first card" can come
+  with a sign-up link without the user typing it again.
+- `client.subscription.get()` shows a gift subscription as `kind: "gift"`;
+  `gift_until: null` means it doesn't end.
+- Rewards and code bonuses are bonuses: a discount on our services, not
+  money. Show friends without names; the API sends none.
+
 ## Documents
 
 Everything the operators write lives in one tree: blog posts, the knowledge

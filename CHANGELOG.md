@@ -8,6 +8,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Promo and referral codes: `auth.register({ code })` and
+  `auth.exchangeTelegram({ code })` (a `startapp` code is read by the server
+  too) return `code_result`; `promoCode` on `cards.create` and `promo_code`
+  on `deposits.initiate`, and a deposit carries `promo_code`. New
+  `client.codes.validate()`, `client.referral.get()` (code, link, invited
+  friends without personal data, rewards) and `client.subscription`
+  (`get()`, gifts included, and `setPromoCode()` for the monthly fee).
+  Sub-exports `@takeal/cusfront-sdk/codes`, `/referral`, `/subscription`.
+
 - Top-ups straight onto a card: `deposits.initiate` takes `card_id` (an
   existing card) or `issue_card` (a new card issued with its first top-up,
   the fields of `cards.create`). A deposit carries `target`,

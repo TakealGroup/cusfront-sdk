@@ -794,6 +794,132 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/code-programs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Programs
+         * @description Every program with its numbers: uses by operation, people, discounts
+         *     given, bonuses given to the people using its codes and to referrers,
+         *     and what those people topped up and how many cards they got.
+         */
+        get: operations["list_code_programs"];
+        put?: never;
+        /**
+         * Create a program
+         * @description A program is the rules codes work by: the operations they apply to,
+         *     dates and limits, what the person using a code gets (`effects`), and
+         *     for referral codes what the referrer earns (`referrer_reward` effects,
+         *     with the optional cap per invited person and reward window). Effects:
+         *     `gift_subscription {tier_id, days|null}`, `discount {target, bps}` or
+         *     `{target, amount, currency}`, `bonus_credit {amount}`,
+         *     `grant_referral_code {program_id}`, `referrer_reward {on, amount}` or
+         *     `{on, bps}` with an optional `min_amount` + `min_currency`.
+         */
+        post: operations["create_code_program"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/code-programs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A program */
+        get: operations["get_code_program"];
+        /**
+         * Change a program
+         * @description Replaces the program's terms and effects; its codes follow at once.
+         *     Uses already made keep what they got. `status: disabled` switches every
+         *     code of the program off, rewards to referrers included.
+         */
+        put: operations["update_code_program"];
+        post?: never;
+        /**
+         * Delete a program
+         * @description Only a program no code uses; switch it off otherwise.
+         */
+        delete: operations["delete_code_program"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/code-redemptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Uses of codes
+         * @description Newest first, by code, program or user: the operation, its amount, the
+         *     discount given and what every effect did.
+         */
+        get: operations["list_code_redemptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Codes */
+        get: operations["list_promo_codes"];
+        put?: never;
+        /**
+         * Create a promo code
+         * @description A promo code works by its program. Referral codes are made on a user's
+         *     page (`POST /admin/users/{id}/referral-code`) or by a program that
+         *     grants them.
+         */
+        post: operations["create_promo_code"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/codes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A code with its latest uses */
+        get: operations["get_promo_code"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a code
+         * @description Switch it off or on, move it to another program, change its dates,
+         *     limit or note. Only the fields sent change.
+         */
+        patch: operations["patch_promo_code"];
+        trace?: never;
+    };
     "/v1/admin/connectors": {
         parameters: {
             query?: never;
@@ -3064,6 +3190,49 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/users/{id}/referral": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A user's codes and referrals
+         * @description Their referral code, who invited them, the people they invited, what
+         *     they earned for it, and the codes they used.
+         */
+        get: operations["user_referral"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/referral-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a user a referrer
+         * @description Gives the user a referral code of their own, working by the program.
+         *     A person has one working referral code; switch the old one off first to
+         *     give another.
+         */
+        post: operations["issue_referral_code"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/users/{id}/role": {
         parameters: {
             query?: never;
@@ -3120,7 +3289,10 @@ export type paths = {
         get: operations["get_user_subscription"];
         /**
          * Assign a subscription to a user
-         * @description Puts the user on the given tier, replacing any current subscription. Audited.
+         * @description Puts the user on the given tier, replacing any current subscription.
+         *     With `kind: gift` the subscription is a gift: never charged, ending
+         *     after `gift_days` or at `gift_until`, or never when both are left out.
+         *     The user is told about a gift. Audited.
          */
         put: operations["assign_user_subscription"];
         post?: never;
@@ -3503,7 +3675,9 @@ export type paths = {
          * Register an end-user account
          * @description Creates an account with the `user` role and signs it in; the response
          *     carries the session token and the user. Operator roles are granted by an
-         *     operator through `/admin/users`, not here.
+         *     operator through `/admin/users`, not here. With a `code`, the response
+         *     also carries `code_result`: whether the code was applied and what it
+         *     gave (bonuses, a gift subscription), or why not.
          */
         post: operations["register"];
         delete?: never;
@@ -3532,7 +3706,9 @@ export type paths = {
          *     has one and link it with `POST /auth/telegram/link`. The response is the
          *     `stage: "jwt"` envelope of `POST /auth/login`. Accounts with operator
          *     permissions can't sign in this way; they use `POST /auth/login` with a
-         *     second factor.
+         *     second factor. A new account opened through a link with a promo or
+         *     referral code (`startapp=<code>`), or with `code` in the body, gets what
+         *     the code gives, and the response carries `code_result`.
          */
         post: operations["telegram_exchange"];
         delete?: never;
@@ -4250,6 +4426,31 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/codes/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a promo code
+         * @description Says whether a code can be used on an operation and what it would do:
+         *     the discount, and what else comes with it (bonuses, a gift
+         *     subscription). Nothing is used up; the code is taken when the operation
+         *     itself is made with it (`promo_code` on `POST /me/deposits` or
+         *     `POST /me/cards`). The answer can change by then if the code runs out
+         *     in the meantime.
+         */
+        post: operations["validate_code"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/deposits": {
         parameters: {
             query?: never;
@@ -4610,6 +4811,31 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/referral": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your referral code and the people you invited
+         * @description Referral codes are given out by invitation: `code` is null until you
+         *     have one. `link` is the invitation to share, when the deployment has set
+         *     one up. The people you invited are listed without names or contacts:
+         *     when they joined, whether they have a card and have topped up, and what
+         *     they brought you. `rewards` says what each bonus credit was for. Bonuses
+         *     are a discount on our services, not money.
+         */
+        get: operations["my_referral"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/sessions": {
         parameters: {
             query?: never;
@@ -4668,6 +4894,52 @@ export type paths = {
          *     404 when the session is unknown or already signed out.
          */
         delete: operations["revoke_session"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your subscription
+         * @description The tier you are on, or null. `kind` is `gift` for a subscription you
+         *     were given: it is never charged, and `gift_until` says when it ends
+         *     (null: it doesn't).
+         */
+        get: operations["my_subscription"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/subscription/promo-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Use a promo code on your subscription
+         * @description Sets a promo code the monthly fee is charged with, as long as the code
+         *     allows (a code may work for the first months only). The code is checked
+         *     now against the current fee and taken when a fee is charged; a code that
+         *     stops working is simply not applied. Send `code: null` to remove it.
+         *     Only a paid subscription takes a code; a gift is not charged anyway.
+         */
+        put: operations["set_subscription_code"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -5308,6 +5580,28 @@ export type components = {
             /** Format: int64 */
             total: number;
         };
+        /** @description Someone a user invited, as an operator sees them. */
+        AdminInvited: {
+            email?: string | null;
+            /** Format: date-time */
+            joined_at: string;
+            /** @description Bonuses they brought the referrer, decimal string. */
+            rewarded: string;
+            /** Format: uuid */
+            user_id: string;
+        };
+        /** @description A user's referral side, for the operator. */
+        AdminReferral: {
+            code?: null | components["schemas"]["CodeView"];
+            invited: components["schemas"]["AdminInvited"][];
+            /** Format: int64 */
+            invited_count: number;
+            /** @description Codes this user used. */
+            redemptions: components["schemas"]["RedemptionView"][];
+            referred_by?: null | components["schemas"]["ReferredBy"];
+            rewards: components["schemas"]["RewardView"][];
+            total_rewarded: string;
+        };
         /** @description A tag and how many documents carry it. */
         AdminTagCount: {
             /**
@@ -5336,6 +5630,12 @@ export type components = {
              */
             amount: string;
             /** @description ISO 4217 code. */
+            currency: string;
+        };
+        /** @description Money in one currency. */
+        AmountView: {
+            /** @description Decimal string. */
+            amount: string;
             currency: string;
         };
         /**
@@ -5406,6 +5706,18 @@ export type components = {
         };
         AssignBody: {
             /**
+             * Format: int32
+             * @description For a gift: how many days it lasts. Leave out both this and `gift_until` for a gift with no end date.
+             */
+            gift_days?: number | null;
+            /**
+             * Format: date-time
+             * @description For a gift: when it ends. Leave out both this and `gift_days` for a gift with no end date.
+             */
+            gift_until?: string | null;
+            /** @description `billing` (the default: charged every month) or `gift` (never charged). */
+            kind?: string | null;
+            /**
              * Format: uuid
              * @description Tier to put the user on.
              */
@@ -5414,6 +5726,8 @@ export type components = {
         AttributionView: {
             /** @description The latest id per click-id name before sign-up. */
             click_ids: Record<string, never>;
+            /** @description The promo or referral code the user signed up with. */
+            code?: string | null;
             first_campaign?: string | null;
             /** @description `campaign`, `ads`, `organic_search`, `ai`, `telegram`, `unlisted_tags`, `referral`, `direct`; `unknown` when nothing reached us; `pre_launch` for accounts older than attribution; `organization` for a holder an organization added; `staff`. */
             first_channel: string;
@@ -5432,6 +5746,11 @@ export type components = {
             posthog_distinct_id?: string | null;
             /** Format: date-time */
             recorded_at?: string | null;
+            /**
+             * Format: uuid
+             * @description Who invited them, for a referral code.
+             */
+            referrer_user_id?: string | null;
             signup_platform?: string | null;
             /** @description `email`, `telegram`, or null for an account made another way. */
             signup_via?: string | null;
@@ -6360,6 +6679,56 @@ export type components = {
             /** @description `true` when the dependency is not configured in this deployment and the check was skipped; `ok` stays `true` in that case. */
             skipped?: boolean;
         };
+        CodeDetail: components["schemas"]["CodeView"] & {
+            /** @description The latest uses, newest first. */
+            redemptions: components["schemas"]["RedemptionView"][];
+        };
+        /** @description A code with its program's name. */
+        CodeView: {
+            code: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description `promo` or `referral`. */
+            kind: string;
+            /**
+             * Format: int32
+             * @description Uses of this code; null = only the program's limit.
+             */
+            max_redemptions?: number | null;
+            note?: string | null;
+            /** @description Their e-mail, in the operator's view only. */
+            owner_email?: string | null;
+            /**
+             * Format: uuid
+             * @description The person a referral code belongs to.
+             */
+            owner_user_id?: string | null;
+            /** Format: uuid */
+            program_id: string;
+            program_name: string;
+            /**
+             * Format: int32
+             * @description Uses so far, those still in flight included.
+             */
+            redemptions_count: number;
+            /** @description `active` or `disabled`. */
+            status: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            valid_from?: string | null;
+            /** Format: date-time */
+            valid_until?: string | null;
+        };
+        CodesPage: {
+            items: components["schemas"]["CodeView"][];
+            /** Format: int64 */
+            total: number;
+        };
         /**
          * @description Where a lane's configuration came from.
          * @enum {string}
@@ -6478,6 +6847,8 @@ export type components = {
              * @description The card product from `GET /me/card-products`. Sets the issuer, the program and the card type; without it the deployment's default product is used.
              */
             product_id?: string | null;
+            /** @description A promo code for the card's price. Its discount comes off before bonuses. A code that can't be used answers 400 `promo_code_*` with the reason. Without one, the code you signed up with applies when it covers cards. */
+            promo_code?: string | null;
             type?: null | components["schemas"]["CardType"];
             /** @description Pay part of the price with bonuses. On by default whenever you have bonuses; send `false` to pay it all from the wallet. The response's `bonus` says how many were used and the price before and after. */
             use_bonus?: boolean | null;
@@ -6530,6 +6901,8 @@ export type components = {
             };
             /** @description One of `card`, `crypto`, `bank_transfer`. */
             method: components["schemas"]["DepositMethod"];
+            /** @description A promo code for this top-up, to the wallet or to a card. Its discount comes off the commission; bonuses or a gift that come with the code arrive once the top-up is confirmed. A code that can't be used answers 400 `promo_code_*` with the reason. `POST /me/codes/validate` checks it first. */
+            promo_code?: string | null;
             /**
              * Format: uuid
              * @description Required when `currency` differs from the wallet currency: id of the quote from `POST /me/deposits/quotes` this deposit executes against.
@@ -6655,6 +7028,8 @@ export type components = {
          */
         Credentials: {
             attribution?: null | components["schemas"]["SignupAttribution"];
+            /** @description A promo or referral code to sign up with. An unknown or expired code doesn't stop the sign-up: the account is created and `code_result` says why the code was not applied. Ignored on login. */
+            code?: string | null;
             /** @description Account email address. */
             email: string;
             /** @description Account password. */
@@ -7053,6 +7428,27 @@ export type components = {
             /** @description Always `disabled`. */
             status: string;
         };
+        /**
+         * @description What a discount effect lowers.
+         * @enum {string}
+         */
+        DiscountTarget: "card_issuance" | "funding_commission" | "subscription";
+        /** @description A discount a code gives. */
+        DiscountView: {
+            /** @description For `fixed`: the amount off, decimal string. */
+            amount?: string | null;
+            /** @description What comes off: `card_issuance` (the card's price), `funding_commission` (the top-up commission) or `subscription` (the monthly fee). */
+            applies_to?: string | null;
+            /**
+             * Format: int32
+             * @description For `percent`: basis points off (1000 = 10%).
+             */
+            bps?: number | null;
+            /** @description For `fixed`: its currency. */
+            currency?: string | null;
+            /** @description `percent` or `fixed`. */
+            kind: string;
+        };
         /** @description A document as staff see it in the console: every status, every level. */
         Document: {
             /**
@@ -7248,6 +7644,45 @@ export type components = {
              * @description Counts up from 1.
              */
             version: number;
+        };
+        /**
+         * @description One thing a program does. A program's effects run in order; the ones for
+         *     the person using the code are applied when the operation completes, the
+         *     `referrer_reward` ones pay the owner of a referral code.
+         */
+        Effect: {
+            /** Format: int32 */
+            days?: number | null;
+            /** @enum {string} */
+            kind: "gift_subscription";
+            /** Format: uuid */
+            tier_id: string;
+        } | {
+            amount?: string | null;
+            /** Format: int32 */
+            bps?: number | null;
+            currency?: string | null;
+            /** @enum {string} */
+            kind: "discount";
+            target: components["schemas"]["DiscountTarget"];
+        } | {
+            amount: string;
+            /** @enum {string} */
+            kind: "bonus_credit";
+        } | {
+            /** @enum {string} */
+            kind: "grant_referral_code";
+            /** Format: uuid */
+            program_id: string;
+        } | {
+            amount?: string | null;
+            /** Format: int32 */
+            bps?: number | null;
+            /** @enum {string} */
+            kind: "referrer_reward";
+            min_amount?: string | null;
+            min_currency?: string | null;
+            on: components["schemas"]["RewardEvent"];
         };
         /** @description A finished email. */
         EmailParts: {
@@ -7523,6 +7958,20 @@ export type components = {
             /** @description Optional. */
             full_name?: string | null;
         };
+        /** @description Someone a referrer invited, without anything that identifies them. */
+        InvitedView: {
+            /** @description Whether they have a card yet. */
+            has_card: boolean;
+            /** @description Whether they have topped up yet. */
+            has_topped_up: boolean;
+            /**
+             * Format: date-time
+             * @description When they signed up.
+             */
+            joined_at: string;
+            /** @description Bonuses they brought the referrer so far, decimal string. */
+            rewarded: string;
+        };
         /** @description Issuance settings of a program. */
         IssuanceBody: {
             /** @description Country a made-up holder's address and phone belong to, ISO 3166-1 alpha-2. `null` or empty: the deployment's default country. */
@@ -7592,6 +8041,15 @@ export type components = {
             at: string;
             /** @description The reason as the provider or connector gave it. */
             reason: string;
+        };
+        IssueReferralBody: {
+            /** @description The code; leave it out to get a random one. */
+            code?: string | null;
+            /**
+             * Format: uuid
+             * @description The program the code works by: what the people invited get and what the referrer earns.
+             */
+            program_id: string;
         };
         IssuingMetrics: {
             /**
@@ -7954,6 +8412,24 @@ export type components = {
             /** @description `true` while the app should ask "how did you hear about us". Asked once: any answer, skipping included, turns it off. */
             survey_pending: boolean;
         };
+        /** @description A referrer's own view. */
+        MyReferral: {
+            /** @description Your referral code; null when you have none (codes are given out by invitation). */
+            code?: string | null;
+            /** @description The latest of them, newest first, without names or contacts. */
+            invited: components["schemas"]["InvitedView"][];
+            /**
+             * Format: int64
+             * @description How many people signed up with your code.
+             */
+            invited_count: number;
+            /** @description A link that signs people up with your code; null when the deployment hasn't set one. */
+            link?: string | null;
+            /** @description What you were rewarded for, newest first. */
+            rewards: components["schemas"]["RewardView"][];
+            /** @description Bonuses you earned in total, decimal string. */
+            total_rewarded: string;
+        };
         /** @description Fields for adding a bank account. */
         NewBankAccount: {
             account_number?: string;
@@ -7982,6 +8458,23 @@ export type components = {
             /** @description Up to 32 Latin letters, digits and dashes. Case doesn't matter: `Spring-Promo` and `spring-promo` are the same code. */
             code: string;
             description: string;
+        };
+        NewCodeBody: {
+            /** @description Letters, digits and dashes, up to 32; case doesn't matter. Leave it out to get a random one. */
+            code?: string | null;
+            /**
+             * Format: int32
+             * @description Uses of this code; null = only the program's limit.
+             */
+            max_redemptions?: number | null;
+            /** @description Where the code goes, for the team: "blogger X, October". */
+            note?: string | null;
+            /** Format: uuid */
+            program_id: string;
+            /** Format: date-time */
+            valid_from?: string | null;
+            /** Format: date-time */
+            valid_until?: string | null;
         };
         /** @description Fields for creating a document. */
         NewDocument: {
@@ -8110,6 +8603,11 @@ export type components = {
              */
             period_start?: string | null;
         };
+        /**
+         * @description An operation a code can be used on.
+         * @enum {string}
+         */
+        Operation: "signup" | "deposit" | "card_issuance" | "subscription";
         /** @description A top-up as the operator sees it. */
         OperatorDepositRow: {
             /** @description Amount paid, decimal string. */
@@ -8451,6 +8949,31 @@ export type components = {
             /** @description New name, 1–40 characters. Omit to keep the current one. */
             name?: string | null;
         };
+        PatchCodeBody: {
+            /**
+             * Format: int32
+             * @description Null removes the code's own limit.
+             */
+            max_redemptions?: number | null;
+            note?: string | null;
+            /**
+             * Format: uuid
+             * @description Move the code to another program.
+             */
+            program_id?: string | null;
+            /** @description `active` or `disabled`. */
+            status?: string | null;
+            /**
+             * Format: date-time
+             * @description Null clears it.
+             */
+            valid_from?: string | null;
+            /**
+             * Format: date-time
+             * @description Null clears it.
+             */
+            valid_until?: string | null;
+        };
         PatchConfigurationKeyBody: {
             /** @description New plaintext value, up to 8 KiB. */
             value: string;
@@ -8723,6 +9246,133 @@ export type components = {
             id: string;
             name: string;
         };
+        /** @description A program: the rules a code works by. */
+        Program: {
+            /** @description The operations its codes work on. */
+            applies_to: components["schemas"]["Operation"][];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by?: string | null;
+            description?: string | null;
+            effects: components["schemas"]["Effect"][];
+            /** @description Only the person's first operation of the kind qualifies. */
+            first_operation_only: boolean;
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: int32
+             * @description Uses across all its codes; null = no limit.
+             */
+            max_redemptions?: number | null;
+            /** @description The operation must be at least this much, decimal string. */
+            min_amount?: string | null;
+            min_amount_currency?: string | null;
+            name: string;
+            /**
+             * Format: int32
+             * @description How many times one person may use a code of this program per operation.
+             */
+            per_user_limit: number;
+            /**
+             * Format: int32
+             * @description Uses so far, those still in flight included.
+             */
+            redemptions_count: number;
+            /** @description The most bonuses one invited person may bring the referrer; null = no cap. */
+            reward_cap_per_referee?: string | null;
+            /**
+             * Format: int32
+             * @description Days after the invited person signed up during which rewards are paid; null = always.
+             */
+            reward_window_days?: number | null;
+            /** @description `active` or `disabled`. A disabled program switches every code of it off. */
+            status: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            valid_from?: string | null;
+            /** Format: date-time */
+            valid_until?: string | null;
+        };
+        ProgramDetail: components["schemas"]["Program"] & {
+            stats: components["schemas"]["ProgramStats"];
+        };
+        /** @description What an operator sends to create or replace a program. */
+        ProgramInput: {
+            /** @description The operations its codes work on; at least one. */
+            applies_to: components["schemas"]["Operation"][];
+            description?: string | null;
+            effects?: components["schemas"]["Effect"][];
+            first_operation_only?: boolean;
+            /** Format: int32 */
+            max_redemptions?: number | null;
+            min_amount?: string | null;
+            min_amount_currency?: string | null;
+            name: string;
+            /**
+             * Format: int32
+             * @description Default 1.
+             */
+            per_user_limit?: number | null;
+            reward_cap_per_referee?: string | null;
+            /** Format: int32 */
+            reward_window_days?: number | null;
+            /** @description `active` (default) or `disabled`. */
+            status?: string | null;
+            /** Format: date-time */
+            valid_from?: string | null;
+            /** Format: date-time */
+            valid_until?: string | null;
+        };
+        /** @description What a program cost and what it brought. */
+        ProgramStats: {
+            /** @description Bonuses its codes gave to the people using them, decimal string. */
+            bonuses_to_users: string;
+            /** Format: int64 */
+            cards: number;
+            /**
+             * Format: int64
+             * @description Cards those people got.
+             */
+            cards_issued: number;
+            /** Format: int64 */
+            codes: number;
+            /** Format: int64 */
+            deposits: number;
+            /** @description Money off prices and commissions, by currency. */
+            discounts: components["schemas"]["AmountView"][];
+            /**
+             * Format: int64
+             * @description People invited with its referral codes.
+             */
+            referees: number;
+            /** @description Bonuses paid to referrers, decimal string. */
+            referrer_rewards: string;
+            /**
+             * Format: int64
+             * @description Uses still in flight.
+             */
+            reserved: number;
+            /**
+             * Format: int64
+             * @description Uses that went through, by operation.
+             */
+            signups: number;
+            /** Format: int64 */
+            subscriptions: number;
+            /** @description Confirmed top-ups of the people who used its codes, by currency. */
+            topped_up: components["schemas"]["AmountView"][];
+            /**
+             * Format: int64
+             * @description People who used a code of the program.
+             */
+            users: number;
+        };
+        /** @description A program with its numbers, for the operator's list. */
+        ProgramSummary: components["schemas"]["Program"] & {
+            stats: components["schemas"]["ProgramStats"];
+        };
         /**
          * @description One card program offered by a card connector, with the operator-set
          *     pricing. Pass `program_code` as `program_id` when creating a card.
@@ -8992,6 +9642,49 @@ export type components = {
             /** @description `close` terminates the card at the provider and marks it `terminated`. `adopt` charges the user the unpaid load and marks it `active`. */
             action: string;
         };
+        /** @description One use of a code. */
+        RedemptionView: {
+            /** @description The operation's amount, decimal string. */
+            amount?: string | null;
+            amount_currency?: string | null;
+            code: string;
+            /** Format: uuid */
+            code_id: string;
+            /** Format: date-time */
+            created_at: string;
+            discount_currency?: string | null;
+            /** @description What the discount took off, decimal string. */
+            discount_value?: string | null;
+            /** @description What each effect did. */
+            effects: Record<string, never>;
+            /** Format: uuid */
+            id: string;
+            operation: components["schemas"]["Operation"];
+            /**
+             * Format: uuid
+             * @description The card, deposit or subscription, once it exists.
+             */
+            operation_id?: string | null;
+            /** Format: uuid */
+            program_id: string;
+            /** @description `reserved` (the operation is still going through), `applied` or `released` (it did not go through; the use was given back). */
+            status: string;
+            /** @description The user's e-mail, in the operator's view. */
+            user_email?: string | null;
+            /** Format: uuid */
+            user_id: string;
+        };
+        /** @description Who invited a user. */
+        ReferredBy: {
+            code: string;
+            email?: string | null;
+            /** Format: date-time */
+            joined_at: string;
+            /** Format: uuid */
+            program_id: string;
+            /** Format: uuid */
+            user_id: string;
+        };
         RefreshBody: {
             /** @description The `remember_token` from the last sign-in or refresh. */
             remember_token: string;
@@ -9037,6 +9730,11 @@ export type components = {
             /** @description VAPID public key to subscribe with, for Web Push; null when push is not set up. */
             vapid_public_key?: string | null;
         };
+        /**
+         * @description Why a code can't be used.
+         * @enum {string}
+         */
+        Rejection: "unknown" | "disabled" | "not_started" | "expired" | "not_applicable" | "exhausted" | "already_used" | "not_first_operation" | "below_minimum" | "currency_mismatch" | "own_code" | "already_registered";
         ReloadBody: {
             /**
              * @description Amount to add, decimal string.
@@ -9128,6 +9826,41 @@ export type components = {
             updated_at?: string | null;
             /** @description Full plaintext value, or the default when nothing is set. */
             value?: string | null;
+        };
+        /**
+         * @description The invited person's event a referrer is rewarded for.
+         * @enum {string}
+         */
+        RewardEvent: "signup" | "card_issuance" | "first_deposit" | "deposit";
+        /** @description One reward a referrer got. */
+        RewardView: {
+            /** @description The invited person's operation a percent was taken of, decimal string. */
+            basis_amount?: string | null;
+            basis_currency?: string | null;
+            /** Format: uuid */
+            code_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description `signup`, `card_issuance`, `first_deposit` or `deposit`. */
+            event: string;
+            /** Format: uuid */
+            id: string;
+            /** @description How it was paid: `bonus`. */
+            payout_kind: string;
+            /** Format: uuid */
+            program_id: string;
+            referee_email?: string | null;
+            /**
+             * Format: uuid
+             * @description The invited person. Only the operator's view has it.
+             */
+            referee_user_id?: string | null;
+            /** Format: uuid */
+            referrer_user_id: string;
+            /** @description `pending` until the bonuses are on the account, then `credited`. */
+            status: string;
+            /** @description Bonuses, decimal string. */
+            units: string;
         };
         /** @description An operator role and the permissions it grants. */
         RoleRow: {
@@ -9424,6 +10157,10 @@ export type components = {
             /** @description Every product of every card connector, in storefront order. */
             products: components["schemas"]["StorefrontProduct"][];
         };
+        SubscriptionCodeBody: {
+            /** @description The promo code, or null to remove the one set. */
+            code?: string | null;
+        };
         /** @description A subscription plan. */
         SubscriptionTier: {
             /** Format: date-time */
@@ -9527,6 +10264,8 @@ export type components = {
          */
         TelegramExchangeBody: {
             attribution?: null | components["schemas"]["SignupAttribution"];
+            /** @description A promo or referral code for a new account. Without it, the `start_param` of the Mini App link is used when it is a code. A code sent for an account that already exists is not applied (`code_result.reason: already_registered`). */
+            code?: string | null;
             /** @description Raw `window.Telegram.WebApp.initData` string as handed to the Mini App by the Telegram client; verified server-side against the bot token. */
             init_data: string;
             /** @description Create an account for a Telegram id seen for the first time. Defaults to `true`. Send `false` to get `404 telegram_unknown` instead, so the app can offer "create an account" or "I already have one" (`POST /auth/telegram/link`). */
@@ -10113,7 +10852,7 @@ export type components = {
             currency: string;
             /**
              * Format: date-time
-             * @description End of the current billing period.
+             * @description End of the current billing period; for a gift, when it ends (null = never).
              */
             current_period_end?: string | null;
             /**
@@ -10121,6 +10860,21 @@ export type components = {
              * @description Discount on funding fees, in basis points.
              */
             funding_discount_bps: number;
+            /**
+             * Format: date-time
+             * @description For a gift: when it ends; null = no end date.
+             */
+            gift_until?: string | null;
+            /**
+             * Format: uuid
+             * @description The code that gave the gift, if one did.
+             */
+            granted_by_code_id?: string | null;
+            /**
+             * Format: uuid
+             * @description The operator who gave the gift, if one did.
+             */
+            granted_by_user_id?: string | null;
             /** Format: uuid */
             id: string;
             /**
@@ -10128,8 +10882,15 @@ export type components = {
              * @description Discount on card issuance fees, in basis points.
              */
             issuance_discount_bps: number;
+            /** @description `billing` (charged every month) or `gift` (never charged). */
+            kind: string;
             /** @description Monthly fee, decimal string. */
             monthly_fee: string;
+            /**
+             * Format: uuid
+             * @description A promo code the monthly fee is charged with.
+             */
+            promo_code_id?: string | null;
             /**
              * Format: date-time
              * @description When the subscription started.
@@ -10143,6 +10904,40 @@ export type components = {
             tier_name: string;
             /** Format: uuid */
             user_id: string;
+        };
+        /**
+         * @example {
+         *       "amount": "10.00",
+         *       "code": "SPRING",
+         *       "currency": "USD",
+         *       "operation": "card_issuance"
+         *     }
+         */
+        ValidateBody: {
+            /** @description The operation's amount, decimal string: the top-up amount, the card's price, the monthly fee. Needed for a code with a minimum amount or a fixed discount. */
+            amount?: string | null;
+            /** @description The code as the person typed it; case doesn't matter. */
+            code: string;
+            /** @description ISO 4217 code of `amount`. For a top-up, the currency it is credited in (the wallet's or the card's) when that differs from what is paid. */
+            currency?: string | null;
+            /** @description `deposit`, `card_issuance`, `subscription` or `signup`. For `signup` a signed-in person always gets `already_registered`: send the code with the sign-up itself. */
+            operation: components["schemas"]["Operation"];
+        };
+        ValidateView: {
+            /** @description The code as it is stored. */
+            code?: string | null;
+            discount?: null | components["schemas"]["DiscountView"];
+            /** @description For a card or the monthly fee with `amount` sent: what the discount takes off it, decimal string. For a top-up it comes off the commission, worked out when the top-up is made. */
+            discount_value?: string | null;
+            /** @description Everything else the code gives: bonuses (a discount on our services), a gift subscription, a referral code of your own. Applied once the operation goes through. */
+            effects: Record<string, never>[];
+            /** @description `promo` or `referral`. */
+            kind?: string | null;
+            /** @description A sentence to show when the code can't be used. */
+            message?: string | null;
+            reason?: null | components["schemas"]["Rejection"];
+            /** @description Whether the code can be used on this operation now. */
+            valid: boolean;
         };
         /** @description A version without its text: the list a reader picks a past redaction from. */
         VersionSummary: {
@@ -12029,6 +12824,350 @@ export interface operations {
             };
             /** @description Connector unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_code_programs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramSummary"][];
+                };
+            };
+            /** @description Missing the codes.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_code_program: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgramInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Program"];
+                };
+            };
+            /** @description Invalid terms or effects */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the codes.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A program with this name exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_code_program: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Program id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramDetail"];
+                };
+            };
+            /** @description No such program */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_code_program: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Program id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgramInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Program"];
+                };
+            };
+            /** @description Invalid terms or effects */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such program */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_code_program: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Program id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such program */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Codes still use it */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_code_redemptions: {
+        parameters: {
+            query?: {
+                code_id?: string | null;
+                program_id?: string | null;
+                user_id?: string | null;
+                /** @description Default 100, at most 500. */
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedemptionView"][];
+                };
+            };
+        };
+    };
+    list_promo_codes: {
+        parameters: {
+            query?: {
+                /** @description `promo` or `referral`. */
+                kind?: string | null;
+                /** @description `active` or `disabled`. */
+                status?: string | null;
+                program_id?: string | null;
+                /** @description The owner of a referral code. */
+                owner_user_id?: string | null;
+                /** @description Part of the code or of the owner's e-mail. */
+                q?: string | null;
+                /** @description Default 100, at most 500. */
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodesPage"];
+                };
+            };
+        };
+    };
+    create_promo_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewCodeBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeView"];
+                };
+            };
+            /** @description Invalid code or dates */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such program */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The code is taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_promo_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Code id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeDetail"];
+                };
+            };
+            /** @description No such code */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patch_promo_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Code id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchCodeBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeView"];
+                };
+            };
+            /** @description No such code */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The owner already has another working referral code */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -16899,6 +18038,68 @@ export interface operations {
             };
         };
     };
+    user_referral: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReferral"];
+                };
+            };
+        };
+    };
+    issue_referral_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueReferralBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeView"];
+                };
+            };
+            /** @description No such user or program */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The user already has a working referral code, or the code is taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     patch_user_role: {
         parameters: {
             query?: never;
@@ -18977,6 +20178,44 @@ export interface operations {
             };
         };
     };
+    validate_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidateBody"];
+            };
+        };
+        responses: {
+            /** @description Whether the code works, and what it would do */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidateView"];
+                };
+            };
+            /** @description An invalid amount or currency */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     me_list_deposits: {
         parameters: {
             query?: never;
@@ -19697,6 +20936,32 @@ export interface operations {
             };
         };
     };
+    my_referral: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyReferral"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_sessions: {
         parameters: {
             query?: never;
@@ -19753,6 +21018,76 @@ export interface operations {
                 content?: never;
             };
             /** @description No such live session */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    my_subscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": null | components["schemas"]["UserSubscriptionView"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    set_subscription_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscriptionCodeBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserSubscriptionView"];
+                };
+            };
+            /** @description The code can't be used on the subscription (`promo_code_*`, with the reason) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No paid subscription is running */
             404: {
                 headers: {
                     [name: string]: unknown;

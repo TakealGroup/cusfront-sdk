@@ -228,6 +228,15 @@ export interface CreateCardInput {
   /** The most bonuses to use, decimal string. Sent as `bonus_amount`. */
   bonusAmount?: string;
   /**
+   * A promo code for the card's price. Sent as `promo_code`. Its discount
+   * comes off before bonuses; `client.codes.validate` shows it first. A code
+   * that can't be used fails the request with 400 `promo_code_*` and the
+   * reason. Without one, the code the user signed up with applies when it
+   * covers cards. Ignored inside `deposits.initiate({ issue_card })`: send
+   * `promo_code` on the top-up there.
+   */
+  promoCode?: string;
+  /**
    * Required by the Takeal API on this write endpoint. Same key + body replays the
    * original card; same key + different body returns 409.
    */
@@ -248,6 +257,7 @@ export function cardRequestBody(
     designId,
     useBonus,
     bonusAmount,
+    promoCode,
     initial_amount: _ignored,
     ...rest
   } = input;
@@ -257,6 +267,7 @@ export function cardRequestBody(
   if (designId !== undefined) body["design_id"] = designId;
   if (useBonus !== undefined) body["use_bonus"] = useBonus;
   if (bonusAmount !== undefined) body["bonus_amount"] = bonusAmount;
+  if (promoCode !== undefined) body["promo_code"] = promoCode;
   return body;
 }
 

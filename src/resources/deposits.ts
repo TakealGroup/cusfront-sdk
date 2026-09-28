@@ -120,6 +120,8 @@ export interface Deposit {
   bonus_units?: string | null;
   /** What those bonuses added to the wallet, in the credited currency. */
   bonus_value?: string | null;
+  /** The promo code the top-up was made with; its discount came off the commission. */
+  promo_code?: string | null;
   /** Where the money goes. Older deployments leave it out: the wallet. */
   target?: DepositTarget;
   /** For a top-up onto a card: the card. */
@@ -215,6 +217,14 @@ export interface InitiateDepositInput {
    * `amount_too_small`. Not together with `card_id`.
    */
   issue_card?: IssueCardInput;
+  /**
+   * A promo code for this top-up, to the wallet or to a card. Its discount
+   * comes off the commission; bonuses or a gift that come with the code
+   * arrive once the top-up is confirmed. A code that can't be used fails the
+   * request with 400 `promo_code_*` and the reason. `client.codes.validate`
+   * checks it first.
+   */
+  promo_code?: string;
 }
 
 export interface CreateDepositRefundInput {

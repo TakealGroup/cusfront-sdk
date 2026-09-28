@@ -47,6 +47,21 @@
       "import": "./dist/resources/bonus.js",
       "require": "./dist/resources/bonus.cjs"
     },
+    "./codes": {
+      "types": "./dist/resources/codes.d.ts",
+      "import": "./dist/resources/codes.js",
+      "require": "./dist/resources/codes.cjs"
+    },
+    "./referral": {
+      "types": "./dist/resources/referral.d.ts",
+      "import": "./dist/resources/referral.js",
+      "require": "./dist/resources/referral.cjs"
+    },
+    "./subscription": {
+      "types": "./dist/resources/subscription.d.ts",
+      "import": "./dist/resources/subscription.js",
+      "require": "./dist/resources/subscription.cjs"
+    },
     "./branding": {
       "types": "./dist/resources/branding.d.ts",
       "import": "./dist/resources/branding.js",

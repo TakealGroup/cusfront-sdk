@@ -18,6 +18,9 @@ import { DevicesResource, devicePlatformOf, type Device } from "./devices.js";
 import { AttributionResource, anonymousKey, currentTouch } from "./attribution.js";
 import { HistoryResource } from "./history.js";
 import { FundingOptionsResource, type FundingOption } from "./funding-options.js";
+import { CodesResource, type CodeCheck } from "./codes.js";
+import { ReferralResource, type Referral } from "./referral.js";
+import { SubscriptionResource, type UserSubscription } from "./subscription.js";
 import { isApiError, type ApiError } from "../error.js";
 
 /**
@@ -1499,5 +1502,111 @@ describe("AuthResource (remember me)", () => {
     expect(JSON.parse(String(calls[0]!.init.body))).toEqual({ remember_token: "r1" });
     expect(tokens.get()).toBeNull();
     expect(remembered.get()).toBeNull();
+  });
+});
+
+describe("codes, referral, subscription", () => {
+  it("codes.validate POSTs /me/codes/validate", async () => {
+    const check: CodeCheck = {
+      valid: true,
+      code: "SPRING",
+      kind: "promo",
+      reason: null,
+      message: null,
+      discount: { kind: "percent", bps: 5000, amount: null, currency: null, applies_to: "card_issuance" },
+      discount_value: "5",
+      effects: [{ kind: "bonus_credit", amount: "2" }],
+    };
+    const { captured, http } = rig(check);
+    const out = await new CodesResource(http).validate({
+      code: "spring",
+      operation: "card_issuance",
+      amount: "10",
+      currency: "USD",
+    });
+    expect(out).toEqual(check);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/codes/validate");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({
+      code: "spring",
+      operation: "card_issuance",
+      amount: "10",
+      currency: "USD",
+    });
+  });
+
+  it("referral.get GETs /me/referral", async () => {
+    const ref: Referral = {
+      code: "ALICE",
+      link: "https://t.me/examplebot/app?startapp=ALICE",
+      invited_count: 1,
+      invited: [{ joined_at: "2026-09-28T00:00:00Z", rewarded: "11.00", has_card: false, has_topped_up: true }],
+      total_rewarded: "11.00",
+      rewards: [],
+    };
+    const { captured, http } = rig(ref);
+    expect(await new ReferralResource(http).get()).toEqual(ref);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/referral");
+  });
+
+  it("subscription.get and setPromoCode", async () => {
+    const sub: UserSubscription = {
+      id: "sub_1",
+      tier_id: "tier_1",
+      tier_name: "Plus",
+      status: "active",
+      kind: "gift",
+      gift_until: null,
+      monthly_fee: "5",
+      currency: "USD",
+      issuance_discount_bps: 0,
+      funding_discount_bps: 0,
+      started_at: "2026-09-28T00:00:00Z",
+      current_period_end: null,
+      promo_code_id: null,
+    };
+    const { captured, http } = rig(sub);
+    const r = new SubscriptionResource(http);
+    expect(await r.get()).toEqual(sub);
+    await r.setPromoCode(null);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/subscription");
+    expect(captured[1]!.url).toBe("https://api.test/v1/me/subscription/promo-code");
+    expect(captured[1]!.init.method).toBe("PUT");
+    expect(bodyOf(captured[1]!)).toEqual({ code: null });
+  });
+
+  it("cards.create sends promoCode as promo_code; deposits pass promo_code through", async () => {
+    const { captured, http } = rig({ id: "card_1" });
+    await new CardsResource(http).create({
+      productId: "prod_1",
+      currency: "USD",
+      promoCode: "SPRING",
+      idempotencyKey: "k1",
+    });
+    expect(bodyOf(captured[0]!)).toMatchObject({ product_id: "prod_1", promo_code: "SPRING" });
+    await new DepositsResource(http).initiate({
+      amount: "100",
+      currency: "USD",
+      method: "card",
+      promo_code: "HALF",
+      idempotencyKey: "k2",
+    });
+    expect(bodyOf(captured[1]!)).toMatchObject({ amount: "100", promo_code: "HALF" });
+  });
+
+  it("register and exchangeTelegram send the code and hand back code_result", async () => {
+    const session = {
+      access_token: "t",
+      expires_at: "2026-09-29T00:00:00Z",
+      user: { id: "u", email: "a@example.invalid", role: "user", is_active: true, created_at: "", updated_at: "" },
+      code_result: { code: "SPRING", status: "rejected", reason: "expired", message: "This code has expired.", effects: [] },
+    };
+    const { captured, http, tokens } = rig(session);
+    const auth = new AuthResource(http, tokens);
+    const r = await auth.register({ email: "a@example.invalid", password: "Correct-Horse-Battery-9", code: "SPRING" });
+    expect(r.code_result?.reason).toBe("expired");
+    expect(bodyOf(captured[0]!)).toMatchObject({ code: "SPRING" });
+    await auth.exchangeTelegram({ initData: "x", code: "ALICE" });
+    expect(bodyOf(captured[1]!)).toEqual({ init_data: "x", code: "ALICE" });
   });
 });

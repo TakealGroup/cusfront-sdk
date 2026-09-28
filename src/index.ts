@@ -17,6 +17,9 @@ import { DepositsResource } from "./resources/deposits.js";
 import { CardsResource } from "./resources/cards.js";
 import { BalanceResource } from "./resources/balance.js";
 import { BonusResource } from "./resources/bonus.js";
+import { CodesResource } from "./resources/codes.js";
+import { ReferralResource } from "./resources/referral.js";
+import { SubscriptionResource } from "./resources/subscription.js";
 import { BrandingResource } from "./resources/branding.js";
 import { WalletResource } from "./resources/wallet.js";
 import { BlogResource } from "./resources/blog.js";
@@ -109,6 +112,18 @@ export type {
   BonusTarget,
   BonusWallet,
 } from "./resources/bonus.js";
+export type {
+  CodeCheck,
+  CodeDiscount,
+  CodeEffect,
+  CodeEffectOutcome,
+  CodeOperation,
+  CodeRejection,
+  CodeResult,
+  ValidateCodeInput,
+} from "./resources/codes.js";
+export type { InvitedFriend, Referral, ReferralReward } from "./resources/referral.js";
+export type { UserSubscription } from "./resources/subscription.js";
 export type { Branding } from "./resources/branding.js";
 export type { Wallet } from "./resources/wallet.js";
 export type { BlogPost, BlogBlock, BlogList, BlogListInput } from "./resources/blog.js";
@@ -247,6 +262,12 @@ export interface CusfrontClient {
   readonly balance: BalanceResource;
   /** Bonuses: a discount on the platform's services. Balance, credits, history and a price preview. */
   readonly bonus: BonusResource;
+  /** Promo and referral codes: check what a code would do before using it. */
+  readonly codes: CodesResource;
+  /** For referrers: the referral code, the link to share, invited friends and rewards. */
+  readonly referral: ReferralResource;
+  /** The user's own subscription tier or gift, and a promo code for its monthly fee. */
+  readonly subscription: SubscriptionResource;
   /** The wallet's currency: read it, switch it while the wallet is empty. */
   readonly wallet: WalletResource;
   /** Runtime white-label config (`GET /branding`, public): names, logo, wallet label. */
@@ -314,6 +335,9 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     cards: new CardsResource(http),
     balance: new BalanceResource(http),
     bonus: new BonusResource(http),
+    codes: new CodesResource(http),
+    referral: new ReferralResource(http),
+    subscription: new SubscriptionResource(http),
     wallet: new WalletResource(http),
     branding: new BrandingResource(http),
     documents: new DocumentsResource(http),

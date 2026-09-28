@@ -2,6 +2,7 @@ import type { HttpClient } from "../http.js";
 import type { TokenStore } from "../token-store.js";
 import { isApiError } from "../error.js";
 import type { SignupAttribution } from "./attribution.js";
+import type { CodeResult } from "./codes.js";
 
 /**
  * Auth resource — `client.auth.*`.
@@ -58,6 +59,10 @@ export interface ExchangeTelegramInput {
    *  `{ stage: "unknown" }` instead, so the app can offer "create an account"
    *  or "I already have one". */
   provision?: boolean;
+  /** A promo or referral code for a new account. Without it the server
+   *  reads the `startapp` of the link the Mini App was opened with, when
+   *  that is a code. The result comes back as `code_result`. */
+  code?: string;
 }
 
 /** `exchangeTelegram({ provision: false })` for a Telegram id nobody has
@@ -91,6 +96,9 @@ export interface JwtIssued {
   access_token: string;
   expires_at: string;
   user: User;
+  /** `exchangeTelegram` for a new account opened with a code (`startapp`
+   *  or `code`): whether it was applied and what it gave. */
+  code_result?: CodeResult;
   /** Present when the sign-in was remembered. The SDK keeps it in the
    *  remember store; you don't need to. */
   remember_token?: string;
@@ -156,10 +164,14 @@ export interface RegisterInput {
    *  sent with (`client.attribution.touch`) and the analytics ids. Without
    *  it the account is recorded with an unknown source. */
   attribution?: SignupAttribution;
+  /** A promo or referral code. An unknown or expired code doesn't stop the
+   *  sign-up: the account is created and `code_result` says why the code
+   *  was not applied, so the app can show it. */
+  code?: string;
 }
 
 /** A signed-in session without the login `stage` marker — what
- *  `register` returns. */
+ *  `register` returns. With a `code`, `code_result` is set. */
 export type Session = Omit<JwtIssued, "stage">;
 
 export interface TotpSetupComplete extends Session {
@@ -353,11 +365,17 @@ export class AuthResource {
   exchangeTelegram(input: { initData: string; provision?: true }): Promise<JwtIssued>;
   exchangeTelegram(input: ExchangeTelegramInput): Promise<JwtIssued | TelegramUnknown>;
   async exchangeTelegram(input: ExchangeTelegramInput): Promise<JwtIssued | TelegramUnknown> {
-    const body: { init_data: string; provision?: boolean; attribution?: SignupAttribution } = {
+    const body: {
+      init_data: string;
+      provision?: boolean;
+      attribution?: SignupAttribution;
+      code?: string;
+    } = {
       init_data: input.initData,
     };
     if (input.provision !== undefined) body.provision = input.provision;
     if (input.attribution !== undefined) body.attribution = input.attribution;
+    if (input.code !== undefined) body.code = input.code;
     let resp: JwtIssued;
     try {
       resp = await this.http.post<JwtIssued>("/auth/telegram/exchange", {
