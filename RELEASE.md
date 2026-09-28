@@ -1,8 +1,16 @@
 # Releasing `@takeal/cusfront-sdk`
 
-The SDK version matches the Takeal platform release it was checked against:
-SDK `0.2.8` goes with platform tag `v0.2.8`. Not every platform release needs
-an SDK release, but when one ships it takes the platform's number.
+The SDK has its own version. It started at `0.5.0` together with every other
+Takeal service and moves on its own from there: a fix in the SDK is a new SDK
+patch release, whatever the platform does. The platform versions an SDK
+release works with are in `SUPPORTED_MEISTER` (`src/compat.ts`), a semver
+range such as `">=0.5.0, <0.6.0"`; `client.ready()` checks it against the
+deployment at run time.
+
+Before a release, check the range: widen it when the SDK was tested against a
+newer platform, narrow it when the SDK relies on something only a newer
+platform has. The platform changelog (`CHANGELOG.md` in the meister repo)
+mentions SDK releases that matter to operators, with the SDK's version.
 
 ## One-time setup
 
@@ -22,18 +30,19 @@ account with publish rights on it, signed in on the machine that publishes:
 curl https://api.<deployment>/docs/openapi.json > openapi-snapshot.json
 npm run refresh-types
 
-# 2. Version = platform tag without the "v". Add a dated CHANGELOG section.
-npm version 0.2.8 --no-git-tag-version
+# 2. The SDK's own next version. Add a dated CHANGELOG section, check
+#    SUPPORTED_MEISTER in src/compat.ts.
+npm version 0.5.0 --no-git-tag-version
 
 # 3. Dry run. prepublishOnly runs typecheck, tests and build first.
 npm publish --access public --dry-run
 
 # 4. Publish, commit, and tag this repo with the same version.
 npm publish --access public
-git tag v0.2.8 && git push origin v0.2.8
+git tag v0.5.0 && git push origin v0.5.0
 
 # 5. Check that the published package installs and imports.
-cd "$(mktemp -d)" && npm init -y >/dev/null && npm i @takeal/cusfront-sdk@0.2.8
+cd "$(mktemp -d)" && npm init -y >/dev/null && npm i @takeal/cusfront-sdk@0.5.0
 node -e "import('@takeal/cusfront-sdk').then(m => console.log(typeof m.createClient))"    # function
 node -e "import('@takeal/cusfront-sdk/push').then(m => console.log(typeof m.PushResource))" # function
 ```

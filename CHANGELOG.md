@@ -8,6 +8,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `client.ready()`: calls `GET /ready` and says whether the deployment runs a
+  platform version this SDK supports (`compatible`, `platformVersion`,
+  `supportedMeister`, `warning`, plus `healthy`, `status` and the raw body).
+  A 503 from a degraded platform is returned, not thrown. New exports
+  `SUPPORTED_MEISTER` and `satisfies()`, types `ReadyInfo` and `ReadyBody`.
+
 - Analytics: `@takeal/cusfront-sdk/analytics` (also exported from the root).
   `initAnalytics({ zone, posthog, metrika })` with three zones: `public`
   (autocapture with texts, heatmaps, Yandex Metrica without Webvisor),

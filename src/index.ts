@@ -47,12 +47,15 @@ import {
 } from "./token-store.js";
 import type { BrandConfig } from "./brand.js";
 import { resolveAssetUrl } from "./assets.js";
+import { fetchReady, type ReadyInfo } from "./compat.js";
 
 export type { BrandConfig } from "./brand.js";
 export { resolveAssetUrl } from "./assets.js";
 export { ApiError, NetworkError, isApiError, isNetworkError } from "./error.js";
 export { defaultBrowserStore, inMemoryStore, type TokenStore } from "./token-store.js";
 export { SDK_VERSION } from "./version.js";
+export { SUPPORTED_MEISTER, satisfies } from "./compat.js";
+export type { ReadyInfo, ReadyBody } from "./compat.js";
 export {
   CLIENT_HEADER,
   detectClientPlatform,
@@ -328,6 +331,13 @@ export interface CusfrontClient {
    * design, `/card-designs/default.svg`) is joined onto `baseUrl`.
    */
   assetUrl(url: string): string;
+  /**
+   * Ask the deployment whether it is up and which platform version it runs
+   * (`GET /ready`, public). `compatible` is false, with a `warning`, when the
+   * version is outside `SUPPORTED_MEISTER` or the platform didn't report one.
+   * A degraded platform (503) answers with `healthy: false`, not an error.
+   */
+  ready(opts?: { signal?: AbortSignal }): Promise<ReadyInfo>;
 }
 
 /**
@@ -352,6 +362,7 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     client,
     tokens,
     assetUrl: (url: string) => resolveAssetUrl(opts.baseUrl, url),
+    ready: (o?: { signal?: AbortSignal }) => fetchReady(http, o),
     auth: new AuthResource(http, tokens, remembered),
     deposits: new DepositsResource(http),
     fundingOptions: new FundingOptionsResource(http),

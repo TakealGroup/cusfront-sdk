@@ -816,6 +816,36 @@ query), `web` otherwise and on any non-browser runtime. Native wrappers
 (Capacitor, React Native) can't be told apart from a browser, so pass `ios`
 or `android` yourself. `version` defaults to the SDK version (`SDK_VERSION`).
 
+## Platform version (`client.ready()`)
+
+Each SDK release works with a range of platform versions, published as
+`SUPPORTED_MEISTER` (for example `">=0.5.0, <0.6.0"`). `client.ready()` calls
+`GET /ready` (public, no login) and checks the version the deployment reports
+against that range:
+
+```ts
+import { createClient, SUPPORTED_MEISTER } from "@takeal/cusfront-sdk";
+
+const client = createClient({ baseUrl: "https://api.your-deployment.example.com" });
+const r = await client.ready();
+// {
+//   compatible: true,
+//   platformVersion: "0.5.0",
+//   supportedMeister: ">=0.5.0, <0.6.0",
+//   healthy: true,
+//   status: "ready",
+//   raw: { ... }   // the full /ready body
+// }
+if (!r.compatible) console.warn(r.warning);
+```
+
+`compatible` is `false`, with a one-line `warning`, in two cases: the version
+is outside the range, or the platform didn't report one (deployments older
+than 0.5.0). A degraded platform answers 503 with the same body; `ready()`
+returns it with `healthy: false` rather than throwing. Network failures and
+other errors throw as usual. `satisfies(version, range)` is exported too if
+you want to run the same check yourself.
+
 ## Brand config
 
 Whitelabel-friendly by design — the SDK ships no embedded brand. Pass `brand` at runtime and the client app reads it back via `client.brand`:
