@@ -4,7 +4,12 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] — 2026-09-29
+
+First release with a version of its own: from here the SDK version no longer
+follows the platform tag. Works with platform (TKL) `>=0.5.0, <0.6.0`
+(`SUPPORTED_MEISTER`). 0.4.0 was never published; everything since 0.3.21 is
+listed here.
 
 ### Added
 
