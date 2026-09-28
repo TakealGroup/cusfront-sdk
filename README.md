@@ -325,6 +325,40 @@ Each entry reads the same way: `title`, `amount` (always positive) with
 New kinds will be added. Show an entry of an unknown `kind` with its
 `title`, `amount` and `status` rather than hiding it.
 
+A `bonus` entry counts bonuses, not money: its `amount.currency` is `BNS`.
+When bonuses paid for something, `counter_amount` is the part of the price
+they covered.
+
+## Bonuses
+
+Bonuses are a discount on the platform's services. They pay for part of a
+new card's price or of the subscription fee. Bonuses that came with a
+payment can also be added on top of a top-up; gifts can't.
+
+```ts
+const bonus = await client.bonus.get();      // balance, where they can go, credits, history
+
+// "Was / now" before the user confirms, worked out on the server:
+const p = await client.bonus.preview({ purpose: "card_issuance", amount: "10", currency: "USD", productId });
+// p.amount "10", p.bonus_units "5", p.due "5"
+
+const card = await client.cards.create({ productId, currency: "USD", idempotencyKey });
+// card.bonus: { units, price, covered, paid, currency } when bonuses were used
+
+const top = await client.deposits.initiate({ amount: "25", currency: "USD", method: "card", idempotencyKey });
+// top.bonus_units / top.bonus_value: what was added on top of the 25
+```
+
+- Bonuses are used by default whenever the user has some. Pass
+  `useBonus: false` (cards) or `use_bonus: false` (deposits) to pay in money
+  only, or `bonusAmount` / `bonus_amount` to cap how many go in. The
+  subscription fee takes bonuses on its own.
+- Show the balance as a number of bonuses and nothing else. No money figure
+  next to it: money belongs next to a price ("was / now", "N bonuses will be
+  used").
+- In your copy, call bonuses a discount. Keep words like funds, withdraw or
+  exchange away from them.
+
 ## Documents
 
 Everything the operators write lives in one tree: blog posts, the knowledge
@@ -627,6 +661,7 @@ Available now:
 - `@takeal/cusfront-sdk/deposits` — `DepositsResource` (money IN via a funder connector).
 - `@takeal/cusfront-sdk/cards` — `CardsResource` (cards backed by the wallet balance).
 - `@takeal/cusfront-sdk/balance` — `BalanceResource` (per-currency wallet balance).
+- `@takeal/cusfront-sdk/bonus` — `BonusResource` (bonuses and a price preview; see [Bonuses](#bonuses)).
 - `@takeal/cusfront-sdk/documents` — `DocumentsResource` (blog posts, the knowledge base, legal pages; see [Documents](#documents)).
 - `@takeal/cusfront-sdk/blog` — `BlogResource` (deprecated: the blog is a category of Documents now).
 - `@takeal/cusfront-sdk/subscriptions` — `SubscriptionsResource` (announcement channels; deprecated, see [Preferences](#preferences)).

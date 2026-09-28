@@ -119,13 +119,15 @@ export type paths = {
         };
         /**
          * List uploaded blog images
-         * @description Returns up to 100 uploaded images with their public URLs.
+         * @deprecated
+         * @description Deprecated: use `GET /admin/documents/images`. Kept for one release.
          */
         get: operations["list_images"];
         put?: never;
         /**
          * Upload a blog image
-         * @description Stores the image and returns the public URL to use in a post body.
+         * @deprecated
+         * @description Deprecated: use `POST /admin/documents/images`. Kept for one release.
          */
         post: operations["upload_image"];
         delete?: never;
@@ -143,15 +145,16 @@ export type paths = {
         };
         /**
          * List all blog posts
-         * @description Returns posts in every status, most recently changed first, each with its
-         *     broadcast state.
+         * @deprecated
+         * @description Deprecated: use `GET /admin/documents?category=blog`. Kept for one release.
          */
         get: operations["list_posts"];
         put?: never;
         /**
          * Create a blog post
-         * @description Creates a draft. When `slug` is omitted it is derived from the title; a
-         *     title with no latin characters gets a generated slug instead of an error.
+         * @deprecated
+         * @description Deprecated: use `POST /admin/documents`. Creates a public document in the
+         *     Blog category. Kept for one release.
          */
         post: operations["create_post"];
         delete?: never;
@@ -169,22 +172,24 @@ export type paths = {
         };
         /**
          * Get a blog post
-         * @description Returns one post with its broadcast history and per-channel send state.
+         * @deprecated
+         * @description Deprecated: use `GET /admin/documents/{id}`. Kept for one release.
          */
         get: operations["get_post"];
         put?: never;
         post?: never;
         /**
          * Delete a blog post
-         * @description Permanently removes the post. Audited.
+         * @deprecated
+         * @description Deprecated: use `DELETE /admin/documents/{id}`. Kept for one release.
          */
         delete: operations["delete_post"];
         options?: never;
         head?: never;
         /**
          * Update a blog post
-         * @description Changes any of the post's fields. Editing content bumps `content_version`,
-         *     which makes a broadcast available again; changing only the status does not.
+         * @deprecated
+         * @description Deprecated: use `PATCH /admin/documents/{id}`. Kept for one release.
          */
         patch: operations["patch_post"];
         trace?: never;
@@ -200,15 +205,229 @@ export type paths = {
         put?: never;
         /**
          * Broadcast a blog post
-         * @description Sends a published post to every subscriber on the given channel. Each
-         *     combination of post, channel and content version is sent at most once, so
-         *     a repeat call returns 409. Editing the post afterwards allows a re-send.
+         * @deprecated
+         * @description Deprecated: use `POST /admin/documents/{id}/broadcast`. Kept for one release.
          */
         post: operations["broadcast"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blog/posts/{id}/broadcast-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write a broadcast from this post
+         * @deprecated
+         * @description Deprecated: use `POST /admin/documents/{id}/broadcast-draft`. Kept for one release.
+         */
+        post: operations["broadcast_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/broadcasts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List broadcasts
+         * @description Newest first, drafts and sent ones together.
+         */
+        get: operations["list_broadcasts"];
+        put?: never;
+        /**
+         * Write a broadcast
+         * @description Creates a draft. Nothing is sent until `POST /admin/broadcasts/{id}/send`.
+         */
+        post: operations["create_broadcast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/broadcasts/audience": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How many people a segment holds
+         * @description The count the editor shows before anything is sent. Pass the segment you
+         *     are about to pick rather than the saved one.
+         */
+        get: operations["count_segment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/broadcasts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a broadcast
+         * @description The message, its sends, how many people the segment holds now, and how
+         *     many of them have opened it.
+         */
+        get: operations["get_broadcast"];
+        /**
+         * Edit a broadcast
+         * @description Changing the words makes it a new message: the version goes up, so a
+         *     deliberate second send reaches people who already got the first one. A
+         *     change to the audience or the channels alone does not.
+         */
+        put: operations["update_broadcast"];
+        post?: never;
+        /**
+         * Delete a broadcast
+         * @description Drops the draft and its send history. What has already reached inboxes
+         *     stays there — a message cannot be unsent.
+         */
+        delete: operations["delete_broadcast"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/broadcasts/{id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview a broadcast
+         * @description What the message looks like in the cabinet, in the bot and on a phone,
+         *     and how many people would get it right now.
+         */
+        post: operations["preview_broadcast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/broadcasts/{id}/recipients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload the recipient list
+         * @description A CSV file with a user id in the first column, one user per line; a
+         *     header line is skipped. The list replaces the previous one and is used
+         *     when the broadcast's segment is `list`. Ids that are not active end-user
+         *     accounts are left out and reported, so the operator sees how many lines
+         *     were accepted before sending. Marketing consent still applies on top: a
+         *     marketing broadcast reaches only the listed users who said yes.
+         */
+        put: operations["upload_recipients"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/broadcasts/{id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a broadcast
+         * @description Hands the message to every user in the segment: an inbox row each, plus
+         *     the pings that were ticked. Pressing send twice on the same words
+         *     delivers once — the second call is a 409. Edit the words and the version
+         *     moves, which makes a deliberate second send possible.
+         */
+        post: operations["send_broadcast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List campaign codes
+         * @description Every code marketing has handed out, newest first, with how many visits
+         *     and sign-ups it brought.
+         */
+        get: operations["list_campaigns"];
+        put?: never;
+        /**
+         * Add a campaign code
+         * @description From then on a visit whose `utm_campaign`, `utm_source` or Telegram code
+         *     equals it counts as this campaign. Codes can't be deleted: they live on in
+         *     links already published. Audited.
+         */
+        post: operations["create_campaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/campaigns/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a campaign
+         * @description Changes the description or the channel. The code itself stays: links
+         *     with it are already out. Audited.
+         */
+        patch: operations["update_campaign"];
         trace?: never;
     };
     "/v1/admin/card-designs": {
@@ -275,6 +494,30 @@ export type paths = {
         get: operations["list_card_transactions_all"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cardholders/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make up cardholder details
+         * @description Returns a plausible person for the card form: a name, a birth date over
+         *     21, a phone for the country and an address whose city, state and postal
+         *     code belong together. Nothing is stored; send the details back in
+         *     `customer` when issuing the card, or leave them out and the platform
+         *     makes up and stores a holder itself.
+         */
+        post: operations["generate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -390,6 +633,30 @@ export type paths = {
          *     already frozen returns it unchanged. Audited.
          */
         post: operations["freeze_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards/{id}/moderation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put or lift a hold on a card
+         * @description A held card reads as frozen to its holder, who can't unfreeze it, top it
+         *     up, reveal it, close it or move money to or from it. Nothing changes at
+         *     the provider, and the holder is not told about the hold. Putting a hold on
+         *     a held card updates the note; lifting a hold that isn't there does
+         *     nothing. Audited.
+         */
+        put: operations["set_moderation"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -687,79 +954,13 @@ export type paths = {
         /**
          * List a card connector's programs
          * @description Returns the card programs known for this connector together with their
-         *     pricing. The list is empty until the programs have been synced from the
-         *     connector at least once.
+         *     pricing, for picking one when issuing a card by hand. The list is empty
+         *     until the storefront has pulled the connector's catalog at least once.
+         *     Editing a program (price, product card, visibility) is done through the
+         *     storefront endpoints.
          */
         get: operations["list_programs"];
         put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/connectors/{slug}/programs/sync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Sync a card connector's programs
-         * @description Asks the connector for the programs it offers and updates the label, card
-         *     type, currency and BIN of each one. Pricing set by operators is kept. A
-         *     program the connector no longer offers is removed when no card was issued
-         *     on it, and disabled otherwise. Returns the full list after the sync.
-         */
-        post: operations["sync_programs"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/connectors/{slug}/programs/{program_code}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Set what users see for a card program
-         * @description Name, description, designs, visibility and properties of one program in
-         *     the user catalog. Pricing stays under `/pricing`. Omitted fields keep
-         *     their value; `design_id: null` returns the program to the deployment's
-         *     default design.
-         */
-        patch: operations["patch_program"];
-        trace?: never;
-    };
-    "/v1/admin/connectors/{slug}/programs/{program_code}/pricing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Set pricing for a card program
-         * @description Sets the cost price, sell price, fee label, priority and status of one
-         *     program. The program must already be known, so sync the connector first.
-         *     A currency is required whenever `sell_price` is set.
-         */
-        put: operations["put_program_pricing"];
         post?: never;
         delete?: never;
         options?: never;
@@ -811,6 +1012,255 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List documents
+         * @description Every document you may read, in any status, most recently changed first.
+         *     Search by words, narrow by tag, category, folder, status or read level.
+         */
+        get: operations["list_documents"];
+        put?: never;
+        /**
+         * Create a document
+         * @description Creates a draft in the given folder (the Blog when none is given). When
+         *     `slug` is omitted it is derived from the title; a title with no latin
+         *     characters gets a generated slug. The read level defaults to the folder's
+         *     default, the write level to your own. Neither can be set above your level.
+         */
+        post: operations["create_document"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/documents/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List folders
+         * @description The whole tree as a flat list: the four categories and every folder
+         *     under them, with `parent_id` to build it. Folders carry no access of
+         *     their own, so everyone with the section sees all of them.
+         */
+        get: operations["list_folders"];
+        put?: never;
+        /**
+         * Create a folder
+         * @description A new folder inside an existing one. The key is derived from the title
+         *     when omitted. New categories are not created this way.
+         */
+        post: operations["create_folder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/documents/folders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a folder
+         * @description Only an empty folder can be deleted. Categories cannot.
+         */
+        delete: operations["delete_folder"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a folder
+         * @description Rename, move, reorder or change the default read level of a folder.
+         *     Documents inside keep their addresses. Categories keep their place and key.
+         */
+        patch: operations["patch_folder"];
+        trace?: never;
+    };
+    "/v1/admin/documents/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List uploaded images
+         * @description Returns up to 100 uploaded images with their public URLs.
+         */
+        get: operations["admin_list_images"];
+        put?: never;
+        /**
+         * Upload an image
+         * @description Stores the image and returns the public URL to use in a document body.
+         */
+        post: operations["admin_upload_image"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/documents/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview a text
+         * @description Renders Markdown into the blocks a reader's app receives, without saving
+         *     anything. Links written as `doc:<id>` are resolved to the target's
+         *     current address when you may read it.
+         */
+        post: operations["preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/documents/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tags in use
+         * @description Every tag on a document you may read, in any status, most used first.
+         */
+        get: operations["list_tags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/documents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a document
+         * @description The document with its text, its saved versions and its announcement state.
+         */
+        get: operations["get_document"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a document
+         * @description Removes the document, its versions and its send history for good.
+         *     Anyone holding its address gets a 404. Audited.
+         */
+        delete: operations["delete_document"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a document
+         * @description Changes any of the document's fields. Editing the title, excerpt, text or
+         *     cover saves a new version (set `effective_from` to say when it takes
+         *     effect, `note` to say what changed) and makes a broadcast available again.
+         *     Moving, tagging or changing the status does not. Levels cannot be set
+         *     above your own.
+         */
+        patch: operations["patch_document"];
+        trace?: never;
+    };
+    "/v1/admin/documents/{id}/broadcast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Broadcast a document
+         * @description Sends a published document that users may read to every subscriber on
+         *     the given channel. Each combination of document, channel and content
+         *     version is sent at most once, so a repeat call returns 409. Editing the
+         *     document afterwards allows a re-send.
+         */
+        post: operations["admin_broadcast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/documents/{id}/broadcast-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write a broadcast from this document
+         * @description Turns the document into a draft broadcast (its title, its excerpt and a
+         *     button that opens it on the site) and hands it back for the operator to
+         *     edit and send. The draft is an ordinary broadcast from here on.
+         */
+        post: operations["admin_broadcast_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/documents/{id}/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one saved version
+         * @description The text as it was saved in that version, with its effective date and note.
+         */
+        get: operations["get_version"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a version's date or note
+         * @description Sets when a saved text takes effect, or what the note says. The text
+         *     itself never changes; save the document to get a new version.
+         */
+        patch: operations["patch_version"];
+        trace?: never;
+    };
     "/v1/admin/fx/probe": {
         parameters: {
             query?: never;
@@ -846,6 +1296,118 @@ export type paths = {
          *     the one currently active.
          */
         get: operations["fx_providers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/mail/lanes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mail lanes
+         * @description What transactional and broadcast mail go out through, or why they cannot.
+         */
+        get: operations["lanes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/mail/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the email layout
+         * @description The shell every email is poured into: logo, colours, footer and, on
+         *     broadcast mail, the unsubscribe link.
+         */
+        get: operations["get_layout"];
+        /**
+         * Save the email layout
+         * @description Replaces the shipped layout for every email. The layout must print the
+         *     message (`body_html`, `body_text`) and the unsubscribe link
+         *     (`unsubscribe_url`), and must render; otherwise nothing is saved.
+         */
+        put: operations["put_layout"];
+        post?: never;
+        /** Go back to the shipped email layout */
+        delete: operations["delete_layout"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/mail/layout/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview the email layout
+         * @description A sample message poured into the layout, exactly as it would be sent.
+         */
+        post: operations["preview_layout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/mail/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test email
+         * @description One email through the lane, to your own address, in the current layout.
+         *     It arrives within a minute when the lane works; when it does not, the
+         *     notification worker's log and the dead letters say why.
+         */
+        post: operations["test_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your role and permissions
+         * @description What the signed-in account may do, for a console to decide which
+         *     sections to show and which controls to hide. The API still checks
+         *     every call on its own.
+         */
+        get: operations["my_access"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1367,6 +1929,29 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/metrika/conversions/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send conversions to Metrica now
+         * @description Runs the upload that otherwise runs every six hours: confirmed deposits,
+         *     issued cards and paid subscriptions of the last 21 days that were not
+         *     sent yet. Use it to check the counter and the token right after entering
+         *     them. Answers 409 while the upload is off or not configured.
+         */
+        post: operations["upload_now"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/notification-templates": {
         parameters: {
             query?: never;
@@ -1460,6 +2045,72 @@ export type paths = {
          *     channel you would normally receive it on. Exactly what a user gets.
          */
         post: operations["test_send_template"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications/dead-letters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Failed notifications
+         * @description Notifications a channel refused for good or that ran out of retries,
+         *     newest first, with the channel's last answer.
+         */
+        get: operations["list_dead_letters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications/dead-letters/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a failed notification again
+         * @description Puts the notification back on its channel as it was first sent. It stays
+         *     in the list, marked retried; if the channel refuses it again, it comes
+         *     back as a new entry.
+         */
+        post: operations["retry_dead_letter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Delivery health per channel
+         * @description Deliveries and failures for good per channel over the last hours, with
+         *     the failure reasons (bot blocked, chat not found, push subscription
+         *     gone, address bounced, provider rejected) and the notification types
+         *     they hit.
+         */
+        get: operations["deliveries"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1906,6 +2557,152 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/storefront": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The storefront
+         * @description Every card product of every card connector in one list, in the order
+         *     buyers see it, whether on sale or not. Each product says whether it is
+         *     on sale right now and, if not, why. The response also names the currency
+         *     buyers hold on this deployment, the natural one to price in.
+         */
+        get: operations["get_storefront"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/storefront/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Arrange the storefront
+         * @description Sets the order tiles appear in. Send every product id first to last;
+         *     products you leave out fall in behind, in the order they had. This
+         *     changes nothing about which program issues a card: the issuance cascade
+         *     has its own priority.
+         */
+        put: operations["put_order"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/storefront/products/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a product
+         * @description The product card buyers read (name, tagline, description, benefits, tile
+         *     picture, designs, properties), the price in the currency the buyer pays,
+         *     and whether it is on the storefront. Omitted fields keep their value; a
+         *     text field sent empty is cleared. A product needs a name before it can
+         *     go on sale: the provider's own label never reaches a buyer. Saving
+         *     clears the "new" mark. The order on the storefront and the issuance
+         *     settings have endpoints of their own.
+         */
+        patch: operations["patch_product"];
+        trace?: never;
+    };
+    "/v1/admin/storefront/products/{id}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a tile picture
+         * @description Stores the picture in the deployment's file storage and makes it the
+         *     product's tile. PNG, WebP or JPEG, up to 1 MiB. Without file storage the
+         *     call answers 503; a picture you host yourself can still be set by URL.
+         */
+        post: operations["upload_tile_image"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/storefront/products/{id}/issuance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change how a program issues
+         * @description The issuance cascade priority, the program status, and the country and
+         *     state a made-up cardholder is placed in. These decide which program
+         *     mints a card and what the provider is told about its holder, so they
+         *     need the connector permission rather than the storefront one, and they
+         *     never move a tile on the storefront. The cardholder policy itself comes
+         *     from the provider and cannot be changed here.
+         */
+        put: operations["put_issuance"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/storefront/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pull the providers' catalogs
+         * @description Asks every active card connector for the programs it offers and updates
+         *     the label, card type, currency and BIN of each one. Everything an
+         *     operator set (price, product card, designs, visibility, order) is
+         *     kept. A program seen for the first time arrives hidden from buyers,
+         *     marked new, at the end of the storefront. A program the provider no
+         *     longer offers is removed when no card was issued on it and disabled
+         *     otherwise. A connector that cannot be reached is reported and the
+         *     others are still pulled. Returns the whole storefront afterwards.
+         */
+        post: operations["sync_storefront"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/subscriptions/tiers": {
         parameters: {
             query?: never;
@@ -1996,6 +2793,26 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/users/{id}/attribution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where a user came from
+         * @description The user's attribution row and every touch recorded for them.
+         */
+        get: operations["user_attribution"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/users/{id}/balance": {
         parameters: {
             query?: never;
@@ -2054,6 +2871,50 @@ export type paths = {
         get: operations["list_user_balances"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/bonus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A user's bonuses
+         * @description The same view the user gets from `GET /me/bonus`, with the operators'
+         *     notes on the changes and a longer history.
+         */
+        get: operations["admin_user_bonus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/bonus-adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Credit or take back a user's bonuses
+         * @description A positive amount credits the user with a lot of bonuses of its own; a
+         *     negative one takes bonuses back, from the credits the spend order would
+         *     use first. The note is required and goes into the audit log. A credit
+         *     also sends the user a `bonus_credited` notification.
+         */
+        post: operations["admin_bonus_adjust"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2322,6 +3183,30 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/attribution/touches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a visit
+         * @description Send it on a page load when the visit carries something: campaign tags
+         *     or a click id in the address, a referrer from another site, a Telegram
+         *     code, or it is the first visit from this browser. Sending it on every
+         *     load is fine too: a visit with nothing new is not stored. No sign-in
+         *     needed. Nothing about the device or the connection is kept.
+         */
+        post: operations["post_touch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/login": {
         parameters: {
             query?: never;
@@ -2444,6 +3329,28 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign out
+         * @description Ends the session behind the bearer token and, when `remember_token` is
+         *     sent, the remembered sign-in with it. Always answers 204, also for a
+         *     session that already ended.
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/me": {
         parameters: {
             query?: never;
@@ -2484,6 +3391,33 @@ export type paths = {
          *     stays valid.
          */
         post: operations["change_password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Renew a remembered sign-in
+         * @description Trades the `remember_token` of a sign-in made with `remember_me: true`
+         *     for a new session and a new `remember_token`; the one sent stops
+         *     working. Call it when a request answers 401, or when the app opens with
+         *     no valid session. It works only from the browser that signed in, and
+         *     not after the session was signed out (here, from another device, by a
+         *     password change or by an operator). Accounts with a second factor are
+         *     remembered for fewer days. The response is the `stage: "jwt"` envelope
+         *     of `POST /auth/login`.
+         */
+        post: operations["refresh"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2582,10 +3516,9 @@ export type paths = {
         };
         /**
          * Get a blog image
-         * @description Returns the raw image bytes. No authentication needed. The bytes never
-         *     change under a given id, so the response carries a long-lived cache
-         *     header and an ETag; clients can link to these URLs directly from
-         *     `cover_url` and image blocks.
+         * @deprecated
+         * @description Deprecated: use `GET /documents/images/{id}`. The same bytes under the
+         *     same id; kept for one release.
          */
         get: operations["get_image"];
         put?: never;
@@ -2605,8 +3538,9 @@ export type paths = {
         };
         /**
          * List published posts
-         * @description Newest first, paged. No authentication needed. Filter by `tag` or
-         *     `locale`.
+         * @deprecated
+         * @description Deprecated: use `GET /documents?category=blog`. Same rows, same order,
+         *     same filters; kept for one release.
          */
         get: operations["blog_list_posts"];
         put?: never;
@@ -2626,8 +3560,8 @@ export type paths = {
         };
         /**
          * Get a published post by slug
-         * @description No authentication needed. Unpublished posts and unknown slugs return
-         *     404.
+         * @deprecated
+         * @description Deprecated: use `GET /documents/{slug}`. Kept for one release.
          */
         get: operations["blog_get_post"];
         put?: never;
@@ -2649,13 +3583,264 @@ export type paths = {
          * List the cards this deployment offers
          * @description The catalog for a landing page or a cabinet before sign-in. No
          *     authentication needed. Same products, order and default as
-         *     `GET /me/card-products`, with the list price instead of a personal one
-         *     (`price.discount_bps` is always 0). Products the operator hid are left
-         *     out. The response carries an `ETag`; send it back in `If-None-Match` to
-         *     get a 304 when nothing changed. Caches may keep it for a minute.
+         *     `GET /me/card-products`, with the list price in the currency the
+         *     operator set instead of a personal one (`price.discount_bps` is always
+         *     0). Products the operator hid are left out. The response carries an
+         *     `ETag`; send it back in `If-None-Match` to get a 304 when nothing
+         *     changed. Caches may keep it for a minute.
          */
         get: operations["list_public_products"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List documents
+         * @description Published documents you may read, paged. Works without a session; with
+         *     one, documents for signed-in users (and for staff, with a staff session)
+         *     appear too. Filter by category, folder, tag, locale or search words. The
+         *     blog comes newest first; other categories in the order set in the folder.
+         */
+        get: operations["documents_list_documents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/documents/images/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an image
+         * @description Returns the raw image bytes. No authentication needed. The bytes never
+         *     change under a given id, so the response carries a long-lived cache
+         *     header and an ETag; clients can link to these URLs directly from
+         *     `cover_url` and image blocks.
+         */
+        get: operations["documents_get_image"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/documents/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tags in use
+         * @description Every tag on a published document you may read, most used first.
+         */
+        get: operations["tags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/documents/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Navigation tree
+         * @description Folders and the published documents you may read in them, for a
+         *     sidebar or a table of contents. Empty folders are left out; the
+         *     categories always appear.
+         */
+        get: operations["tree"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/documents/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a document by address
+         * @description The published document with this slug, if you may read it. Without `at`,
+         *     the text in force now: a version whose effective date is still ahead is
+         *     not shown yet. With `at`, the text that was in force at that moment.
+         *     Unknown slugs, unpublished documents and documents above your level
+         *     return 404.
+         */
+        get: operations["documents_get_document"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/documents/{slug}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the versions of a document
+         * @description Every saved text of a published document you may read, newest first,
+         *     with the date each took effect. Open one with `GET /documents/{slug}/versions/{version}`.
+         */
+        get: operations["list_versions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/documents/{slug}/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one version of a document
+         * @description The document as it read in that version. Same access rules as the
+         *     document itself.
+         */
+        get: operations["documents_get_version"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/mail/postmark/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Postmark webhook
+         * @description Point the broadcast stream's webhooks here with basic auth, any user name
+         *     and `notification.mail.broadcast.webhook_secret` as the password (or an
+         *     `X-Webhook-Secret` header). Delivery, Open, Click and Bounce fill the
+         *     broadcast report; SubscriptionChange and SpamComplaint take the
+         *     recipient off the mailing list.
+         */
+        post: operations["postmark_events"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/mail/unsubscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Unsubscribe page
+         * @description Where the link at the bottom of a broadcast email leads. It asks before
+         *     doing anything, so a mail scanner that opens every link cannot
+         *     unsubscribe anyone.
+         */
+        get: operations["unsubscribe_page"];
+        put?: never;
+        /**
+         * Unsubscribe
+         * @description The button on the unsubscribe page, and the one-click unsubscribe mail
+         *     clients send (`List-Unsubscribe-Post`, RFC 8058). Broadcast email stops
+         *     and marketing by email is switched off in the user's settings. Sign-in
+         *     codes and card notifications are not affected. Pressing it twice is
+         *     harmless.
+         */
+        post: operations["unsubscribe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/attribution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your sign-up survey
+         * @description Whether to ask the signed-in user how they heard about us.
+         */
+        get: operations["my_attribution"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/attribution/survey": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Answer "how did you hear about us"
+         * @description Ask it on the screen after sign-up, not in the form, and let the user
+         *     skip it in one tap (send `skipped`). It is asked once: a second answer is
+         *     refused.
+         */
+        put: operations["answer_survey"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2685,6 +3870,56 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/bonus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your bonuses
+         * @description Bonuses are a discount on our services. They pay for part of a new card
+         *     or of the subscription fee, and bonuses that came with a payment can
+         *     also be added to a top-up. The response lists what is on the account,
+         *     what each bonus can go towards, the credits with bonuses left and the
+         *     latest changes. `balance` is a number of bonuses; show it on its own,
+         *     without a money figure next to it.
+         */
+        get: operations["my_bonus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/bonus/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview a price with bonuses
+         * @description Works out, on the server and at the rate the payment would use, how many
+         *     bonuses a price would take and what is left to pay, so a screen can show
+         *     "was / now" and "N bonuses will be used" before you confirm. For a
+         *     top-up the bonuses are added on top of what you pay. Nothing is held or
+         *     spent; the numbers can change by the time you pay if prices, rates or
+         *     your bonuses change.
+         */
+        post: operations["me_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/card-products": {
         parameters: {
             query?: never;
@@ -2694,9 +3929,11 @@ export type paths = {
         };
         /**
          * List the cards you can issue
-         * @description Every card product this deployment offers, first the one you get when
-         *     you don't choose. Each carries its artwork, the designs you may pick and
-         *     what issuance costs you right now, your subscription discount included.
+         * @description Every card product this deployment offers, in the order the storefront
+         *     shows them; `is_default` marks the one you get when you don't choose.
+         *     Each carries its product card (tagline, benefits, tile picture), its
+         *     artwork, the designs you may pick and what issuance costs you right now:
+         *     in your wallet currency, your subscription discount included.
          */
         get: operations["list_products"];
         put?: never;
@@ -2785,8 +4022,10 @@ export type paths = {
         };
         /**
          * Get a card's balance
-         * @description Returns the remaining balance of a prepaid card, in the card's currency
-         *     unless `currency` is given.
+         * @description What the card can spend right now, in the card's currency, as the card's
+         *     issuer reports it: the same figure support sees. When the issuer can't be
+         *     asked at this moment the answer is a 503 rather than a guess. For a card
+         *     whose issuer does not report balances, the platform's own books answer.
          */
         get: operations["get_card_balance"];
         put?: never;
@@ -2853,8 +4092,8 @@ export type paths = {
         put?: never;
         /**
          * Terminate a card
-         * @description Only the card's owner can terminate it. This cannot be undone; calling it
-         *     again on a terminated card is a no-op. A closed card that never had a
+         * @description Only the card's owner can terminate it, and only once it holds no money.
+         *     This cannot be undone; calling it again on a terminated card is a no-op. A closed card that never had a
          *     transaction disappears from the list; this response still carries it.
          */
         post: operations["me_terminate_card"];
@@ -3096,6 +4335,32 @@ export type paths = {
          *     address is not verified for ownership.
          */
         post: operations["set_email"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your money history
+         * @description Everything that happened to the signed-in user's money, newest first:
+         *     card payments (declined ones included, with the reason in plain words),
+         *     refunds, card issuance, card top-ups, transfers between the user's own
+         *     cards (one entry for both sides), wallet top-ups, fees and corrections.
+         *     Each entry is in the currency it happened in; a conversion also carries
+         *     the other side and the rate. Pass `card_id` for one card's history.
+         *     Page with `next_cursor`.
+         */
+        get: operations["my_history"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3456,6 +4721,27 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/org/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forget a remembered sign-in
+         * @description The `remember_token` and the chain it belongs to stop working. The bearer
+         *     token itself runs out on its own. Always answers 204.
+         */
+        post: operations["org_logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/org/auth/me": {
         parameters: {
             query?: never;
@@ -3471,6 +4757,29 @@ export type paths = {
         get: operations["org_me"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/org/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Renew a remembered sign-in
+         * @description Trades the `remember_token` of a sign-in made with `remember_me: true`
+         *     for a new bearer token and a new `remember_token`; the one sent stops
+         *     working. It works only from the browser that signed in. Same response as
+         *     `POST /auth/login`.
+         */
+        post: operations["org_refresh"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3893,17 +5202,23 @@ export type components = {
              */
             user_id: string;
         };
-        /**
-         * @description A blog post together with its broadcast history and the current send state
-         *     for each channel.
-         */
-        AdminPostView: components["schemas"]["BlogPost"] & {
-            /** @description Broadcast history, newest first. */
-            broadcasts: components["schemas"]["BroadcastRow"][];
-            /** @description Send state per channel. */
-            channels: components["schemas"]["ChannelState"][];
-            /** @description Public URL of the cover image, when one is set. */
-            cover_url?: string | null;
+        AdminDocumentList: {
+            documents: components["schemas"]["DocumentSummary"][];
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            per_page: number;
+            /** Format: int64 */
+            total: number;
+        };
+        /** @description A tag and how many documents carry it. */
+        AdminTagCount: {
+            /**
+             * Format: int64
+             * @description Documents you may read that carry it, in any status.
+             */
+            count: number;
+            tag: string;
         };
         AdminWalletView: {
             /** @description ISO 4217 code the wallet is now held in. */
@@ -3915,6 +5230,16 @@ export type components = {
              * @description The user whose wallet was changed.
              */
             user_id: string;
+        };
+        /** @description An amount in one currency. */
+        Amount: {
+            /**
+             * @description Decimal string, never negative; `direction` says which way it went.
+             * @example 12.50
+             */
+            amount: string;
+            /** @description ISO 4217 code. */
+            currency: string;
         };
         /**
          * @description An API key as shown in listings. The secret is never included; it was
@@ -3988,6 +5313,52 @@ export type components = {
              * @description Tier to put the user on.
              */
             tier_id: string;
+        };
+        AttributionView: {
+            /** @description The latest id per click-id name before sign-up. */
+            click_ids: Record<string, never>;
+            first_campaign?: string | null;
+            /** @description `campaign`, `ads`, `organic_search`, `ai`, `telegram`, `unlisted_tags`, `referral`, `direct`; `unknown` when nothing reached us; `pre_launch` for accounts older than attribution; `organization` for a holder an organization added; `staff`. */
+            first_channel: string;
+            first_landing_path?: string | null;
+            first_source?: string | null;
+            /** Format: date-time */
+            first_touch_at?: string | null;
+            ga_client_id?: string | null;
+            last_campaign?: string | null;
+            last_channel: string;
+            last_landing_path?: string | null;
+            last_source?: string | null;
+            /** Format: date-time */
+            last_touch_at?: string | null;
+            metrika_client_id?: string | null;
+            posthog_distinct_id?: string | null;
+            /** Format: date-time */
+            recorded_at?: string | null;
+            signup_platform?: string | null;
+            /** @description `email`, `telegram`, or null for an account made another way. */
+            signup_via?: string | null;
+            survey_answer?: string | null;
+            /** Format: date-time */
+            survey_answered_at?: string | null;
+            survey_other?: string | null;
+            /** Format: int32 */
+            touch_count: number;
+            /** @description The user's touches, oldest first, including those after sign-up. */
+            touches: components["schemas"]["TouchView"][];
+        };
+        AudienceCount: {
+            /** Format: int64 */
+            audience: number;
+            /**
+             * Format: int64
+             * @description How many of them an email would reach.
+             */
+            email_audience: number;
+            /** @description Whether broadcast mail is set up, so email can be ticked. */
+            email_ready: boolean;
+            /** @description Whether the email report will show deliveries, opens and clicks. */
+            email_tracked: boolean;
         };
         /** @description One second-factor method the user can complete login with. */
         AvailableMethod: {
@@ -4086,7 +5457,7 @@ export type components = {
             routing_number?: string | null;
             swift_bic?: string | null;
         };
-        /** @description One renderable node of a post body. `type` says which kind it is. */
+        /** @description One renderable node of a document body. `type` says which kind it is. */
         Block: {
             /** Format: int32 */
             level: number;
@@ -4123,64 +5494,112 @@ export type components = {
             /** @enum {string} */
             type: "divider";
         };
-        /** @description Metadata of an uploaded image. The bytes are served by the image endpoint. */
-        BlogImageMeta: {
-            /** @description Alt text. */
-            alt: string;
+        /**
+         * @example {
+         *       "amount": "300",
+         *       "funded": false,
+         *       "note": "Apology for the delayed card"
+         *     }
+         */
+        BonusAdjustBody: {
             /**
-             * Format: int32
-             * @description Size in bytes.
+             * @description Bonuses to credit (positive) or take back (negative), up to two decimal places. Not zero.
+             * @example 300
              */
-            byte_size: number;
-            /** @description MIME type, e.g. `image/png`. */
-            content_type: string;
-            /** Format: date-time */
-            created_at: string;
-            /** @description Original file name. */
-            filename: string;
-            /** Format: uuid */
-            id: string;
-        };
-        /** @description A blog post as operators see it, drafts included. Readers get `PublicPost`. */
-        BlogPost: {
-            /**
-             * Format: uuid
-             * @description Operator who created the post.
-             */
-            author_user_id?: string | null;
-            /** @description Post body in Markdown. */
-            body_markdown: string;
-            /**
-             * Format: int32
-             * @description Increases on every content edit. Broadcasts record the version they were sent for.
-             */
-            content_version: number;
-            /**
-             * Format: uuid
-             * @description ID of the uploaded cover image, when set.
-             */
-            cover_image_id?: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** @description Short teaser. Empty when it should be derived from the body. */
-            excerpt: string;
-            /** Format: uuid */
-            id: string;
-            /** @description Language tag such as `en`; empty when unset. */
-            locale: string;
+            amount: string;
             /**
              * Format: date-time
-             * @description When the post was first published.
+             * @description A credit only: when the bonuses expire. Leave it out to follow the bonus expiry settings.
              */
-            published_at?: string | null;
-            /** @description URL key, lowercase kebab-case. */
-            slug: string;
-            /** @description `draft`, `published` or `archived`. */
-            status: string;
-            tags: string[];
-            title: string;
+            expires_at?: string | null;
+            /** @description A credit only: true when a payment came with these bonuses, so they may also be added to a top-up. Leave it false for goodwill credits: those pay for part of a card or a subscription only. */
+            funded?: boolean;
+            /** @description Why, at least 3 characters. Goes to the audit log and the user's history in the operator console; the user never sees it. */
+            note: string;
+            /**
+             * Format: uuid
+             * @description Makes a retried request land once: send the same value to repeat a click safely. A new one is made up when it is left out.
+             */
+            request_id?: string | null;
+        };
+        /** @description A lot as the API shows it. */
+        BonusLotView: {
+            /** @description Bonuses credited, decimal string. */
+            amount: string;
             /** Format: date-time */
-            updated_at: string;
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description When what is left expires; null = never.
+             */
+            expires_at?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description Bonuses still left, decimal string. */
+            remaining: string;
+            /** @description True when these bonuses came without a payment: they go towards a card or a subscription, never a top-up. */
+            restricted: boolean;
+            /** @description Where the bonuses came from, e.g. `manual`. */
+            source: string;
+        };
+        /** @description One change to a bonus balance. */
+        BonusMovementView: {
+            /** Format: date-time */
+            created_at: string;
+            /** @description Currency of `price` and `value`. */
+            currency?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description `credit`, `debit` (taken back by support), `spend` or `expire`. */
+            kind: string;
+            /** @description The operator's note, only in the admin view. */
+            note?: string | null;
+            /**
+             * Format: uuid
+             * @description The card, deposit or subscription paid for.
+             */
+            operation_id?: string | null;
+            /** @description For a spend: the price the bonuses went against, decimal string (a top-up: the amount paid). */
+            price?: string | null;
+            /** @description What they were spent on, for a `spend`: `card_issuance`, `subscription` or `deposit`. */
+            purpose?: string | null;
+            /** @description `posted`, or `reserved` while the payment they are held for is still going through. */
+            status: string;
+            /** @description Bonuses, decimal string, always positive; `kind` says which way. */
+            units: string;
+            /** @description For a spend: the part of the price the bonuses covered (a top-up: what they added), decimal string. */
+            value?: string | null;
+        };
+        /**
+         * @description What bonuses are spent on.
+         * @enum {string}
+         */
+        BonusPurpose: "card_issuance" | "subscription" | "deposit";
+        /** @description A holder's bonus wallet. */
+        BonusSnapshot: {
+            /** @description Bonuses the holder can use now, decimal string. */
+            balance: string;
+            /** @description Latest changes, newest first. */
+            history: components["schemas"]["BonusMovementView"][];
+            /** @description Credits with bonuses left, the soonest to expire first. */
+            lots: components["schemas"]["BonusLotView"][];
+            /** @description Bonuses held for a payment still going through, decimal string. */
+            pending: string;
+            /** @description What bonuses can pay for. */
+            spend_on: components["schemas"]["BonusTarget"][];
+            /** @description One bonus is a discount of one unit of this currency. Show it next to a price ("was / now"), never next to the balance. */
+            unit_currency: string;
+        };
+        /** @description Where bonuses may go and how many. */
+        BonusTarget: {
+            /** @description Bonuses that may go towards it right now, decimal string. */
+            available: string;
+            purpose: components["schemas"]["BonusPurpose"];
+            /**
+             * Format: int32
+             * @description The largest share of a price bonuses may cover, basis points (10000 = all of it). A card product may set its own.
+             */
+            share_bps: number;
         };
         Branding: {
             /** @description Accent colour as `#rrggbb`. Empty means the client uses its bundled palette. */
@@ -4240,17 +5659,72 @@ export type components = {
             /** @description Channel to send on: `email` or `telegram`. */
             channel: string;
         };
+        /** @description A broadcast with its sends and what the recipients did with it. */
+        BroadcastDetail: components["schemas"]["BroadcastRow"] & {
+            /**
+             * Format: int64
+             * @description How many people the segment holds right now.
+             */
+            audience: number;
+            /** @description Per channel (Telegram, push, email): pings sent, delivered, failed for good with the reasons, still being retried. */
+            channel_report: components["schemas"]["ChannelReport"][];
+            /**
+             * Format: int64
+             * @description How many of them have the message in their inbox (this version).
+             */
+            delivered: number;
+            email?: null | components["schemas"]["EmailReport"];
+            /**
+             * Format: int64
+             * @description How many of the audience an email would reach: an address, email left
+             *     on for this kind of message, not unsubscribed.
+             */
+            email_audience: number;
+            /**
+             * Format: int64
+             * @description How many users the uploaded list holds; 0 when none was uploaded.
+             */
+            listed: number;
+            /**
+             * Format: int64
+             * @description How many of those opened it.
+             */
+            opened: number;
+            /** @description Every send, newest first. A second one exists only after an edit. */
+            sends: components["schemas"]["BroadcastSend"][];
+        };
+        /** @description What a broadcast looks like on each channel before it is sent. */
+        BroadcastPreview: {
+            /**
+             * Format: int64
+             * @description How many people would get it right now.
+             */
+            audience: number;
+            /** @description The email as it would be sent, layout and unsubscribe link included. */
+            email: components["schemas"]["EmailParts"];
+            /**
+             * Format: int64
+             * @description How many of the audience an email would reach.
+             */
+            email_audience: number;
+            /** @description Title and body as the cabinet shows them. */
+            inbox: components["schemas"]["RenderedMessage"];
+            /** @description Title and first line, as a push shows them. */
+            push: components["schemas"]["PushPreview"];
+            /** @description The Telegram message, in the HTML subset the bot sends. */
+            telegram: string;
+        };
         BroadcastResult: {
             /**
              * Format: uuid
              * @description Id of this broadcast attempt.
              */
             broadcast_id: string;
-            /** @description Channel the post was sent on. */
+            /** @description Channel the document was sent on. */
             channel: string;
             /**
              * Format: int32
-             * @description Content version of the post that was sent.
+             * @description Content version of the document that was sent.
              */
             content_version: number;
             /**
@@ -4264,46 +5738,58 @@ export type components = {
              */
             recipients: number;
         };
-        /** @description One send of a post to one channel. */
+        /** @description One broadcast as it is stored. */
         BroadcastRow: {
-            /** @description Delivery channel. */
-            channel: string;
+            /** @description The message. Paragraphs, `- ` lists, `**bold**`, `*italic*`, `[text](url)`. */
+            body_markdown: string;
+            /** @description Where the button goes. A path is resolved against the deployment's site. */
+            button_href?: string | null;
+            button_label?: string | null;
+            /** @description Which of the user's own switches this answers to. */
+            category: string;
+            /** @description Channels besides the inbox row: `telegram`, `push`, `email`. */
+            channels: string[];
             /**
              * Format: int32
-             * @description The post's `content_version` when the broadcast was requested. If the
-             *     post changed since, it can be sent again.
+             * @description Bumped whenever the words change; part of every recipient's dedupe key.
              */
             content_version: number;
             /** Format: date-time */
             created_at: string;
-            /** @description Error message when status is `failed`. */
-            error?: string | null;
-            /**
-             * Format: int32
-             * @description Deliveries that failed.
-             */
-            failures: number;
-            /**
-             * Format: date-time
-             * @description When the broadcast finished.
-             */
-            finished_at?: string | null;
             /** Format: uuid */
             id: string;
-            /** Format: uuid */
-            post_id: string;
+            image_url?: string | null;
+            /** @description `all`, `marketing`, `has_card`, `has_deposit`, `tier`, `locale` or `list` (the uploaded list of users). */
+            segment_kind: string;
+            /** @description The tier code or language for the segments that take one. */
+            segment_value?: string | null;
+            /** @description What Telegram and push carry instead of the body, when it is written. */
+            short_text?: string | null;
+            /** @description `draft` or `sent`. */
+            status: string;
+            /** @description Headline: the inbox and push title, and the first line in Telegram. */
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @description What a send did, and what became of it. */
+        BroadcastSend: {
+            /** Format: int32 */
+            content_version: number;
             /**
              * Format: int32
-             * @description Number of recipients targeted.
+             * @description How many could not be handed to the notification substrate at all.
+             */
+            failed: number;
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: int32
+             * @description How many users the segment resolved to.
              */
             recipients: number;
-            /**
-             * Format: uuid
-             * @description Operator who requested the broadcast.
-             */
-            requested_by?: string | null;
-            /** @description `queued`, `running`, `completed` or `failed`. */
-            status: string;
+            /** Format: date-time */
+            sent_at: string;
         };
         BulkInviteBody: {
             /** @description Members to add. */
@@ -4314,6 +5800,35 @@ export type components = {
             errors: components["schemas"]["RowError"][];
             /** @description Members that were added or re-activated. */
             invited: components["schemas"]["MemberView"][];
+        };
+        Campaign: {
+            /** @description Where the link was placed: telegram, blogger, yandex_direct, article. */
+            channel: string;
+            /** @description The code that goes into links: `utm_campaign=<code>` or a Telegram `startapp=<code>`. */
+            code: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Who added it; null when that account is gone. */
+            created_by_email?: string | null;
+            /** @description What this is: "post in our channel on 7 September", "placement with a blogger". */
+            description: string;
+            /**
+             * Format: int64
+             * @description Users whose first or last touch before sign-up carried this code.
+             */
+            signups: number;
+            /**
+             * Format: int64
+             * @description Visits recorded with this code.
+             */
+            touches: number;
+        };
+        CampaignList: {
+            campaigns: components["schemas"]["Campaign"][];
+        };
+        CampaignPatch: {
+            channel?: string | null;
+            description?: string | null;
         };
         /**
          * @description A card issued to a user. For gift cards, `redemption_code` is returned only
@@ -4392,7 +5907,21 @@ export type components = {
          */
         CardDetail: components["schemas"]["CardView"] & {
             billing_address?: null | components["schemas"]["Address"];
+            books_balance?: null | components["schemas"]["CardBalance"];
+            cardholder?: null | components["schemas"]["CardholderView"];
             live_balance?: null | components["schemas"]["CardBalance"];
+        };
+        /** @description An operator's hold on a card. While it stands, the holder sees the card as frozen and can't unfreeze, top up, reveal or close it, or move money to or from it. The card itself is not changed at the provider. */
+        CardModeration: {
+            /** @description Why the hold was put, for other operators. */
+            note: string;
+            /** Format: date-time */
+            set_at: string;
+            /**
+             * Format: uuid
+             * @description The operator who put the hold; null when the platform put it.
+             */
+            set_by?: string | null;
         };
         /** @description A card the user can issue. */
         CardProductView: {
@@ -4592,9 +6121,47 @@ export type components = {
          *     and the product it was issued on.
          */
         CardView: components["schemas"]["Card"] & {
+            /** @description Why the card can't be closed yet: `first_purchase_required` when the provider only closes it after a purchase. Null otherwise. */
+            close_blocked?: string | null;
             /** @description The design shown for this card: the one the holder picked, else the product's, else the deployment default. */
             design: components["schemas"]["DesignRef"];
+            moderation?: null | components["schemas"]["CardModeration"];
             product?: null | components["schemas"]["ProductRef"];
+        };
+        /**
+         * @description What the provider expects behind a cardholder record.
+         * @enum {string}
+         */
+        CardholderPolicy: "synthetic" | "verified";
+        /**
+         * @description Where the holder's details came from.
+         * @enum {string}
+         */
+        CardholderSource: "generated" | "provided" | "mixed";
+        /**
+         * @description The person a card is registered to at its provider: what the holder
+         *     pays with at a checkout and what an operator sees on the card.
+         */
+        CardholderView: {
+            /** @description Billing address: the one to enter at a checkout that asks for it. */
+            address: components["schemas"]["Address"];
+            /** @description `YYYY-MM-DD`. A made-up holder is always over 21. */
+            birth_date: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description The holder's mailbox at a domain the platform owns. Mail the provider sends there is relayed to the user. */
+            email: string;
+            first_name: string;
+            /**
+             * Format: uuid
+             * @description Holder id. One holder serves every card of the user on the same program.
+             */
+            id: string;
+            last_name: string;
+            /** @description E.164. A made-up number belongs to the address country and need not ring anywhere: providers send codes another way. */
+            phone: string;
+            /** @description `generated` (made up by the platform), `provided` (sent with the issuance request) or `mixed`. */
+            source: components["schemas"]["CardholderSource"];
         };
         ChangePasswordBody: {
             /** @description The password currently on the account. */
@@ -4612,21 +6179,65 @@ export type components = {
              */
             revoked_sessions: number;
         };
+        ChannelHealth: {
+            /** @description `telegram`, `push`, `email` or `sms`. */
+            channel: string;
+            /** Format: int64 */
+            delivered: number;
+            /**
+             * Format: int64
+             * @description Failed for good.
+             */
+            failed: number;
+            /** @description Failures by notification type, e.g. `card_otp`, `broadcast`. */
+            failed_by_event: Record<string, never>;
+            /** @description Failures by reason. */
+            failed_by_reason: Record<string, never>;
+            /**
+             * Format: int64
+             * @description Distinct users those failures hit.
+             */
+            users_failed: number;
+        };
+        /** @description One channel of a broadcast version. */
+        ChannelReport: {
+            /** @description `telegram`, `push`, `email` or `sms`. */
+            channel: string;
+            /** Format: int64 */
+            delivered: number;
+            /**
+             * Format: int64
+             * @description Failed for good.
+             */
+            failed: number;
+            /** @description Failures by reason: `bot_blocked`, `chat_not_found`, `user_deactivated`, `subscription_gone`, `address_bounced`, `provider_rejected`, `other`. */
+            failed_by_reason: Record<string, never>;
+            /**
+             * Format: int64
+             * @description Failed so far with an error that is being retried.
+             */
+            retrying: number;
+            /**
+             * Format: int64
+             * @description Pings the worker took up on this channel.
+             */
+            sent: number;
+        };
         /**
-         * @description Whether a post can be broadcast on one channel right now, and why not if it
-         *     cannot.
+         * @description Whether a document can be broadcast on one channel right now, and why not
+         *     if it cannot.
          */
         ChannelState: {
             /**
-             * @description Reason when `can_send` is false: `not_published`, `channel_disabled`,
-             *     `no_subscribers`, `already_sent` or `in_flight`.
+             * @description Reason when `can_send` is false: `not_published`, `not_for_users`,
+             *     `channel_disabled`, `no_subscribers`, `already_sent` or `in_flight`.
              */
             blocked_by?: string | null;
             /** @description True when a broadcast on this channel is allowed right now. */
             can_send: boolean;
             /** @description Channel name: `email` or `telegram`. */
             channel: string;
-            /** @description True when an older version of this post was already sent, so the next send is a re-send. */
+            /** @description True when an older version was already sent, so the next send is a re-send. */
             is_resend: boolean;
             /**
              * Format: date-time
@@ -4652,6 +6263,11 @@ export type components = {
             /** @description `true` when the dependency is not configured in this deployment and the check was skipped; `ok` stays `true` in that case. */
             skipped?: boolean;
         };
+        /**
+         * @description Where a lane's configuration came from.
+         * @enum {string}
+         */
+        ConfigSource: "settings" | "env";
         ConfigurationView: {
             /**
              * Format: date-time
@@ -4680,6 +6296,18 @@ export type components = {
             buckets: components["schemas"]["StatBucket"][];
             /** @description `funder`, `issuer`, `acquirer` or `settler`. */
             role: string;
+        };
+        /** @description What pulling one connector's catalog did. */
+        ConnectorSyncOutcome: {
+            /** @description Programs seen for the first time. They arrive hidden, at the end of the storefront. */
+            arrived: string[];
+            connector_slug: string;
+            /** @description Programs the provider no longer offers but cards exist on: disabled, kept for history. */
+            disabled: string[];
+            /** @description Set when the connector could not be reached; the other connectors are still pulled. */
+            error?: string | null;
+            /** @description Programs the provider no longer offers and nobody holds a card on: removed. */
+            removed: string[];
         };
         /**
          * @description A connector as shown on every read. Secrets appear only as short previews
@@ -4726,6 +6354,8 @@ export type components = {
          *     }
          */
         CreateCardBody: {
+            /** @description The most bonuses to use; leave it out to use as many as the price allows. `POST /me/bonus/preview` shows the numbers first. */
+            bonus_amount?: string | null;
             /** @description ISO 4217 code the card is held in. Optional with `product_id`; the product names the currency, and a different code here returns 400 `product_mismatch`. May differ from the wallet currency, in which case the price is converted at issuance. */
             currency?: string | null;
             customer?: null | components["schemas"]["CustomerInfo"];
@@ -4748,6 +6378,8 @@ export type components = {
              */
             product_id?: string | null;
             type?: null | components["schemas"]["CardType"];
+            /** @description Pay part of the price with bonuses. On by default whenever you have bonuses; send `false` to pay it all from the wallet. The response's `bonus` says how many were used and the price before and after. */
+            use_bonus?: boolean | null;
         };
         CreateConnectorBody: {
             /** @description URL the platform will call the connector on. Must start with `http://` or `https://`. */
@@ -4778,6 +6410,8 @@ export type components = {
              * @example 100.00
              */
             amount: string;
+            /** @description The most bonuses to add; leave it out to add as many as allowed. `POST /me/bonus/preview` shows the numbers first. */
+            bonus_amount?: string | null;
             /** @description ISO 4217 code of the amount being paid. */
             currency: string;
             customer?: null | components["schemas"]["CustomerInfo"];
@@ -4794,6 +6428,8 @@ export type components = {
              * @description Required when `currency` differs from the wallet currency: id of the quote from `POST /me/deposits/quotes` this deposit executes against.
              */
             quote_id?: string | null;
+            /** @description Add your bonuses on top of the top-up: you pay `amount`, the wallet gets `amount` plus what the bonuses add. On by default whenever you have bonuses that can go towards a top-up (only bonuses that came with a payment can). Send `false` to top up without them. The response shows `bonus_units` and `bonus_value` when bonuses were added. */
+            use_bonus?: boolean | null;
         };
         /**
          * @example {
@@ -4904,10 +6540,13 @@ export type components = {
          *     }
          */
         Credentials: {
+            attribution?: null | components["schemas"]["SignupAttribution"];
             /** @description Account email address. */
             email: string;
             /** @description Account password. */
             password: string;
+            /** @description Keep this browser signed in: the response then carries a `remember_token` for `POST /auth/refresh`. For accounts with a second factor, send it again with the code (`/auth/login/totp`, `/auth/login/otp/verify`, `/auth/login/totp-setup`). */
+            remember_me?: boolean;
             /** @description Optional wallet currency for a new account, ISO 4217; must be one this deployment offers. Defaults to the deployment currency. Ignored on login. */
             wallet_currency?: string | null;
         };
@@ -5148,6 +6787,50 @@ export type components = {
             /** @description Total spend that day, decimal string. */
             spend: string;
         };
+        DeadLetter: {
+            /** Format: int32 */
+            attempts: number;
+            /** @description `email`, `push`, `telegram`, `sms` or `inbox`. */
+            channel?: string | null;
+            /** @description Notification type, e.g. `card_created`. */
+            event_type?: string | null;
+            /** Format: date-time */
+            failed_at: string;
+            /** Format: uuid */
+            id: string;
+            /** @description What the channel answered the last time. */
+            last_error: string;
+            msg_id: string;
+            /** @description Why it can't be sent again, when it can't. */
+            not_retryable_reason?: string | null;
+            /** Format: date-time */
+            retried_at?: string | null;
+            /** Format: uuid */
+            retried_by?: string | null;
+            /**
+             * @description False when the message can't be sent again: it carried a one-time
+             *     code, or it never was a readable notification.
+             */
+            retryable: boolean;
+            subject: string;
+            /** @description Where it was going: an address, a chat id, a push endpoint. */
+            to?: string | null;
+            /** Format: uuid */
+            user_id?: string | null;
+        };
+        DeadLetterPage: {
+            items: components["schemas"]["DeadLetter"][];
+            /**
+             * Format: int64
+             * @description Rows nobody has retried yet, whatever `state` asked for.
+             */
+            open: number;
+            /**
+             * Format: int64
+             * @description Rows matching `state`.
+             */
+            total: number;
+        };
         DebitBody: {
             /**
              * @description Amount to lower the card's spending limit by, decimal string.
@@ -5165,6 +6848,18 @@ export type components = {
             metadata?: {
                 [key: string]: string;
             };
+        };
+        /** @description Why a payment didn't go through. */
+        DeclineReason: {
+            /** @description `insufficient_funds`, `limit_exceeded`, `card_blocked`, `card_expired`, `wrong_details`, `merchant_not_allowed` or `other`. New codes may appear; treat an unknown one as `other`. */
+            code: string;
+            /** @description The reason in plain words, in the language asked for. */
+            text: string;
+        };
+        DeliveriesReport: {
+            channels: components["schemas"]["ChannelHealth"][];
+            /** Format: date-time */
+            since: string;
         };
         /**
          * @description How the user funds the deposit.
@@ -5239,6 +6934,244 @@ export type components = {
             /** @description Always `disabled`. */
             status: string;
         };
+        /** @description A document as staff see it in the console: every status, every level. */
+        Document: {
+            /**
+             * Format: uuid
+             * @description Who created it.
+             */
+            author_user_id?: string | null;
+            /** @description The current text in Markdown. */
+            body_markdown: string;
+            /**
+             * Format: int32
+             * @description Number of saved texts; the newest version carries this number.
+             */
+            content_version: number;
+            /**
+             * Format: uuid
+             * @description ID of the uploaded cover image, when set.
+             */
+            cover_image_id?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Short teaser. Empty when it should be derived from the body. */
+            excerpt: string;
+            /** Format: uuid */
+            folder_id: string;
+            /** Format: uuid */
+            id: string;
+            /** @description Language tag such as `en`; empty when unset. */
+            locale: string;
+            /**
+             * Format: int32
+             * @description Order among siblings in the folder.
+             */
+            position: number;
+            /**
+             * Format: date-time
+             * @description When the document was first published.
+             */
+            published_at?: string | null;
+            /** @description Who may read: `public`, `users`, `staff` or `operators`. */
+            read_scope: string;
+            /** @description The permanent address. Survives moves and renames. */
+            slug: string;
+            /** @description `draft`, `published` or `archived`. */
+            status: string;
+            tags: string[];
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+            /**
+             * Format: uuid
+             * @description Who saved it last.
+             */
+            updated_by?: string | null;
+            /** @description Who may edit: `staff` or `operators`. */
+            write_scope: string;
+        };
+        /** @description A document with its text, history and announcement state. */
+        DocumentDetail: components["schemas"]["Document"] & {
+            /** @description Broadcast history, newest first. */
+            broadcasts: components["schemas"]["BroadcastRow"][];
+            /** @description True when you may edit this document. */
+            can_edit: boolean;
+            category: string;
+            /** @description Send state per channel. */
+            channels: components["schemas"]["ChannelState"][];
+            cover_url?: string | null;
+            path: components["schemas"]["PathStep"][];
+            read_label: string;
+            site_path: string;
+            /** @description Saved texts, newest first. */
+            versions: components["schemas"]["VersionSummary"][];
+            write_label: string;
+            /** @description Your own level: the highest read or write level you may set. */
+            your_level: components["schemas"]["Scope"];
+        };
+        DocumentList: {
+            /** @description Documents on this page. */
+            documents: components["schemas"]["PublicDocument"][];
+            /**
+             * Format: int64
+             * @description 1-based page number.
+             */
+            page: number;
+            /**
+             * Format: int64
+             * @description Documents per page.
+             */
+            per_page: number;
+            /**
+             * Format: int64
+             * @description Total number of published documents matching the filters that you may read.
+             */
+            total: number;
+        };
+        /** @description A document in a listing: everything but the body. */
+        DocumentSummary: {
+            /** @description True when you may edit this document. */
+            can_edit: boolean;
+            /** @description Category key. */
+            category: string;
+            /** Format: int32 */
+            content_version: number;
+            cover_url?: string | null;
+            excerpt: string;
+            /** Format: uuid */
+            folder_id: string;
+            /** Format: uuid */
+            id: string;
+            locale: string;
+            /** @description Folder trail, root first. */
+            path: components["schemas"]["PathStep"][];
+            /** Format: int32 */
+            position: number;
+            /** Format: date-time */
+            published_at?: string | null;
+            /** @description The read level as a sentence, e.g. "Read by everyone". */
+            read_label: string;
+            read_scope: components["schemas"]["Scope"];
+            /** @description Path under the site root where readers open it. */
+            site_path: string;
+            slug: string;
+            /** @description `draft`, `published` or `archived`. */
+            status: string;
+            tags: string[];
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description The write level as a sentence, e.g. "Edited by staff". */
+            write_label: string;
+            write_scope: components["schemas"]["Scope"];
+        };
+        /**
+         * @description Fields to change on a document. Anything omitted stays as it is.
+         *     Changing the title, excerpt, body or cover saves a new version.
+         */
+        DocumentUpdate: {
+            body_markdown?: string | null;
+            /** Format: uuid */
+            cover_image_id?: string | null;
+            /**
+             * Format: date-time
+             * @description When the new text takes effect. Only read when the text changes; now when omitted.
+             */
+            effective_from?: string | null;
+            excerpt?: string | null;
+            /**
+             * Format: uuid
+             * @description Move to another folder. The address does not change.
+             */
+            folder_id?: string | null;
+            locale?: string | null;
+            /** @description What changed, for the history. Only read when the text changes. */
+            note?: string | null;
+            /** Format: int32 */
+            position?: number | null;
+            read_scope?: null | components["schemas"]["Scope"];
+            /** @description Changing the address breaks links people hold. Links from other documents keep working. */
+            slug?: string | null;
+            /** @description `draft`, `published` or `archived`. `published_at` is set the first time. */
+            status?: string | null;
+            tags?: string[] | null;
+            title?: string | null;
+            write_scope?: null | components["schemas"]["Scope"];
+        };
+        /** @description One saved text of a document. */
+        DocumentVersion: {
+            body_markdown: string;
+            /** Format: date-time */
+            changed_at: string;
+            /**
+             * Format: uuid
+             * @description Who saved it.
+             */
+            changed_by?: string | null;
+            /** Format: uuid */
+            cover_image_id?: string | null;
+            /** Format: uuid */
+            document_id: string;
+            /**
+             * Format: date-time
+             * @description When this text takes effect.
+             */
+            effective_from: string;
+            excerpt: string;
+            /** Format: uuid */
+            id: string;
+            /** @description What changed, in the editor's words. */
+            note: string;
+            title: string;
+            /**
+             * Format: int32
+             * @description Counts up from 1.
+             */
+            version: number;
+        };
+        /** @description A finished email. */
+        EmailParts: {
+            /** @description The HTML part. */
+            html: string;
+            /** @description The subject line: the message's title. */
+            subject: string;
+            /** @description The plain-text part. */
+            text: string;
+        };
+        /** @description A broadcast version's emails. */
+        EmailReport: {
+            /**
+             * Format: int64
+             * @description Returned as undeliverable.
+             */
+            bounced: number;
+            /**
+             * Format: int64
+             * @description A link in it was clicked.
+             */
+            clicked: number;
+            /**
+             * Format: int64
+             * @description Accepted by the recipient's mail server.
+             */
+            delivered: number;
+            /**
+             * Format: int64
+             * @description Opened at least once. Mail clients that block images are not counted.
+             */
+            opened: number;
+            /**
+             * Format: int64
+             * @description Handed to the provider.
+             */
+            sent: number;
+            /**
+             * @description Whether the provider reports deliveries, opens and clicks. When it
+             *     does not (SMTP), only `sent` is known.
+             */
+            tracked: boolean;
+        };
         /**
          * @description Lifecycle of a webhook endpoint. `archived` is soft-delete; the row
          *     stays for audit but no new outbox materialisation references it.
@@ -5250,6 +7183,45 @@ export type components = {
             endpoint: components["schemas"]["WebhookEndpoint"];
             /** @description Plaintext secret used to sign deliveries. Shown only once, at creation or rotation. */
             signing_secret: string;
+        };
+        /** @description A folder in the tree. The four at the top are the categories. */
+        Folder: {
+            /** Format: date-time */
+            created_at: string;
+            /** @description Read level a new document in this folder starts with. */
+            default_read_scope: string;
+            description: string;
+            /** Format: uuid */
+            id: string;
+            /** @description Path segment, unique among siblings. */
+            key: string;
+            /**
+             * Format: uuid
+             * @description Absent on a category.
+             */
+            parent_id?: string | null;
+            /**
+             * Format: int32
+             * @description Order among siblings.
+             */
+            position: number;
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @description Fields to change on a folder. Anything omitted stays as it is. */
+        FolderUpdate: {
+            default_read_scope?: null | components["schemas"]["Scope"];
+            description?: string | null;
+            key?: string | null;
+            /**
+             * Format: uuid
+             * @description Move the folder. Categories cannot be moved.
+             */
+            parent_id?: string | null;
+            /** Format: int32 */
+            position?: number | null;
+            title?: string | null;
         };
         FreezeBody: {
             /** @description Why the card is frozen. Stored on the card. May be empty. */
@@ -5279,6 +7251,21 @@ export type components = {
             /** @description The wallet currency every quote converts into, ISO 4217 code. */
             local_currency: string;
         };
+        /**
+         * @description Where the made-up holder should live. Everything is optional: the
+         *     program's country and state apply when named, the deployment's default
+         *     country otherwise.
+         */
+        GenerateCardholderBody: {
+            /** @description Card connector of the program. */
+            connector_slug?: string | null;
+            /** @description Country to place the holder in, ISO 3166-1 alpha-2. Wins over the program's. */
+            country?: string | null;
+            /** @description Program id as the provider reports it. With `connector_slug`, the program's country and state are used. */
+            program_code?: string | null;
+            /** @description State or region within the country, e.g. `CA` or `US-CA`. Wins over the program's. */
+            state?: string | null;
+        };
         GroupSpend: {
             /**
              * Format: int64
@@ -5296,8 +7283,65 @@ export type components = {
             /** @description Version of the running API build. */
             version: string;
         };
-        ImageView: components["schemas"]["BlogImageMeta"] & {
-            /** @description Public URL to use in post bodies. */
+        /** @description The card an entry is about. */
+        HistoryCard: {
+            /** Format: uuid */
+            id: string;
+            /** @description Last four digits; null while the issuer hasn't sent them. */
+            last4?: string | null;
+            /** @description The name the holder sees. */
+            name?: string | null;
+        };
+        /** @description One thing that happened to the user's money. */
+        HistoryItem: {
+            /** @description The amount in the currency the operation happened in. For `bonus` the currency is `BNS` and the amount is a number of bonuses, not money. */
+            amount: components["schemas"]["Amount"];
+            card?: null | components["schemas"]["HistoryCard"];
+            counter_amount?: null | components["schemas"]["Amount"];
+            decline_reason?: null | components["schemas"]["DeclineReason"];
+            /** @description `out` (money left the user), `in` (money came to the user) or `internal` (moved between the user's own wallet and cards). */
+            direction: string;
+            fee?: null | components["schemas"]["Amount"];
+            /** @description Conversion rate between `amount` and `counter_amount`, as recorded at the time. */
+            fx_rate?: string | null;
+            /** @description Stable id of the entry, unique across kinds. */
+            id: string;
+            /** @description `card_purchase`, `card_refund`, `card_issued`, `card_topup`, `card_transfer`, `wallet_deposit`, `deposit_refund`, `fee`, `balance_adjustment` or `bonus`. More kinds will be added; show an unknown one with its `title`, `amount` and `status`. */
+            kind: string;
+            merchant?: null | components["schemas"]["Merchant"];
+            /** Format: date-time */
+            occurred_at: string;
+            /** @description `completed`, `pending` (not finished yet), `declined`, `reversed` (an authorisation that was released) or `failed`. */
+            status: string;
+            /** @description Short description in the language asked for: the merchant, or what the operation was. */
+            title: string;
+            to_card?: null | components["schemas"]["HistoryCard"];
+        };
+        HistoryPage: {
+            items: components["schemas"]["HistoryItem"][];
+            /** @description Pass as `cursor` for the next, older page; null on the last page. */
+            next_cursor?: string | null;
+        };
+        /** @description Metadata of an uploaded image. The bytes are served by the image endpoint. */
+        ImageMeta: {
+            /** @description Alt text. */
+            alt: string;
+            /**
+             * Format: int32
+             * @description Size in bytes.
+             */
+            byte_size: number;
+            /** @description MIME type, e.g. `image/png`. */
+            content_type: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Original file name. */
+            filename: string;
+            /** Format: uuid */
+            id: string;
+        };
+        ImageView: components["schemas"]["ImageMeta"] & {
+            /** @description Public URL to use in document bodies. */
             url: string;
         };
         /** @description One notification as the user sees it. */
@@ -5339,6 +7383,76 @@ export type components = {
             /** @description Optional. */
             full_name?: string | null;
         };
+        /** @description Issuance settings of a program. */
+        IssuanceBody: {
+            /** @description Country a made-up holder's address and phone belong to, ISO 3166-1 alpha-2. `null` or empty: the deployment's default country. */
+            cardholder_country?: string | null;
+            /** @description State or region of a made-up holder's address, e.g. `CA` or `US-CA`. `null` or empty: any state of the country. */
+            cardholder_state?: string | null;
+            /**
+             * Format: int32
+             * @description Order in which this connector's programs are tried when the buyer does not choose. Lower first.
+             */
+            priority?: number | null;
+            /** @description `active` or `disabled`. */
+            status?: string | null;
+        };
+        /** @description How bonuses changed the price of a new card. */
+        IssuanceBonus: {
+            /** @description What the bonuses covered, decimal string. */
+            covered: string;
+            /** @description ISO 4217 code of the three amounts: the currency the wallet paid in. */
+            currency: string;
+            /** @description What the wallet paid ("now"), decimal string. */
+            paid: string;
+            /** @description The price before bonuses ("was"), decimal string. */
+            price: string;
+            /** @description Bonuses used. */
+            units: string;
+        };
+        /**
+         * @description Where a product comes from and how a card on it is issued. Operator
+         *     information: none of it reaches a buyer.
+         */
+        IssuanceInfo: {
+            /** @description Card BIN, if the provider reports one. */
+            bin?: string | null;
+            /** @description `credit`, `prepaid` or `gift`. */
+            card_type: string;
+            /** @description Country a made-up holder's address and phone belong to, ISO 3166-1 alpha-2. Null: the deployment's default country. */
+            cardholder_country?: string | null;
+            /** @description Who the cardholder may be, as the provider declares it. `synthetic`: the platform makes up a plausible holder when the request carries none. `verified`: only a real person's verified details; nothing is made up, and an issuance without them is refused. */
+            cardholder_policy: components["schemas"]["CardholderPolicy"];
+            /** @description State or region of a made-up holder's address, for countries that have them. Null: any state of the country. */
+            cardholder_state?: string | null;
+            /** @description False when the connector is disabled or is not an issuer: nothing on it can be sold. */
+            connector_active: boolean;
+            /** @description Slug of the card connector the program belongs to. */
+            connector_slug: string;
+            last_failure?: null | components["schemas"]["IssueFailure"];
+            /** @description Smallest starting balance the provider requires on a new card, decimal string; null when a card may start empty. The platform funds it, so price it in. */
+            min_initial_amount?: string | null;
+            /**
+             * Format: int32
+             * @description Order in which programs of this connector are tried when the buyer does not choose. Lower first. Has no effect on the storefront.
+             */
+            priority: number;
+            /** @description Program id as the provider reports it. */
+            program_code: string;
+            /** @description The provider's own name for the program. Shown to operators only. */
+            provider_label: string;
+            /** @description True when a new card goes to the provider with nothing on it: no minimum from the connector and no `min_load` property. Some providers refuse that; the card then fails at issuance. */
+            starts_empty: boolean;
+            /** @description `active` or `disabled`. A disabled program issues nothing and is not sold. */
+            status: string;
+        };
+        /** @description An issuance the provider turned down. */
+        IssueFailure: {
+            /** Format: date-time */
+            at: string;
+            /** @description The reason as the provider or connector gave it. */
+            reason: string;
+        };
         IssuingMetrics: {
             /**
              * Format: int64
@@ -5375,6 +7489,56 @@ export type components = {
              */
             window_days: number;
         };
+        /**
+         * @description One of the two lanes.
+         * @enum {string}
+         */
+        Lane: "transactional" | "broadcast";
+        /** @description One lane, as the operator needs to see it. */
+        LaneStatus: {
+            /** @description Whether mail goes out on this lane right now. */
+            configured: boolean;
+            /** @description The sender, when configured. */
+            from?: string | null;
+            lane: components["schemas"]["Lane"];
+            /** @description What is missing, when something is set up but incomplete. */
+            problem?: string | null;
+            /** @description `postmark` or `smtp`, when configured. */
+            provider?: string | null;
+            /** @description Whether deliveries, opens and clicks come back (Postmark only). */
+            reports_events: boolean;
+            /** @description SMTP host, when the provider is SMTP. */
+            smtp_host?: string | null;
+            source?: null | components["schemas"]["ConfigSource"];
+            /** @description Postmark stream, when the provider is Postmark. */
+            stream?: string | null;
+        };
+        LayoutPreviewBody: {
+            lane?: null | components["schemas"]["Lane"];
+            layout?: null | components["schemas"]["MailLayout"];
+            /** @description `en` or `ru`. Default `en`. */
+            locale?: string | null;
+        };
+        /** @description The layout in use, and what the editor needs around it. */
+        LayoutView: {
+            /** @description The layout shipped with this release, to start from or compare with. */
+            bundled: components["schemas"]["MailLayout"];
+            /** @description Whether the operator saved their own. */
+            custom: boolean;
+            /** @description The HTML layout in use: the operator's, or the shipped one. */
+            html: string;
+            /** @description Values a layout can print. */
+            placeholders: components["schemas"]["Placeholder"][];
+            /**
+             * @description Set when a send could not render the operator's layout and used the
+             *     shipped one instead.
+             */
+            render_error?: string | null;
+            /** @description Its plain-text twin. */
+            text: string;
+            /** Format: date-time */
+            updated_at?: string | null;
+        };
         /** @description Optional reason for freezing or terminating a card. */
         LifecycleReasonBody: {
             /** @description Free-text reason, kept in the audit log. */
@@ -5390,6 +7554,8 @@ export type components = {
              */
             organization_id?: string | null;
             password: string;
+            /** @description Keep this browser signed in: the response then carries a `remember_token` for `POST /auth/refresh`. */
+            remember_me?: boolean;
         };
         LoginResponse: {
             /** @description Bearer token for the `Authorization` header. */
@@ -5401,6 +7567,13 @@ export type components = {
             expires_at: string;
             /** @description `true` when this user may open the operator console. The token is valid for client apps either way. */
             hub_access?: boolean;
+            /**
+             * Format: date-time
+             * @description Until when `remember_token` works if it is not used.
+             */
+            remember_expires_at?: string | null;
+            /** @description Present when the sign-in asked to be remembered: trade it at `POST /auth/refresh` for a new session once this one ends. Only this browser can use it. */
+            remember_token?: string | null;
             /** @enum {string} */
             stage: "jwt";
             /** @description The signed-in user. The password hash is never included. */
@@ -5431,6 +7604,30 @@ export type components = {
             challenge_token: string;
             /** @enum {string} */
             stage: "totp_required";
+        };
+        LogoutBody: {
+            /** @description The `remember_token` this browser holds, so it stops working too. */
+            remember_token?: string | null;
+        };
+        LogoutRequest: {
+            /** @description The `remember_token` this browser holds. */
+            remember_token: string;
+        };
+        /** @description Both lanes, and the addresses to give Postmark. */
+        MailLanes: {
+            broadcast: components["schemas"]["LaneStatus"];
+            /** @description Where Postmark should post the broadcast stream's webhooks. */
+            postmark_webhook_url: string;
+            transactional: components["schemas"]["LaneStatus"];
+            /** @description Whether the webhook password is set. */
+            webhook_secret_set: boolean;
+        };
+        /** @description An HTML layout and its plain-text twin. */
+        MailLayout: {
+            /** @description Tera HTML; values are escaped, `body_html` is printed with `| safe`. */
+            html: string;
+            /** @description Tera plain text; nothing is escaped. */
+            text: string;
         };
         MarkFailedBody: {
             /** @description Why the settlement failed, in plain words. Stored on the cycle and in the audit log. */
@@ -5468,19 +7665,11 @@ export type components = {
              */
             user_id: string;
         };
-        /** @description A merchant business. */
         Merchant: {
-            /** Format: date-time */
-            created_at: string;
-            /** Format: uuid */
-            id: string;
-            legal_name: string;
-            /** @description ISO 4217 code that settlements are paid in. */
-            settlement_currency: string;
-            /** @description `active`, `suspended` or `closed`. */
-            status: components["schemas"]["MerchantStatus"];
-            /** Format: date-time */
-            updated_at: string;
+            city?: string | null;
+            /** @description ISO 3166 country code as the card network sent it. */
+            country?: string | null;
+            name?: string | null;
         };
         MerchantAcquirerRow: {
             connector_slug: string;
@@ -5603,10 +7792,27 @@ export type components = {
             /** @description Plaintext secret, sent as `X-Organization-Secret`. Shown only once. */
             secret: string;
         };
+        ModerationState: {
+            moderation?: null | components["schemas"]["CardModeration"];
+        };
         /** @description An amount with its currency, as decimal string and ISO 4217 code. */
         MoneyView: {
             amount: string;
             currency: string;
+        };
+        /** @description The signed-in operator's role and what it grants. */
+        MyAccess: {
+            email: string;
+            /** @description Every permission key the role grants, `*` for all of them. Empty for an end-user account. */
+            permissions: string[];
+            /** @description Role name. */
+            role: string;
+        };
+        MyAttribution: {
+            /** @description The answer given, `skipped`, or null when not answered yet. */
+            survey_answer?: string | null;
+            /** @description `true` while the app should ask "how did you hear about us". Asked once: any answer, skipping included, turns it off. */
+            survey_pending: boolean;
         };
         /** @description Fields for adding a bank account. */
         NewBankAccount: {
@@ -5623,6 +7829,61 @@ export type components = {
             label: string;
             routing_number?: string;
             swift_bic?: string;
+        };
+        /**
+         * @example {
+         *       "channel": "telegram",
+         *       "code": "tg-post-0907",
+         *       "description": "Post in our channel on 7 September"
+         *     }
+         */
+        NewCampaign: {
+            channel: string;
+            /** @description Up to 32 Latin letters, digits and dashes. Case doesn't matter: `Spring-Promo` and `spring-promo` are the same code. */
+            code: string;
+            description: string;
+        };
+        /** @description Fields for creating a document. */
+        NewDocument: {
+            /** @description The text in Markdown. */
+            body_markdown?: string;
+            /**
+             * Format: uuid
+             * @description ID of an uploaded image to use as the cover.
+             */
+            cover_image_id?: string | null;
+            /** @description Optional teaser. Derived from the body when empty. */
+            excerpt?: string;
+            /**
+             * Format: uuid
+             * @description Folder to create it in. The Blog category when omitted.
+             */
+            folder_id?: string | null;
+            /** @description Language tag such as `en`. */
+            locale?: string;
+            /** Format: int32 */
+            position?: number | null;
+            read_scope?: null | components["schemas"]["Scope"];
+            /** @description Lowercase kebab-case. Generated from the title when omitted. */
+            slug?: string | null;
+            tags?: string[];
+            title: string;
+            write_scope?: null | components["schemas"]["Scope"];
+        };
+        /** @description Fields for creating a folder. */
+        NewFolder: {
+            default_read_scope?: null | components["schemas"]["Scope"];
+            description?: string;
+            /** @description Path segment, lowercase kebab-case. Generated from the title when omitted. */
+            key?: string | null;
+            /**
+             * Format: uuid
+             * @description Folder to create it in. Required: new categories are not created this way.
+             */
+            parent_id: string;
+            /** Format: int32 */
+            position?: number | null;
+            title: string;
         };
         /**
          * @description A newly created API key together with its secret. The secret is stored
@@ -5644,24 +7905,6 @@ export type components = {
              */
             temporary_password: string;
             user: components["schemas"]["MerchantUser"];
-        };
-        /** @description Fields for creating a post. */
-        NewPost: {
-            /** @description Post body in Markdown. */
-            body_markdown?: string;
-            /**
-             * Format: uuid
-             * @description ID of an uploaded image to use as the cover.
-             */
-            cover_image_id?: string | null;
-            /** @description Optional teaser. Derived from the body when empty. */
-            excerpt?: string;
-            /** @description Language tag such as `en`. */
-            locale?: string;
-            /** @description Lowercase kebab-case. Generated from the title when omitted. */
-            slug?: string | null;
-            tags?: string[];
-            title: string;
         };
         /** @description Fields for creating a role. */
         NewRole: {
@@ -5784,6 +8027,11 @@ export type components = {
             uptime_seconds: number;
             /** @description Version of the running API build. */
             version: string;
+        };
+        /** @description The storefront order. */
+        OrderBody: {
+            /** @description Product ids in the order buyers should see them, first to last. Products left out keep their relative order after the listed ones. */
+            ids: string[];
         };
         /** @description A card issued by this organization. */
         OrgCardView: {
@@ -5977,6 +8225,8 @@ export type components = {
             challenge_token: string;
             /** @description The 6-digit code the user received. */
             code: string;
+            /** @description Keep this browser signed in; see `POST /auth/refresh`. */
+            remember_me?: boolean;
         };
         /**
          * @example {
@@ -6019,24 +8269,43 @@ export type components = {
             status: components["schemas"]["OrganizationStatus"];
         };
         /**
-         * @description What users see for one card program. Every field is optional; omitted
-         *     fields keep their value.
+         * @description What to change on a product. Omitted fields keep their value. A text
+         *     field sent empty is cleared.
          */
-        PatchProgramBody: {
-            /** @description Designs a user may pick besides the default. Replaces the list. */
+        PatchProductBody: {
+            /** @description Designs a buyer may pick besides the default. Replaces the list. */
             allowed_design_ids?: string[] | null;
-            /** @description Description shown to users. Empty clears it. */
+            /** @description Selling points, up to 8 of up to 80 characters each. Replaces the list; empty entries are dropped. */
+            benefits?: string[] | null;
+            /**
+             * Format: int32
+             * @description How much of the price bonuses may cover, basis points from 0 (bonuses can't be used) to 10000 (all of it); `null` follows the deployment's bonus setting.
+             */
+            bonus_share_bps?: number | null;
+            /** @description What the provider charges per card, decimal string; `null` clears it. */
+            cost_price?: string | null;
+            /** @description Longer description, up to 500 characters. */
             description?: string | null;
             /**
              * Format: uuid
              * @description Default design; send `null` for the deployment's default design.
              */
             design_id?: string | null;
-            /** @description Name shown to users. Empty clears it (the provider label is shown then). */
-            display_name?: string | null;
-            /** @description Properties shown to users. Replaces the object. */
+            /** @description Properties shown to buyers. Replaces the object. */
             features?: Record<string, never> | null;
-            /** @description Show the program in the user catalog. */
+            /** @description Your note on the price, e.g. the provider's tariff name. Never shown to buyers. */
+            fee_label?: string | null;
+            /** @description Name buyers see, up to 60 characters. Required before the product can go on sale. */
+            name?: string | null;
+            /** @description Currency the buyer pays in, ISO 4217; `null` or empty means the card's own currency. */
+            price_currency?: string | null;
+            /** @description What the buyer pays per card, decimal string; `null` makes the card free. */
+            sell_price?: string | null;
+            /** @description One line under the name, up to 120 characters. */
+            tagline?: string | null;
+            /** @description Picture for the tile: an `http(s)` URL, or empty to show the design instead. To upload a file use the image endpoint. */
+            tile_image_url?: string | null;
+            /** @description Put the product on the storefront (needs a name) or take it off. */
             visible_to_users?: boolean | null;
         };
         PatchRoleBody: {
@@ -6072,6 +8341,13 @@ export type components = {
              * @description Free trial length in days.
              */
             tryout_window_days?: number | null;
+        };
+        /** @description One step of a breadcrumb trail. */
+        PathStep: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+            title: string;
         };
         PayrollBody: {
             /** @description ISO 4217 code used for every run in the batch. */
@@ -6110,6 +8386,10 @@ export type components = {
             /** @description Permission key, e.g. `merchants.read`. */
             key: string;
         };
+        Placeholder: {
+            description: string;
+            name: string;
+        };
         PostList: {
             /**
              * Format: int64
@@ -6122,7 +8402,7 @@ export type components = {
              */
             per_page: number;
             /** @description Posts on this page, newest first. */
-            posts: components["schemas"]["PublicPost"][];
+            posts: components["schemas"]["PublicDocument"][];
             /**
              * Format: int64
              * @description Total number of published posts matching the filters.
@@ -6130,24 +8410,24 @@ export type components = {
             total: number;
         };
         /**
-         * @description Fields to change on a post. Anything omitted stays as it is. Changing the
-         *     title, excerpt, body, cover or tags increases `content_version`, which
-         *     makes the post eligible for another broadcast.
+         * @description The fields of a Postmark webhook we read. Every record type shares this
+         *     shape loosely; absent fields stay `None`.
          */
-        PostUpdate: {
-            body_markdown?: string | null;
-            /** Format: uuid */
-            cover_image_id?: string | null;
-            excerpt?: string | null;
-            locale?: string | null;
-            slug?: string | null;
-            /**
-             * @description `draft`, `published` or `archived`. `published_at` is set the first
-             *     time a post is published.
-             */
-            status?: string | null;
-            tags?: string[] | null;
-            title?: string | null;
+        PostmarkEvent: {
+            /** Format: date-time */
+            BouncedAt?: string | null;
+            /** Format: date-time */
+            DeliveredAt?: string | null;
+            Email?: string | null;
+            MessageID?: string | null;
+            MessageStream?: string | null;
+            Metadata?: Record<string, never> | null;
+            /** Format: date-time */
+            ReceivedAt?: string | null;
+            Recipient?: string | null;
+            RecordType: string;
+            SuppressSending?: boolean | null;
+            SuppressionReason?: string | null;
         };
         PreferencesBody: {
             /** @description Replaces the switches. `security` and `money` keep at least one outward channel whatever is sent. */
@@ -6165,13 +8445,49 @@ export type components = {
             categories: Record<string, never>;
             /** @description Language of notifications, `en` or `ru`; null = the deployment's default. */
             locale?: string | null;
+            /**
+             * Format: date-time
+             * @description When the user left the mailing list, if they did: broadcast email
+             *     stops, sign-in codes and card notifications keep coming. Switching
+             *     marketing email back on puts them on the list again.
+             */
+            mail_unsubscribed_at?: string | null;
+            /**
+             * @description How they left: `link` (the page the email links to), `one_click` (the
+             *     mail client's unsubscribe button), or `postmark:<reason>` (the
+             *     provider, e.g. after a spam complaint).
+             */
+            mail_unsubscribed_via?: string | null;
             /** @description Channel to use first when it can reach the user; null = automatic (a mobile app, else the device used most recently). */
             primary_channel?: string | null;
         };
-        /** @description What to preview: the fields, and optionally the values to fill them with. */
-        PreviewBody: components["schemas"]["TemplateBody"] & {
-            /** @description Values for the placeholders. Omit for generated samples. */
-            data?: unknown;
+        /** @description What the editor shows next to the text. */
+        Preview: {
+            /** @description The text as blocks, the way a reader's app receives it. */
+            body_blocks: components["schemas"]["Block"][];
+            /** @description The teaser that would be derived when none is written. */
+            excerpt: string;
+            /** Format: int32 */
+            reading_minutes: number;
+        };
+        PreviewBody: {
+            /** @description The text to render. */
+            body_markdown: string;
+        };
+        /** @description How bonuses change one price. */
+        PreviewView: {
+            /** @description The price before bonuses ("was"), or for `deposit` the amount you pay, decimal string. */
+            amount: string;
+            /** @description Bonuses that would be used. */
+            bonus_units: string;
+            /** @description What those bonuses cover ("−N"), decimal string, in `currency`. */
+            bonus_value: string;
+            /** @description For `deposit`: what reaches your wallet, the amount paid plus the bonus part. Null otherwise. */
+            credited?: string | null;
+            currency: string;
+            /** @description What is left to pay ("now"). For `deposit`, the amount you pay, unchanged. */
+            due: string;
+            purpose: components["schemas"]["BonusPurpose"];
         };
         /** @description What issuing a card on this product costs the user right now. */
         ProductPrice: {
@@ -6206,6 +8522,12 @@ export type components = {
             bin?: string | null;
             /** @description Card type: `credit`, `prepaid` or `gift`. */
             card_type: string;
+            /** @description Country a made-up holder's address and phone belong to, ISO 3166-1 alpha-2; null means the deployment's default country. */
+            cardholder_country?: string | null;
+            /** @description Who the cardholder may be on this program, as the provider declares it: `synthetic` (the platform may make the holder up) or `verified` (a real, verified person only). */
+            cardholder_policy: string;
+            /** @description State or region of a made-up holder's address; null means any state of the country. */
+            cardholder_state?: string | null;
             /** @description What the provider charges per card, decimal string, e.g. "2.00". */
             cost_price?: string | null;
             /** @description Card currency, ISO 4217 code, if the program is single-currency. */
@@ -6228,6 +8550,8 @@ export type components = {
              * @description Product id users see in `GET /me/card-products` and send as `product_id`.
              */
             id: string;
+            /** @description Arrived from the provider and not yet looked at: it is hidden from users until someone puts it on sale. Saving its pricing or its product settings clears the mark. */
+            is_new: boolean;
             /** @description Human-readable program name. */
             label: string;
             /** @description Smallest starting balance the connector requires on a new card, as it advertised it; null when a card may start empty. The platform funds it at issuance, so price it into `sell_price`. */
@@ -6247,43 +8571,77 @@ export type components = {
             visible_to_users: boolean;
         };
         /**
-         * @description A published post as the client app receives it. The body comes both as
-         *     Markdown and as a flat list of blocks, so the client can render it with
-         *     its own components.
+         * @description A document as a reader receives it. The body comes both as Markdown and
+         *     as a flat list of blocks, so the client can render it with its own
+         *     components.
          */
-        PublicPost: {
+        PublicDocument: {
             /** @description The body as a flat list of blocks; the recommended input for rendering. */
             body_blocks: components["schemas"]["Block"][];
             /** @description Raw Markdown, for clients that bring their own renderer. */
             body_markdown: string;
+            /** @description Category key: `blog`, `knowledge-base`, `legal` or `internal`. */
+            category: string;
             /** @description Path of the cover image, when set. */
             cover_url?: string | null;
+            /**
+             * Format: date-time
+             * @description When the text shown took effect.
+             */
+            effective_from: string;
             /** @description Short teaser. Derived from the first paragraph when none was written. */
             excerpt: string;
             /** @description Language tag such as `en`, when set; omitted otherwise. */
             locale?: string;
+            /** @description Where the document sits, root first. Empty for the category itself. */
+            path: components["schemas"]["PathStep"][];
             /**
              * Format: date-time
-             * @description When the post was first published.
+             * @description When the document was first published.
              */
             published_at?: string | null;
+            /** @description Who may read it. */
+            read_scope: components["schemas"]["Scope"];
             /**
              * Format: int32
              * @description Estimated reading time in minutes.
              */
             reading_minutes: number;
-            /** @description Stable public identifier. Link to posts by slug. */
+            /** @description Path under the site root where this document is read. */
+            site_path: string;
+            /** @description Permanent address. Link by this. */
             slug: string;
             tags: string[];
             title: string;
             /** Format: date-time */
             updated_at: string;
+            /**
+             * Format: int32
+             * @description Number of the text shown.
+             */
+            version: number;
+        };
+        /** @description A folder as a reader sees it in the navigation tree. */
+        PublicFolder: {
+            description: string;
+            /** Format: uuid */
+            id: string;
+            key: string;
+            /** Format: uuid */
+            parent_id?: string | null;
+            /** Format: int32 */
+            position: number;
+            title: string;
         };
         PushKeys: {
             /** @description `PushSubscription.getKey("auth")`, URL-safe base64. */
             auth: string;
             /** @description `PushSubscription.getKey("p256dh")`, URL-safe base64. */
             p256dh: string;
+        };
+        PushPreview: {
+            body: string;
+            title: string;
         };
         /**
          * @example {
@@ -6323,24 +8681,6 @@ export type components = {
             fee_label?: string | null;
             /** @description Price charged per card issued, decimal string, e.g. "5.00". */
             sell_price: string;
-        };
-        /** @description Pricing and availability of one card program. */
-        PutProgramPricingBody: {
-            /** @description What the provider charges per card, decimal string, e.g. "2.00". Must be 0 or more. */
-            cost_price?: string | null;
-            /** @description Currency of the prices, ISO 4217 code. Required when `sell_price` is set. */
-            currency?: string | null;
-            /** @description Label shown next to the fee in the client app. */
-            fee_label?: string | null;
-            /**
-             * Format: int32
-             * @description Order in which programs are tried within this connector. Lower comes first.
-             */
-            priority?: number | null;
-            /** @description What the user pays per card, decimal string, e.g. "5.00". Must be 0 or more. */
-            sell_price?: string | null;
-            /** @description `active` or `disabled`. */
-            status?: string | null;
         };
         PutSettingBody: {
             /** @description New value, as a string. Validated against the setting's constraint. */
@@ -6415,6 +8755,22 @@ export type components = {
             postgres: components["schemas"]["CheckResult"];
             redis: components["schemas"]["CheckResult"];
         };
+        /** @description What became of an uploaded recipient list. */
+        RecipientUpload: {
+            /**
+             * Format: int64
+             * @description Users now on the list: known, active end-user accounts.
+             */
+            accepted: number;
+            /** @description Lines that repeated an id already seen in the file. */
+            duplicates: number;
+            /** @description Lines that carried a value, the header not counted. */
+            rows: number;
+            /** @description Lines that are not a user id, or name no active end-user. */
+            unrecognised: number;
+            /** @description The first unrecognised lines, to find what went wrong in the file. */
+            unrecognised_sample: components["schemas"]["UnrecognisedLine"][];
+        };
         /**
          * @example {
          *       "action": "close"
@@ -6423,6 +8779,14 @@ export type components = {
         ReconcileBody: {
             /** @description `close` terminates the card at the provider and marks it `terminated`. `adopt` charges the user the unpaid load and marks it `active`. */
             action: string;
+        };
+        RefreshBody: {
+            /** @description The `remember_token` from the last sign-in or refresh. */
+            remember_token: string;
+        };
+        RefreshRequest: {
+            /** @description The `remember_token` from the last sign-in or refresh. */
+            remember_token: string;
         };
         /**
          * @example {
@@ -6489,9 +8853,19 @@ export type components = {
             body_telegram: string;
             /** @description No markup at all, for push and the text part of an email. */
             body_text: string;
+            /** @description Where the button goes. */
             button_href?: string | null;
+            /** @description Label of the button. */
             button_label?: string | null;
+            /** @description Picture above the message. */
             image_url?: string | null;
+            /**
+             * @description What the short channels carry when the sender wrote a short version.
+             *     Empty for a stored template: Telegram and push shorten the body
+             *     themselves.
+             */
+            short_text?: string | null;
+            /** @description The title with the values filled in. */
             title: string;
         };
         ResetTotpResult: {
@@ -6505,6 +8879,7 @@ export type components = {
         };
         RevealResponse: {
             billing_address?: null | components["schemas"]["Address"];
+            cardholder?: null | components["schemas"]["CardholderView"];
             /** @description Card security code. */
             cvv: string;
             /**
@@ -6577,6 +8952,12 @@ export type components = {
             /** @description What went wrong. */
             error: string;
         };
+        /**
+         * @description Who may read or edit a document. Ordered: each level includes the ones
+         *     before it.
+         * @enum {string}
+         */
+        Scope: "public" | "users" | "staff" | "operators";
         SessionView: {
             /** @description `true` for the session making this request. */
             current: boolean;
@@ -6613,6 +8994,18 @@ export type components = {
         SetEmailBody: {
             /** @description Email address to attach. Trimmed and lower-cased; must not be used by another account. */
             email: string;
+        };
+        /**
+         * @example {
+         *       "held": true,
+         *       "note": "Chargeback under review"
+         *     }
+         */
+        SetModerationBody: {
+            /** @description `true` puts the hold, `false` lifts it. */
+            held: boolean;
+            /** @description Why, for other operators. Kept with the hold and in the audit log. */
+            note?: string | null;
         };
         /**
          * @example {
@@ -6706,6 +9099,19 @@ export type components = {
             name?: string | null;
             status?: null | components["schemas"]["ShopStatus"];
         };
+        /** @description Where the new user came from, as the browser knows it. */
+        SignupAttribution: {
+            /** @description The visitor's anonymous id, the one the touches were sent with. */
+            anonymous_key?: string | null;
+            first_touch?: null | components["schemas"]["TouchFields"];
+            /** @description Google Analytics client id from its `_ga` cookie. */
+            ga_client_id?: string | null;
+            last_touch?: null | components["schemas"]["TouchFields"];
+            /** @description Yandex Metrica client id from its `_ym_uid` cookie. */
+            metrika_client_id?: string | null;
+            /** @description PostHog distinct id, so a report can open the session recording. */
+            posthog_distinct_id?: string | null;
+        };
         StatBucket: {
             /**
              * @description Sum of the amounts in this bucket, decimal string.
@@ -6730,6 +9136,81 @@ export type components = {
             count: number;
             /** @description Transaction status. */
             status: string;
+        };
+        /** @description One product on the storefront, with everything an operator can set. */
+        StorefrontProduct: {
+            /** @description Other designs a buyer may pick. */
+            allowed_design_ids: string[];
+            /** @description Selling points, one per entry, in the order they are listed. */
+            benefits: string[];
+            /**
+             * Format: int32
+             * @description How much of this card's price bonuses may cover, basis points; null follows the `bonus.share.card_issuance_bps` setting.
+             */
+            bonus_share_bps?: number | null;
+            /** @description Currency the card is held in, or null for a multi-currency program. */
+            card_currency?: string | null;
+            /**
+             * Format: int64
+             * @description Cards issued on this program so far.
+             */
+            cards_issued: number;
+            /** @description What the provider charges per card, decimal string. For the operator's books. */
+            cost_price?: string | null;
+            /** @description Longer description on the product card. */
+            description?: string | null;
+            /**
+             * Format: uuid
+             * @description Default design; null = the deployment's default design.
+             */
+            design_id?: string | null;
+            /** @description Properties shown to buyers, e.g. `{"scheme": "mastercard", "apple_pay": true}`. */
+            features: Record<string, never>;
+            /** @description Operator's note on the price, e.g. the provider's tariff name. Never shown to buyers. */
+            fee_label?: string | null;
+            /**
+             * Format: uuid
+             * @description Product id: what buyers see and send back as `product_id`.
+             */
+            id: string;
+            /** @description True for the product a card gets when the buyer does not choose one. Decided by the issuance cascade, not by the storefront order. */
+            is_default: boolean;
+            /** @description Arrived from the provider and not looked at yet. Saving the product clears it. */
+            is_new: boolean;
+            /** @description Provenance and issuance settings. */
+            issuance: components["schemas"]["IssuanceInfo"];
+            /** @description Name buyers see. Null until an operator gives one; a product is not sold without it. */
+            name?: string | null;
+            /** @description Why not, when `on_sale` is false: `hidden`, `unnamed`, `program_disabled` or `connector_disabled`. */
+            not_on_sale_reason?: string | null;
+            /** @description True when buyers can see and order this product right now. */
+            on_sale: boolean;
+            /** @description Currency of `sell_price` when it differs from the card's; null means the card currency. */
+            price_currency?: string | null;
+            /** @description What the buyer pays per card, decimal string. Null: the card is free. */
+            sell_price?: string | null;
+            /**
+             * Format: int32
+             * @description Position on the storefront, lower first. Change it with the order endpoint.
+             */
+            storefront_position: number;
+            /** @description One line under the name on the tile. */
+            tagline?: string | null;
+            /** @description Picture for the tile, absolute URL. Null: the default design is shown instead. */
+            tile_image_url?: string | null;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description The operator's switch: on the storefront or kept for operator and business issuance only. */
+            visible_to_users: boolean;
+        };
+        /** @description The whole storefront. */
+        StorefrontView: {
+            /** @description Every wallet currency a buyer may hold here. */
+            buyer_currencies: string[];
+            /** @description Currency buyers hold by default on this deployment: the natural currency for prices. */
+            buyer_currency: string;
+            /** @description Every product of every card connector, in storefront order. */
+            products: components["schemas"]["StorefrontProduct"][];
         };
         /** @description A subscription plan. */
         SubscriptionTier: {
@@ -6775,6 +9256,18 @@ export type components = {
             /** @description Channels the user is subscribed to, e.g. `["email"]`. */
             channels: string[];
         };
+        /**
+         * @example {
+         *       "answer": "other",
+         *       "other_text": "A podcast"
+         *     }
+         */
+        SurveyBody: {
+            /** @description `friend` (a friend told me), `telegram_channel` (saw it in a Telegram channel), `search` (found it through search), `ads` (an ad), `review` (a review or an article), `other`, or `skipped` when the user closed the question. */
+            answer: string;
+            /** @description The user's own words for `other`, up to 500 characters. Ignored for the other answers. */
+            other_text?: string | null;
+        };
         SwitchBody: {
             /** @description The `challenge_token` from the `totp_required` login response. Always send that original token, also when switching again; a token from an earlier switch is not accepted. */
             challenge_token: string;
@@ -6802,12 +9295,26 @@ export type components = {
             /** @enum {string} */
             stage: "otp_sent";
         };
+        /** @description The storefront after a pull. */
+        SyncResult: components["schemas"]["StorefrontView"] & {
+            connectors: components["schemas"]["ConnectorSyncOutcome"][];
+        };
+        /** @description A tag and how many documents carry it. */
+        TagCount: {
+            /**
+             * Format: int64
+             * @description Published documents you may read that carry it.
+             */
+            count: number;
+            tag: string;
+        };
         /**
          * @example {
          *       "init_data": "query_id=AAH...&user=%7B%22id%22%3A777000%2C%22first_name%22%3A%22Alice%22%7D&auth_date=1700000000&hash=abcdef..."
          *     }
          */
         TelegramExchangeBody: {
+            attribution?: null | components["schemas"]["SignupAttribution"];
             /** @description Raw `window.Telegram.WebApp.initData` string as handed to the Mini App by the Telegram client; verified server-side against the bot token. */
             init_data: string;
             /** @description Create an account for a Telegram id seen for the first time. Defaults to `true`. Send `false` to get `404 telegram_unknown` instead, so the app can offer "create an account" or "I already have one" (`POST /auth/telegram/link`). */
@@ -6888,7 +9395,10 @@ export type components = {
             button_label?: string | null;
             /** @description The event this is the text for, e.g. `deposit_confirmed`. */
             event_type: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Row id.
+             */
             id: string;
             /** @description Shown above the message where the channel supports it. */
             image_url?: string | null;
@@ -6898,7 +9408,10 @@ export type components = {
             render_error?: string | null;
             /** @description Headline: the email subject, the inbox and push title. */
             title: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description Last saved.
+             */
             updated_at: string;
         };
         /**
@@ -6906,19 +9419,30 @@ export type components = {
          *     has something to fall back to.
          */
         TemplateVersion: {
+            /** @description Body as saved. */
             body_markdown: string;
+            /** @description Button link as saved. */
             button_href?: string | null;
+            /** @description Button label as saved. */
             button_label?: string | null;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When it was saved.
+             */
             changed_at: string;
             /**
              * Format: uuid
              * @description The operator who saved it; null for the versions the migration brought in.
              */
             changed_by?: string | null;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Version id.
+             */
             id: string;
+            /** @description Picture as saved. */
             image_url?: string | null;
+            /** @description Title as saved. */
             title: string;
         };
         TerminateBody: {
@@ -6942,6 +9466,19 @@ export type components = {
              * @description Number of sessions that were signed out.
              */
             revoked_sessions: number;
+        };
+        TestBody: {
+            /** @description `transactional` or `broadcast`. */
+            lane: components["schemas"]["Lane"];
+        };
+        /** @description A picture for the tile. */
+        TileImageBody: {
+            /** @description `image/png`, `image/webp` or `image/jpeg`. */
+            content_type: string;
+            /** @description The file, base64 (a `data:` URL is accepted too). Up to 1 MiB. */
+            data_base64: string;
+            /** @description Original file name, kept for the audit trail only. */
+            filename?: string | null;
         };
         TopupBody: {
             /** @description Amount to add, decimal string, e.g. "500.00". Must be positive. */
@@ -6985,6 +9522,73 @@ export type components = {
             challenge_token: string;
             /** @description 6-digit code from the authenticator app; surrounding whitespace is ignored. */
             code: string;
+            /** @description Keep this browser signed in; see `POST /auth/refresh`. */
+            remember_me?: boolean;
+        };
+        /**
+         * @example {
+         *       "anonymous_key": "8f14e45f-ceea-467a-9575-2b2f3c1d0a77",
+         *       "platform": "web",
+         *       "referrer": "https://t.me/",
+         *       "url": "https://example.com/?utm_source=telegram&utm_campaign=spring-promo"
+         *     }
+         */
+        TouchBody: components["schemas"]["TouchFields"] & {
+            /** @description The visitor's anonymous id: a random value kept in a cookie and in local storage for a year, 8 to 64 letters, digits, dashes or underscores. In the Telegram Mini App, `tg:` followed by the Telegram user id. */
+            anonymous_key: string;
+        };
+        /**
+         * @description A visit as the front end saw it.
+         * @example {
+         *       "platform": "web",
+         *       "referrer": "https://yandex.ru/",
+         *       "url": "https://example.com/cards?utm_source=yandex&utm_medium=cpc&utm_campaign=spring-promo&yclid=123"
+         *     }
+         */
+        TouchFields: {
+            /** @description The code from a Telegram link to the bot or the Mini App (`start` / `startapp`). */
+            campaign_code?: string | null;
+            /** @description Google Analytics client id from its `_ga` cookie. */
+            ga_client_id?: string | null;
+            /** @description Yandex Metrica client id from its `_ym_uid` cookie. */
+            metrika_client_id?: string | null;
+            /**
+             * Format: date-time
+             * @description When the visit happened, for a touch the browser kept and sends later. Defaults to now; a time in the future counts as now.
+             */
+            occurred_at?: string | null;
+            /** @description `web`, `miniapp` or `app`. Taken from the `X-Takeal-Client` header when left out. */
+            platform?: string | null;
+            /** @description `document.referrer` as the browser gave it. Leave it out or empty for none. */
+            referrer?: string | null;
+            /** @description Full address of the page the visit landed on, query included, as the browser shows it. Tags and click ids are read from it; anything that looks like an e-mail address, a phone number or a secret is dropped. */
+            url?: string | null;
+        };
+        TouchRecorded: {
+            /** @description `false` when the visit brought nothing new (a reload, a return with no tags and no foreign referrer) or the visitor already has fifty touches. */
+            recorded: boolean;
+        };
+        TouchView: {
+            campaign_code?: string | null;
+            channel: string;
+            click_ids: Record<string, never>;
+            /** Format: uuid */
+            id: string;
+            /** @description `tag`, `referrer`, `telegram` or `first_visit`. */
+            kind: string;
+            landing_host?: string | null;
+            landing_path: string;
+            /** Format: date-time */
+            occurred_at: string;
+            /** @description `web`, `miniapp` or `app`. */
+            platform: string;
+            referrer?: string | null;
+            source?: string | null;
+            utm_campaign?: string | null;
+            utm_content?: string | null;
+            utm_medium?: string | null;
+            utm_source?: string | null;
+            utm_term?: string | null;
         };
         TransactionItem: {
             /**
@@ -7067,6 +9671,28 @@ export type components = {
             /** @description The wallet after the transfer. It holds the money when `transfer.status` is `on_wallet`. */
             wallet: components["schemas"]["BalanceResponse"];
         };
+        /** @description The navigation tree: folders and the documents in them. */
+        Tree: {
+            /** @description Published documents you may read, in folder order. */
+            documents: components["schemas"]["TreeEntry"][];
+            /** @description Every folder with at least one document you may read under it, plus the categories. */
+            folders: components["schemas"]["PublicFolder"][];
+        };
+        /** @description A document as it appears in the navigation tree: enough for a link. */
+        TreeEntry: {
+            excerpt: string;
+            /** Format: uuid */
+            folder_id: string;
+            /** Format: int32 */
+            position: number;
+            /** @description Path under the site root where this document is read. */
+            site_path: string;
+            slug: string;
+            tags: string[];
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
         UnlinkTelegramResult: {
             /** @description True when a Telegram link was removed, false when the user had none. */
             removed: boolean;
@@ -7079,6 +9705,11 @@ export type components = {
         UnreadCount: {
             /** Format: int64 */
             unread: number;
+        };
+        UnrecognisedLine: {
+            /** @description Line number in the file, from 1. */
+            line: number;
+            value: string;
         };
         UpdateEndpointBody: {
             /** @description New event filter. Empty list means every event. */
@@ -7122,6 +9753,10 @@ export type components = {
             /** @description Original file name, optional. */
             filename?: string;
         };
+        UploadResult: {
+            /** @description Conversions sent in this run. Each event is sent once, so a second run right after sends nothing new. */
+            uploaded: number;
+        };
         UploadedAsset: {
             /** @description Permanent public URL of the file. Paste it into a branding setting. */
             url: string;
@@ -7147,7 +9782,10 @@ export type components = {
          *     product and the design instead.
          */
         UserCardView: {
+            bonus?: null | components["schemas"]["IssuanceBonus"];
             card_type: components["schemas"]["CardType"];
+            /** @description Why the card can't be closed right now, null when it can: `first_purchase_required` (it closes after its first purchase) or `card_locked` (only support can change it). */
+            close_blocked?: string | null;
             /** Format: date-time */
             created_at: string;
             currency: string;
@@ -7157,7 +9795,7 @@ export type components = {
             expiry_month?: number | null;
             /** Format: int32 */
             expiry_year?: number | null;
-            /** @description Why issuance failed, for a `failed` card. */
+            /** @description For a `failed` card, a sentence for the holder saying it wasn't issued. Null otherwise. */
             failure_reason?: string | null;
             /** Format: uuid */
             id: string;
@@ -7224,6 +9862,8 @@ export type components = {
             updated_at: string;
         };
         UserRow: {
+            /** @description Bonuses the user can use, decimal string; bonuses held for a payment still going through are not counted. */
+            bonus_balance: string;
             /**
              * Format: int64
              * @description Number of cards the user has been issued.
@@ -7291,6 +9931,27 @@ export type components = {
             tier_name: string;
             /** Format: uuid */
             user_id: string;
+        };
+        /** @description A version without its text: the list a reader picks a past redaction from. */
+        VersionSummary: {
+            /** Format: date-time */
+            changed_at: string;
+            /**
+             * Format: date-time
+             * @description When this text takes effect.
+             */
+            effective_from: string;
+            /** @description What changed, in the editor's words. */
+            note: string;
+            title: string;
+            /** Format: int32 */
+            version: number;
+        };
+        /** @description Fields to change on a saved version: its date and its note. */
+        VersionUpdate: {
+            /** Format: date-time */
+            effective_from?: string | null;
+            note?: string | null;
         };
         WalletBalanceRow: {
             /**
@@ -7596,7 +10257,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminPostView"][];
+                    "application/json": components["schemas"]["DocumentSummary"][];
                 };
             };
             /** @description Not permitted */
@@ -7617,7 +10278,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["NewPost"];
+                "application/json": components["schemas"]["NewDocument"];
             };
         };
         responses: {
@@ -7626,7 +10287,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminPostView"];
+                    "application/json": components["schemas"]["DocumentDetail"];
                 };
             };
             /** @description Validation error */
@@ -7661,7 +10322,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminPostView"];
+                    "application/json": components["schemas"]["DocumentDetail"];
                 };
             };
             /** @description Not found */
@@ -7711,7 +10372,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PostUpdate"];
+                "application/json": components["schemas"]["DocumentUpdate"];
             };
         };
         responses: {
@@ -7720,7 +10381,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminPostView"];
+                    "application/json": components["schemas"]["DocumentDetail"];
                 };
             };
             /** @description Validation error */
@@ -7769,7 +10430,444 @@ export interface operations {
                     "application/json": components["schemas"]["BroadcastResult"];
                 };
             };
-            /** @description Unknown channel, or the post is not published */
+            /** @description This version was already sent on this channel */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    broadcast_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The draft broadcast */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastRow"];
+                };
+            };
+            /** @description No such post */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_broadcasts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Broadcasts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastRow"][];
+                };
+            };
+            /** @description Missing the broadcasts.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_broadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BroadcastBody"];
+            };
+        };
+        responses: {
+            /** @description Draft written */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastRow"];
+                };
+            };
+            /** @description Empty title or body, unknown channel, segment or category */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the broadcasts.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    count_segment: {
+        parameters: {
+            query: {
+                /** @description all · marketing · has_card · has_deposit · tier · locale · list */
+                segment_kind: string;
+                /** @description The tier code or the language, for the segments that take one */
+                segment_value?: string;
+                /** @description Defaults to marketing, which reaches only the users who consented */
+                category?: string;
+                /** @description The broadcast whose uploaded list the `list` segment counts */
+                broadcast_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The number of recipients */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudienceCount"];
+                };
+            };
+            /** @description Unknown segment */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the broadcasts.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_broadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The broadcast with its report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastDetail"];
+                };
+            };
+            /** @description Missing the broadcasts.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such broadcast */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_broadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BroadcastBody"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastRow"];
+                };
+            };
+            /** @description Empty title or body, unknown channel, segment or category */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the broadcasts.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such broadcast */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_broadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the broadcasts.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such broadcast */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    preview_broadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One message, three shapes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastPreview"];
+                };
+            };
+            /** @description Missing the broadcasts.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such broadcast */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    upload_recipients: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description User ids, one per line */
+        requestBody: {
+            content: {
+                "text/csv": string;
+            };
+        };
+        responses: {
+            /** @description What was accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipientUpload"];
+                };
+            };
+            /** @description Missing the broadcasts.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such broadcast */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    send_broadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Handed over */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastSend"];
+                };
+            };
+            /** @description The broadcast has no title or body, or email is ticked while broadcast mail is not set up (`mail_lane_off`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the broadcasts.send permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such broadcast */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description These exact words have already been sent (`already_sent`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_campaigns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignList"];
+                };
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_campaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewCampaign"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            /** @description The code or a field is not valid */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7783,15 +10881,48 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description This version of the post was already sent on this channel */
+            /** @description The code is taken (`campaign_exists`) */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description The channel is disabled on this deployment */
-            503: {
+        };
+    };
+    update_campaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Campaign code, any case */
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CampaignPatch"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such code */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7988,6 +11119,44 @@ export interface operations {
                 };
             };
             /** @description Missing the cards.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    generate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateCardholderBody"];
+            };
+        };
+        responses: {
+            /** @description Made-up holder details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerInfo"];
+                };
+            };
+            /** @description The country or state is not one the platform can place a holder in */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the cards.lifecycle permission */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -8270,6 +11439,47 @@ export interface operations {
             };
             /** @description Connector unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    set_moderation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Card UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetModerationBody"];
+            };
+        };
+        responses: {
+            /** @description The hold after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModerationState"];
+                };
+            };
+            /** @description Not an operator */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such card */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9051,136 +12261,6 @@ export interface operations {
             };
         };
     };
-    sync_programs: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Card connector slug */
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Programs with pricing after the sync */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProgramView"][];
-                };
-            };
-            /** @description Missing connectors.write permission */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Connector unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    patch_program: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Card connector slug */
-                slug: string;
-                /** @description Program id as returned by the program list */
-                program_code: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PatchProgramBody"];
-            };
-        };
-        responses: {
-            /** @description Updated program */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProgramView"];
-                };
-            };
-            /** @description A design that does not exist or is disabled (`unknown_design`), or `features` is not an object */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing connectors.write permission */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unknown program. Sync the connector first */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    put_program_pricing: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Card connector slug */
-                slug: string;
-                /** @description Program id as returned by the program list */
-                program_code: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PutProgramPricingBody"];
-            };
-        };
-        responses: {
-            /** @description Updated program */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProgramView"];
-                };
-            };
-            /** @description Negative price, invalid currency, missing currency, or bad status */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unknown program. Sync the connector first */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     rotate_connector: {
         parameters: {
             query?: never;
@@ -9247,6 +12327,602 @@ export interface operations {
                 content?: never;
             };
             /** @description Unknown connector slug */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_documents: {
+        parameters: {
+            query?: {
+                /** @description Words to search for in the title and the text. */
+                q?: string | null;
+                tag?: string | null;
+                /** @description Category key. */
+                category?: string | null;
+                /** @description Only this folder and the folders under it. */
+                folder_id?: string | null;
+                /** @description `draft`, `published` or `archived`. */
+                status?: string | null;
+                /** @description Only documents with exactly this read level. */
+                read_scope?: null | components["schemas"]["Scope"];
+                locale?: string | null;
+                /** @description Page number, starting at 1. */
+                page?: number | null;
+                /** @description Rows per page. Default 50, max 200. */
+                per_page?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDocumentList"];
+                };
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_document: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDocument"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentDetail"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted, or a level above your own */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Slug already taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_folders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Folder"][];
+                };
+            };
+        };
+    };
+    create_folder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewFolder"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Folder"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such parent */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A folder with that key already exists here */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_folder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not empty, or a category */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such folder */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patch_folder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FolderUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Folder"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such folder */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A folder with that key already exists here */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_list_images: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageView"][];
+                };
+            };
+        };
+    };
+    admin_upload_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadImageBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageView"];
+                };
+            };
+            /** @description Bad base64, unsupported type, or over the size limit */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preview"];
+                };
+            };
+        };
+    };
+    list_tags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTagCount"][];
+                };
+            };
+        };
+    };
+    get_document: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentDetail"];
+                };
+            };
+            /** @description Not found, or above your level */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_document: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Edited by a level above yours */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patch_document: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentDetail"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Edited by a level above yours, or a level above your own */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Slug already taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_broadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BroadcastBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastResult"];
+                };
+            };
+            /** @description Unknown channel, the document is not published, or it is not readable by users */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description This version was already sent on this channel */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The channel is disabled on this deployment */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_broadcast_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The draft broadcast */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastRow"];
+                };
+            };
+            /** @description Missing the broadcasts.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such document */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                /** @description Version number */
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentVersion"];
+                };
+            };
+            /** @description No such document or version */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patch_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                /** @description Version number */
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentVersion"];
+                };
+            };
+            /** @description Edited by a level above yours */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such document or version */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -9325,6 +13001,225 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    lanes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Both lanes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailLanes"];
+                };
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_layout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The layout in use */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutView"];
+                };
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    put_layout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MailLayout"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutView"];
+                };
+            };
+            /** @description Does not render, or leaves out the message or the unsubscribe link */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_layout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The shipped layout is in use again */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutView"];
+                };
+            };
+            /** @description Missing the settings.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    preview_layout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LayoutPreviewBody"];
+            };
+        };
+        responses: {
+            /** @description The rendered email */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailParts"];
+                };
+            };
+            /** @description The layout does not render */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    test_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestBody"];
+            };
+        };
+        responses: {
+            /** @description Queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The lane is not configured (`mail_lane_off`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The notification substrate is not reachable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    my_access: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyAccess"];
+                };
             };
         };
     };
@@ -10470,6 +14365,46 @@ export interface operations {
             };
         };
     };
+    upload_now: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadResult"];
+                };
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Uploads are off, or the counter or token is missing (`metrika_not_configured`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Metrica refused the upload (`metrika_error`) */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_templates: {
         parameters: {
             query?: never;
@@ -10685,6 +14620,130 @@ export interface operations {
             };
             /** @description The notification substrate is not reachable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_dead_letters: {
+        parameters: {
+            query?: {
+                /** @description `open` (not retried yet, the default), `retried` or `all`. */
+                state?: string;
+                /** @description 1 to 200. Default 50. */
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeadLetterPage"];
+                };
+            };
+            /** @description Unknown state or limit out of range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    retry_dead_letter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeadLetter"];
+                };
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such failed notification */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description This notification can't be sent again */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The queue didn't take it; try again */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deliveries: {
+        parameters: {
+            query?: {
+                /** @description Window in hours back from now, 1 to 720. Default 24. */
+                hours?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveriesReport"];
+                };
+            };
+            /** @description hours out of range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11677,6 +15736,254 @@ export interface operations {
             };
         };
     };
+    get_storefront: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorefrontView"];
+                };
+            };
+            /** @description Missing the storefront.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    put_order: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderBody"];
+            };
+        };
+        responses: {
+            /** @description The storefront in its new order */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorefrontView"];
+                };
+            };
+            /** @description An id is listed twice (`duplicate_id`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the storefront.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An id names no product */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patch_product: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Product id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchProductBody"];
+            };
+        };
+        responses: {
+            /** @description The product after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorefrontProduct"];
+                };
+            };
+            /** @description A value out of bounds (`validation`), a design that does not exist or is disabled (`unknown_design`), or putting an unnamed product on sale (`unnamed_product`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the storefront.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such product */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    upload_tile_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Product id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TileImageBody"];
+            };
+        };
+        responses: {
+            /** @description The product with its new tile picture */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorefrontProduct"];
+                };
+            };
+            /** @description Unsupported or oversized file (`unsupported_image`, `image_too_large`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the storefront.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such product */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No file storage on this deployment (`object_store_not_configured`) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    put_issuance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Product id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssuanceBody"];
+            };
+        };
+        responses: {
+            /** @description The product after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorefrontProduct"];
+                };
+            };
+            /** @description Bad status */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the connectors.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such product */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    sync_storefront: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncResult"];
+                };
+            };
+            /** @description Missing the storefront.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_tiers: {
         parameters: {
             query?: never;
@@ -11857,6 +16164,42 @@ export interface operations {
             };
         };
     };
+    user_attribution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttributionView"];
+                };
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     get_user_balance: {
         parameters: {
             query?: {
@@ -11972,6 +16315,90 @@ export interface operations {
             };
             /** @description Not an operator */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_user_bonus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BonusSnapshot"];
+                };
+            };
+            /** @description Missing the users.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_bonus_adjust: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BonusAdjustBody"];
+            };
+        };
+        responses: {
+            /** @description The user's bonuses after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BonusSnapshot"];
+                };
+            };
+            /** @description Zero amount, more than two decimal places, a note that is too short, or an end date in the past */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the users.bonus.adjust permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `not_enough_bonuses`: the user holds fewer than the amount taken back */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12490,6 +16917,37 @@ export interface operations {
             };
         };
     };
+    post_touch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TouchBody"];
+            };
+        };
+        responses: {
+            /** @description Whether the visit was stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TouchRecorded"];
+                };
+            };
+            /** @description The anonymous key is malformed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -12693,6 +17151,28 @@ export interface operations {
             };
         };
     };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogoutBody"];
+            };
+        };
+        responses: {
+            /** @description Signed out */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     me: {
         parameters: {
             query?: never;
@@ -12749,6 +17229,37 @@ export interface operations {
                 content?: never;
             };
             /** @description Current password is wrong */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    refresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshBody"];
+            };
+        };
+        responses: {
+            /** @description New session and a new remember token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description The token no longer works (`remember_token_invalid`): sign in again */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -12983,7 +17494,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PublicPost"];
+                    "application/json": components["schemas"]["PublicDocument"];
                 };
             };
             /** @description No published post with that slug */
@@ -13004,7 +17515,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Products in the order they are issued, the default first */
+            /** @description Products in storefront order; `is_default` marks the one issued when none is chosen */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -13015,6 +17526,386 @@ export interface operations {
             };
             /** @description Not modified since the `If-None-Match` tag */
             304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    documents_list_documents: {
+        parameters: {
+            query?: {
+                /** @description Category key: `blog`, `knowledge-base`, `legal` or `internal`. */
+                category?: string | null;
+                /** @description Only documents in this folder and the folders under it. */
+                folder_id?: string | null;
+                /** @description Only documents carrying this tag. */
+                tag?: string | null;
+                /** @description Only documents in this locale. */
+                locale?: string | null;
+                /** @description Words to search for in the title and the text. */
+                q?: string | null;
+                /** @description 1-based page number. Default 1. */
+                page?: number | null;
+                /** @description Documents per page, 1..=50. Default 10. */
+                per_page?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of documents */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentList"];
+                };
+            };
+            /** @description Unknown category or folder */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    documents_get_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Image id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": unknown;
+                };
+            };
+            /** @description Not modified */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such image */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    tags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tags with counts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagCount"][];
+                };
+            };
+        };
+    };
+    tree: {
+        parameters: {
+            query?: {
+                /** @description Category key. The whole tree when omitted. */
+                category?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Folders and documents */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Tree"];
+                };
+            };
+            /** @description Unknown category */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    documents_get_document: {
+        parameters: {
+            query?: {
+                /** @description Show the text that was in force at this moment (RFC 3339). The current text when omitted. */
+                at?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description Document address */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicDocument"];
+                };
+            };
+            /** @description No document you may read at that address, or no text in force at that moment */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_versions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Document address */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Versions, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionSummary"][];
+                };
+            };
+            /** @description No document you may read at that address */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    documents_get_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Document address */
+                slug: string;
+                /** @description Version number, from the versions list */
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The document at that version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicDocument"];
+                };
+            };
+            /** @description No such document or version */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    postmark_events: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PostmarkEvent"];
+            };
+        };
+        responses: {
+            /** @description Recorded, or not one of ours */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wrong or missing password */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No webhook password is set */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    unsubscribe_page: {
+        parameters: {
+            query?: {
+                /** @description The token from the email. */
+                t?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The confirmation page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": unknown;
+                };
+            };
+            /** @description Not a valid link */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": unknown;
+                };
+            };
+        };
+    };
+    unsubscribe: {
+        parameters: {
+            query?: {
+                /** @description The token from the email. */
+                t?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unsubscribed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": unknown;
+                };
+            };
+            /** @description Not a valid link */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": unknown;
+                };
+            };
+        };
+    };
+    my_attribution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyAttribution"];
+                };
+            };
+        };
+    };
+    answer_survey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SurveyBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyAttribution"];
+                };
+            };
+            /** @description Not one of the answers */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already answered (`survey_answered`) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13044,6 +17935,69 @@ export interface operations {
             };
         };
     };
+    my_bonus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BonusSnapshot"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    me_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewView"];
+                };
+            };
+            /** @description An amount that is not positive, or an invalid currency */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_products: {
         parameters: {
             query?: never;
@@ -13053,7 +18007,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Products in the order they are issued */
+            /** @description Products in storefront order */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -13159,21 +18113,21 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Wallet balance is too low for the card's price */
+            /** @description Wallet balance is too low for the part of the price bonuses don't cover */
             402: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Idempotency-Key reused with a different body */
+            /** @description Idempotency-Key reused with a different body, or `cardholder_verification_required`: the product only issues to a verified person and no verified details were given */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description No card connector is configured on this deployment */
+            /** @description No card connector is configured on this deployment, or no holder could be prepared for the product's country */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -13287,6 +18241,20 @@ export interface operations {
                     "application/json": components["schemas"]["BalanceResponse"];
                 };
             };
+            /** @description `currency` is not the card's currency */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `balance_unavailable`: the balance can't be read right now; try again in a minute */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     me_freeze_card: {
@@ -13360,6 +18328,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description `card_locked`: the card is frozen and only support can change it */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Too many reveals; try again later */
             429: {
                 headers: {
@@ -13407,6 +18382,13 @@ export interface operations {
             };
             /** @description No such card */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `first_purchase_required`: the card closes after its first purchase; `card_locked`: only support can close this card; `move_balance_first`: the card still holds money and you have another open card in the same currency, move it there with `POST /me/cards/{id}/transfer` first; `contact_support_to_close`: the card still holds money and there is no other card to move it to, support closes it; `provider_refused`: the issuer declined, the card is unchanged */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13633,6 +18615,13 @@ export interface operations {
             };
             /** @description No such card */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `card_locked`: only support can unfreeze this card */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14001,6 +18990,48 @@ export interface operations {
             };
             /** @description Email already in use */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    my_history: {
+        parameters: {
+            query?: {
+                /** @description Only this card's operations, transfers to and from it included. */
+                card_id?: string;
+                /** @description `next_cursor` of the previous page. */
+                cursor?: string;
+                /** @description Page size, 1 to 100, default 30. */
+                limit?: number;
+                /** @description `en` or `ru` for `title` and decline reasons. Defaults to the `Accept-Language` header, then English. */
+                lang?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoryPage"];
+                };
+            };
+            /** @description Bad cursor or limit */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `card_id` is not one of your cards */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14677,6 +19708,28 @@ export interface operations {
             };
         };
     };
+    org_logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogoutRequest"];
+            };
+        };
+        responses: {
+            /** @description Forgotten */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     org_me: {
         parameters: {
             query?: never;
@@ -14696,6 +19749,37 @@ export interface operations {
                 };
             };
             /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    org_refresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshRequest"];
+            };
+        };
+        responses: {
+            /** @description New token and a new remember token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description The token no longer works (`remember_token_invalid`): sign in again */
             401: {
                 headers: {
                     [name: string]: unknown;

@@ -8,6 +8,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Bonuses: `client.bonus.get()` (balance, where bonuses can go, credits,
+  history) and `client.bonus.preview()` ("was / now" for a price, worked out
+  on the server). `cards.create` takes `useBonus` and `bonusAmount` and
+  returns `bonus` when bonuses paid part of the price; `deposits.initiate`
+  takes `use_bonus` and `bonus_amount`, and a deposit carries `bonus_units`
+  and `bonus_value`. History gets `bonus` entries. Sub-export
+  `@takeal/cusfront-sdk/bonus`.
+
 - "Remember me": `auth.login({ remember: true })` (and `verifyTotp`,
   `verifyOtp`, `completeTotpSetup`, `register`) keeps the remember token
   the API returns in a `rememberStore` (localStorage `takeal_remember` by

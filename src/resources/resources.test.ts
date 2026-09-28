@@ -4,6 +4,7 @@ import { inMemoryStore } from "../token-store.js";
 import { DepositsResource, type Deposit, type Refund } from "./deposits.js";
 import { CardsResource, type Card, type CardBalance, type CardProduct } from "./cards.js";
 import { BalanceResource, type Balance } from "./balance.js";
+import { BonusResource, type BonusPreview, type BonusWallet } from "./bonus.js";
 import { BrandingResource, type Branding } from "./branding.js";
 import { BlogResource } from "./blog.js";
 import { DocumentsResource } from "./documents.js";
@@ -236,6 +237,23 @@ describe("CardsResource", () => {
     });
   });
 
+  it("create maps useBonus / bonusAmount to use_bonus / bonus_amount", async () => {
+    const { captured, http } = rig(CARD, 201);
+    await new CardsResource(http).create({
+      productId: "prod_1",
+      currency: "USD",
+      useBonus: true,
+      bonusAmount: "5",
+      idempotencyKey: "idem-card-4",
+    });
+    expect(bodyOf(captured[0]!)).toEqual({
+      product_id: "prod_1",
+      currency: "USD",
+      use_bonus: true,
+      bonus_amount: "5",
+    });
+  });
+
   it("listProducts / getProduct GET /me/card-products[/{id}]", async () => {
     const { captured, http } = rig([PRODUCT]);
     const list = await new CardsResource(http).listProducts();
@@ -377,6 +395,54 @@ describe("CardsResource", () => {
     expect(captured[0]!.url).toBe("https://api.test/v1/me/cards/card_1/reveal");
     expect(captured[0]!.init.method).toBe("POST");
     expect(captured[0]!.init.body ?? null).toBeNull();
+  });
+});
+
+describe("BonusResource", () => {
+  it("get GETs /me/bonus", async () => {
+    const wallet: BonusWallet = {
+      balance: "300",
+      pending: "0",
+      unit_currency: "USD",
+      spend_on: [{ purpose: "card_issuance", available: "300", share_bps: 10000 }],
+      lots: [],
+      history: [],
+    };
+    const { captured, http } = rig(wallet);
+    const out = await new BonusResource(http).get();
+    expect(out).toEqual(wallet);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/bonus");
+    expect(captured[0]!.init.method).toBe("GET");
+  });
+
+  it("preview POSTs /me/bonus/preview with snake_case optionals", async () => {
+    const preview: BonusPreview = {
+      purpose: "card_issuance",
+      amount: "10",
+      bonus_units: "5",
+      bonus_value: "5",
+      due: "5",
+      credited: null,
+      currency: "USD",
+    };
+    const { captured, http } = rig(preview);
+    const out = await new BonusResource(http).preview({
+      purpose: "card_issuance",
+      amount: "10",
+      currency: "USD",
+      productId: "prod_1",
+      bonusAmount: "7",
+    });
+    expect(out).toEqual(preview);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/bonus/preview");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({
+      purpose: "card_issuance",
+      amount: "10",
+      currency: "USD",
+      product_id: "prod_1",
+      bonus_amount: "7",
+    });
   });
 });
 

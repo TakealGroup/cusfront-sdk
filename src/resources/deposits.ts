@@ -88,6 +88,10 @@ export interface Deposit {
   credited_currency?: string | null;
   /** What the wallet was actually credited, net of spread. */
   credited_amount?: string | null;
+  /** Bonuses added on top of the top-up, when any were. */
+  bonus_units?: string | null;
+  /** What those bonuses added to the wallet, in the credited currency. */
+  bonus_value?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -128,6 +132,15 @@ export interface InitiateDepositInput {
    * rejected with 400; expired quotes with 409.
    */
   quote_id?: string;
+  /**
+   * Add bonuses on top of the top-up: the user pays `amount`, the wallet
+   * gets `amount` plus what the bonuses add. On by default whenever the
+   * user has bonuses that can go to a top-up (only ones that came with a
+   * payment can); `false` tops up without them.
+   */
+  use_bonus?: boolean;
+  /** The most bonuses to add, decimal string. Omit to add as many as allowed. */
+  bonus_amount?: string;
 }
 
 export interface CreateDepositRefundInput {

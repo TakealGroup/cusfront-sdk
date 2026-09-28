@@ -37,6 +37,11 @@
       "import": "./dist/resources/balance.js",
       "require": "./dist/resources/balance.cjs"
     },
+    "./bonus": {
+      "types": "./dist/resources/bonus.d.ts",
+      "import": "./dist/resources/bonus.js",
+      "require": "./dist/resources/bonus.cjs"
+    },
     "./branding": {
       "types": "./dist/resources/branding.d.ts",
       "import": "./dist/resources/branding.js",

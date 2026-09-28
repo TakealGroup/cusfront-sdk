@@ -16,6 +16,7 @@ import { AuthResource } from "./resources/auth.js";
 import { DepositsResource } from "./resources/deposits.js";
 import { CardsResource } from "./resources/cards.js";
 import { BalanceResource } from "./resources/balance.js";
+import { BonusResource } from "./resources/bonus.js";
 import { BrandingResource } from "./resources/branding.js";
 import { WalletResource } from "./resources/wallet.js";
 import { BlogResource } from "./resources/blog.js";
@@ -87,8 +88,18 @@ export type {
   TransferInput,
   CardTransfer,
   TransferResult,
+  IssuanceBonus,
 } from "./resources/cards.js";
 export type { Balance } from "./resources/balance.js";
+export type {
+  BonusLot,
+  BonusMovement,
+  BonusPreview,
+  BonusPreviewInput,
+  BonusPurpose,
+  BonusTarget,
+  BonusWallet,
+} from "./resources/bonus.js";
 export type { Branding } from "./resources/branding.js";
 export type { Wallet } from "./resources/wallet.js";
 export type { BlogPost, BlogBlock, BlogList, BlogListInput } from "./resources/blog.js";
@@ -223,6 +234,8 @@ export interface CusfrontClient {
   readonly cards: CardsResource;
   /** Wallet balance lookup (defaults to the wallet's own currency). */
   readonly balance: BalanceResource;
+  /** Bonuses: a discount on the platform's services. Balance, credits, history and a price preview. */
+  readonly bonus: BonusResource;
   /** The wallet's currency: read it, switch it while the wallet is empty. */
   readonly wallet: WalletResource;
   /** Runtime white-label config (`GET /branding`, public): names, logo, wallet label. */
@@ -288,6 +301,7 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     deposits: new DepositsResource(http),
     cards: new CardsResource(http),
     balance: new BalanceResource(http),
+    bonus: new BonusResource(http),
     wallet: new WalletResource(http),
     branding: new BrandingResource(http),
     documents: new DocumentsResource(http),

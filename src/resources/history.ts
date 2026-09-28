@@ -55,9 +55,16 @@ export interface HistoryItem {
   direction: "out" | "in" | "internal" | (string & {});
   /** The merchant, or what the operation was, in the language asked for. */
   title: string;
-  /** In the currency the operation happened in. */
+  /**
+   * In the currency the operation happened in. For `bonus` the currency is
+   * `BNS` and the amount is a number of bonuses, not money.
+   */
   amount: HistoryAmount;
-  /** The other side of a conversion (what the card was billed, what the wallet or card received). */
+  /**
+   * The other side of a conversion (what the card was billed, what the
+   * wallet or card received). For a `bonus` spend: the part of the price
+   * the bonuses covered, or what they added to a top-up.
+   */
   counter_amount: HistoryAmount | null;
   /** Rate between `amount` and `counter_amount`, decimal string. */
   fx_rate: string | null;

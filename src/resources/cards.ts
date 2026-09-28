@@ -164,6 +164,21 @@ export interface Card {
   product: { id: string; name: string } | null;
   created_at: string;
   updated_at: string;
+  /** Only on the result of `create`, when bonuses paid part of the price. */
+  bonus?: IssuanceBonus;
+}
+
+/** How bonuses changed a new card's price ("was / now"). Decimal strings in `currency`. */
+export interface IssuanceBonus {
+  /** Bonuses used. */
+  units: string;
+  /** The price before bonuses ("was"). */
+  price: string;
+  /** What the bonuses covered. */
+  covered: string;
+  /** What the wallet paid ("now"). */
+  paid: string;
+  currency: string;
 }
 
 export interface CreateCardInput {
@@ -205,6 +220,13 @@ export interface CreateCardInput {
   metadata?: Record<string, string>;
   /** Structured billing details — real issuers require these for 3DS / KYC. */
   customer?: CustomerInfo;
+  /**
+   * Pay part of the price with bonuses. Sent as `use_bonus`. On by default
+   * whenever the user has bonuses; `false` pays it all from the wallet.
+   */
+  useBonus?: boolean;
+  /** The most bonuses to use, decimal string. Sent as `bonus_amount`. */
+  bonusAmount?: string;
   /**
    * Required by the Takeal API on this write endpoint. Same key + body replays the
    * original card; same key + different body returns 409.
@@ -372,11 +394,22 @@ export class CardsResource {
    * `failure_reason` on the result.
    */
   async create(input: CreateCardInput): Promise<Card> {
-    const { idempotencyKey, productId, name, designId, initial_amount: _ignored, ...rest } = input;
+    const {
+      idempotencyKey,
+      productId,
+      name,
+      designId,
+      useBonus,
+      bonusAmount,
+      initial_amount: _ignored,
+      ...rest
+    } = input;
     const body: Record<string, unknown> = { ...rest };
     if (productId !== undefined) body["product_id"] = productId;
     if (name !== undefined) body["name"] = name;
     if (designId !== undefined) body["design_id"] = designId;
+    if (useBonus !== undefined) body["use_bonus"] = useBonus;
+    if (bonusAmount !== undefined) body["bonus_amount"] = bonusAmount;
     return this.http.post<Card>("/me/cards", {
       body,
       idempotencyKey,
