@@ -17,6 +17,7 @@ import { NotificationsResource, type InboxItem, type NotificationPreferences } f
 import { DevicesResource, devicePlatformOf, type Device } from "./devices.js";
 import { AttributionResource, anonymousKey, currentTouch } from "./attribution.js";
 import { HistoryResource } from "./history.js";
+import { FundingOptionsResource, type FundingOption } from "./funding-options.js";
 import { isApiError, type ApiError } from "../error.js";
 
 /**
@@ -480,6 +481,68 @@ describe("DepositsResource (fx quotes)", () => {
     expect(bodyOf(rig2.captured[0]!)).toEqual({
       amount: "5000", currency: "RUB", method: "card", quote_id: "q1",
     });
+  });
+});
+
+describe("DepositsResource (straight onto a card)", () => {
+  it("initiate carries card_id and quote() asks for the card's currency", async () => {
+    const { captured, http } = rig({ ...DEPOSIT, target: "card", card_id: "card_1" });
+    const deposits = new DepositsResource(http);
+    await deposits.quote({ amount: "100", currency: "EUR", card_id: "card_1" });
+    const out = await deposits.initiate({
+      amount: "100",
+      currency: "EUR",
+      method: "card",
+      card_id: "card_1",
+      quote_id: "q_1",
+      idempotencyKey: "k-card",
+    });
+    expect(bodyOf(captured[0]!)).toEqual({ amount: "100", currency: "EUR", card_id: "card_1" });
+    expect(bodyOf(captured[1]!)).toEqual({
+      amount: "100",
+      currency: "EUR",
+      method: "card",
+      card_id: "card_1",
+      quote_id: "q_1",
+    });
+    expect(headersOf(captured[1]!)["Idempotency-Key"]).toBe("k-card");
+    expect(out.target).toBe("card");
+  });
+
+  it("issue_card is sent in the shape of POST /me/cards, snake_cased", async () => {
+    const { captured, http } = rig({ ...DEPOSIT, issues_card: true });
+    await new DepositsResource(http).initiate({
+      amount: "25",
+      currency: "USD",
+      method: "card",
+      issue_card: { productId: "prod_1", name: "Travel", designId: null, useBonus: false },
+      idempotencyKey: "k-issue",
+    });
+    expect(bodyOf(captured[0]!)).toEqual({
+      amount: "25",
+      currency: "USD",
+      method: "card",
+      issue_card: { product_id: "prod_1", name: "Travel", design_id: null, use_bonus: false },
+    });
+  });
+});
+
+describe("FundingOptionsResource", () => {
+  it("list GETs /me/funding-options", async () => {
+    const options: FundingOption[] = [
+      {
+        slug: "indigo-a",
+        mode: "mixed",
+        targets: ["wallet", "card"],
+        methods: ["card", "crypto"],
+        issue_card: true,
+      },
+    ];
+    const { captured, http } = rig(options);
+    const out = await new FundingOptionsResource(http).list();
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/funding-options");
+    expect(captured[0]!.init.method ?? "GET").toBe("GET");
+    expect(out).toEqual(options);
   });
 });
 

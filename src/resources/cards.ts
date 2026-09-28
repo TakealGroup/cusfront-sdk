@@ -234,6 +234,32 @@ export interface CreateCardInput {
   idempotencyKey: string;
 }
 
+/**
+ * The wire body of a card request: the camelCase fields renamed to what
+ * the API reads. Shared by {@link CardsResource.create} and the
+ * `issue_card` block of `deposits.initiate`.
+ */
+export function cardRequestBody(
+  input: Omit<CreateCardInput, "idempotencyKey" | "currency"> & { currency?: string },
+): Record<string, unknown> {
+  const {
+    productId,
+    name,
+    designId,
+    useBonus,
+    bonusAmount,
+    initial_amount: _ignored,
+    ...rest
+  } = input;
+  const body: Record<string, unknown> = { ...rest };
+  if (productId !== undefined) body["product_id"] = productId;
+  if (name !== undefined) body["name"] = name;
+  if (designId !== undefined) body["design_id"] = designId;
+  if (useBonus !== undefined) body["use_bonus"] = useBonus;
+  if (bonusAmount !== undefined) body["bonus_amount"] = bonusAmount;
+  return body;
+}
+
 /** Remaining balance of a prepaid card. */
 export interface CardBalance {
   amount: string;
@@ -394,24 +420,9 @@ export class CardsResource {
    * `failure_reason` on the result.
    */
   async create(input: CreateCardInput): Promise<Card> {
-    const {
-      idempotencyKey,
-      productId,
-      name,
-      designId,
-      useBonus,
-      bonusAmount,
-      initial_amount: _ignored,
-      ...rest
-    } = input;
-    const body: Record<string, unknown> = { ...rest };
-    if (productId !== undefined) body["product_id"] = productId;
-    if (name !== undefined) body["name"] = name;
-    if (designId !== undefined) body["design_id"] = designId;
-    if (useBonus !== undefined) body["use_bonus"] = useBonus;
-    if (bonusAmount !== undefined) body["bonus_amount"] = bonusAmount;
+    const { idempotencyKey, ...card } = input;
     return this.http.post<Card>("/me/cards", {
-      body,
+      body: cardRequestBody(card),
       idempotencyKey,
     });
   }

@@ -27,6 +27,11 @@
       "import": "./dist/resources/deposits.js",
       "require": "./dist/resources/deposits.cjs"
     },
+    "./funding-options": {
+      "types": "./dist/resources/funding-options.d.ts",
+      "import": "./dist/resources/funding-options.js",
+      "require": "./dist/resources/funding-options.cjs"
+    },
     "./cards": {
       "types": "./dist/resources/cards.d.ts",
       "import": "./dist/resources/cards.js",

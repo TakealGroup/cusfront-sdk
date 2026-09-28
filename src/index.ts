@@ -29,6 +29,7 @@ import { NotificationsResource } from "./resources/notifications.js";
 import { DevicesResource } from "./resources/devices.js";
 import { AttributionResource } from "./resources/attribution.js";
 import { HistoryResource } from "./resources/history.js";
+import { FundingOptionsResource } from "./resources/funding-options.js";
 import {
   CLIENT_HEADER,
   clientHeaderValue,
@@ -67,7 +68,15 @@ export type {
   InitiateDepositInput,
   CreateDepositRefundInput,
   Refund,
-  CreateQuoteInput, FundingQuote } from "./resources/deposits.js";
+  CreateQuoteInput, FundingQuote,
+  CardLoadStatus,
+  IssueCardInput,
+} from "./resources/deposits.js";
+export type {
+  DepositTarget,
+  FunderMode,
+  FundingOption,
+} from "./resources/funding-options.js";
 export type {
   Card,
   CardType,
@@ -228,8 +237,10 @@ export interface CusfrontClient {
   readonly client: ResolvedClientDescriptor;
   /** Auth resource: login, refresh, current user, logout. */
   readonly auth: AuthResource;
-  /** Deposits (money IN via a funder connector): initiate, get, list, refund. */
+  /** Deposits (money IN via a funder connector, to the wallet or straight onto a card): initiate, get, list, refund. */
   readonly deposits: DepositsResource;
+  /** The ways to top up: each funding connector, where its top-ups land and the methods it takes. */
+  readonly fundingOptions: FundingOptionsResource;
   /** Cards (money OUT via an issuer connector): the product catalog, create, get, list, update, balance. */
   readonly cards: CardsResource;
   /** Wallet balance lookup (defaults to the wallet's own currency). */
@@ -299,6 +310,7 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     assetUrl: (url: string) => resolveAssetUrl(opts.baseUrl, url),
     auth: new AuthResource(http, tokens, remembered),
     deposits: new DepositsResource(http),
+    fundingOptions: new FundingOptionsResource(http),
     cards: new CardsResource(http),
     balance: new BalanceResource(http),
     bonus: new BonusResource(http),

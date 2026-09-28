@@ -1,11 +1,16 @@
 import type { HttpClient } from "../http.js";
 import type { CustomerInfo } from "../types/customer.js";
+import { cardRequestBody, type CreateCardInput } from "./cards.js";
+import type { DepositTarget, FunderMode } from "./funding-options.js";
 
 /**
  * Deposits resource — `client.deposits.*`.
  *
  * The "money IN" surface: an end user tops up their wallet balance via a
- * funder connector. Mirrors the Takeal API's `/me/deposits` routes:
+ * funder connector, or one of their cards straight away, past the wallet
+ * (`card_id`, or `issue_card` for a new card). Which of the two a
+ * deployment allows is in `client.fundingOptions.list()`. Mirrors the
+ * Takeal API's `/me/deposits` routes:
  *
  *   POST   /me/deposits              → initiate
  *   GET    /me/deposits              → list (most recent first)
@@ -37,9 +42,32 @@ export type DepositMethod = "card" | "crypto" | "bank_transfer";
 export interface CreateQuoteInput {
   /** Decimal string, e.g. `"5000.00"`. */
   amount: string;
-  /** ISO 4217 source currency — must differ from the wallet's local currency. */
+  /** ISO 4217 source currency — must differ from the currency credited. */
   currency: string;
+  /**
+   * Quote a top-up of this card: credited in the card's currency. Pass the
+   * same `card_id` to `initiate()`.
+   */
+  card_id?: string;
+  /**
+   * Quote into this currency instead of the wallet's: the currency of a
+   * card issued with the top-up (`issue_card`). Ignored with `card_id`.
+   */
+  target_currency?: string;
 }
+
+/** How far a top-up meant for a card has got. */
+export type CardLoadStatus = "pending" | "succeeded" | "failed";
+
+/**
+ * A card to issue with the top-up: the fields of `cards.create` without
+ * its idempotency key (the deposit's covers both). The card's price is
+ * paid from the top-up and the rest becomes its starting balance.
+ */
+export type IssueCardInput = Omit<CreateCardInput, "idempotencyKey" | "currency"> & {
+  /** Optional with `productId`: the product names the currency. */
+  currency?: string;
+};
 
 /**
  * A rate-locked funding quote: pay `source_amount source_currency`, the
@@ -92,6 +120,37 @@ export interface Deposit {
   bonus_units?: string | null;
   /** What those bonuses added to the wallet, in the credited currency. */
   bonus_value?: string | null;
+  /** Where the money goes. Older deployments leave it out: the wallet. */
+  target?: DepositTarget;
+  /** For a top-up onto a card: the card. */
+  card_id?: string | null;
+  /** The funding connector's mode when the top-up was made. */
+  funder_mode?: FunderMode | null;
+  /** True when the card was issued with this top-up. */
+  issues_card?: boolean;
+  /**
+   * For a top-up onto a card: `pending` until the card provider has loaded
+   * the card, then `succeeded` or `failed`. Show the top-up as done only
+   * once it is `succeeded`, or once `returned_to_wallet_at` is set.
+   */
+  card_load_status?: CardLoadStatus | null;
+  /** Why the card could not take it, when `card_load_status` is `failed`. */
+  card_load_error?: string | null;
+  /** What went towards the card, in its currency, bonuses included. */
+  card_amount?: string | null;
+  /** The commission taken from a top-up onto a card, in the card's currency. */
+  card_commission?: string | null;
+  /** The money part of the price of a card issued with the top-up. */
+  issue_fee?: string | null;
+  /** The bonus part of that price. */
+  issue_bonus_units?: string | null;
+  issue_bonus_value?: string | null;
+  card_loaded_at?: string | null;
+  /**
+   * Set when the card could not take the top-up and the money went to the
+   * wallet instead (funding connectors in `mixed` mode). The user is told.
+   */
+  returned_to_wallet_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -141,6 +200,21 @@ export interface InitiateDepositInput {
   use_bonus?: boolean;
   /** The most bonuses to add, decimal string. Omit to add as many as allowed. */
   bonus_amount?: string;
+  /**
+   * Top up this card instead of the wallet. It must be the user's, active
+   * and prepaid. A funding connector that tops up the wallet only answers
+   * 400 `target_not_allowed`; one that tops up cards only needs `card_id`
+   * or `issue_card`. Paying in another currency than the card's needs a
+   * quote made with the same `card_id`.
+   */
+  card_id?: string;
+  /**
+   * Issue a new card and put this top-up on it. The card shows up as
+   * `pending_payment` and is issued once the top-up is confirmed; if the
+   * top-up fails, so does the card. Too small to cover the price → 400
+   * `amount_too_small`. Not together with `card_id`.
+   */
+  issue_card?: IssueCardInput;
 }
 
 export interface CreateDepositRefundInput {
@@ -182,15 +256,18 @@ export class DepositsResource {
    */
   /**
    * Price a cross-currency deposit BEFORE paying. The rate is locked
-   * server-side until `expires_at`; deposits in the local currency need no
-   * quote (the API answers 400 `no_quote_needed`).
+   * server-side until `expires_at`; deposits already in the currency they
+   * credit (the wallet's, or the card's with `card_id`) need no quote (the
+   * API answers 400 `no_quote_needed`).
    */
   async quote(input: CreateQuoteInput): Promise<FundingQuote> {
     return this.http.post<FundingQuote>("/me/deposits/quotes", { body: input });
   }
 
   async initiate(input: InitiateDepositInput): Promise<Deposit> {
-    const { idempotencyKey, ...body } = input;
+    const { idempotencyKey, issue_card, ...rest } = input;
+    const body: Record<string, unknown> = { ...rest };
+    if (issue_card !== undefined) body["issue_card"] = cardRequestBody(issue_card);
     return this.http.post<Deposit>("/me/deposits", {
       body,
       idempotencyKey,

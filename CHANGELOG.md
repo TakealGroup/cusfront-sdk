@@ -8,6 +8,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Top-ups straight onto a card: `deposits.initiate` takes `card_id` (an
+  existing card) or `issue_card` (a new card issued with its first top-up,
+  the fields of `cards.create`). A deposit carries `target`,
+  `card_load_status`, `card_load_error`, `card_amount`, `card_commission`,
+  `issues_card`, `issue_fee` and `returned_to_wallet_at`.
+  `deposits.quote` takes `card_id` or `target_currency` to price a top-up in
+  the card's currency. New `client.fundingOptions.list()`: each funding
+  connector with where its top-ups may land and the methods it takes.
+  Sub-export `@takeal/cusfront-sdk/funding-options`.
+
 - Bonuses: `client.bonus.get()` (balance, where bonuses can go, credits,
   history) and `client.bonus.preview()` ("was / now" for a price, worked out
   on the server). `cards.create` takes `useBonus` and `bonusAmount` and

@@ -157,6 +157,47 @@ the wallet (402), amount outside the floor or cap (400), card frozen or still
 being issued (409), provider declined or unreachable (502/503, the wallet is
 untouched).
 
+## Topping up a card directly
+
+Some deployments let a top-up go straight onto a card, past the wallet, and
+some have no wallet at all. Ask the API instead of hard-coding it:
+
+```ts
+const options = await client.fundingOptions.list();
+// [{ slug, mode: "wallet" | "spool" | "mixed", targets: ["wallet", "card"],
+//    methods: ["card", "crypto"], issue_card: true }]
+const direct = options.find((o) => o.targets.includes("card"));
+```
+
+Top up an existing card with `card_id`, or issue a new card with its first
+top-up with `issue_card` (the fields of `cards.create`). The card's price
+comes out of the top-up and the rest is its starting balance.
+
+```ts
+const deposit = await client.deposits.initiate({
+  amount: "25.00",
+  currency: "USD",
+  method: "card",
+  funder_slug: direct.slug,
+  card_id: card.id,                 // or: issue_card: { productId, name }
+  idempotencyKey: crypto.randomUUID(),
+});
+```
+
+Paying in another currency than the card's needs a quote in the card's
+currency first: `deposits.quote({ amount, currency, card_id })`, or
+`target_currency` for a card that doesn't exist yet.
+
+The deposit comes back with `target: "card"` and a `card_load_status`. It is
+`pending` until the card provider has loaded the card, then `succeeded`. If
+the card can't take it, the deployment either puts the money on the wallet
+(`returned_to_wallet_at` is set and the user gets a notification) or keeps
+it for support to finish (`card_load_status: "failed"`). Errors:
+`target_not_allowed` (this connector doesn't top up that target),
+`card_not_eligible` (the card isn't active or isn't prepaid),
+`amount_too_small` (a new card's price plus a starting balance don't fit in
+the amount).
+
 ## Telegram Mini App
 
 Run inside a Telegram Mini App? Exchange the Telegram-signed `initData` for a
@@ -659,6 +700,7 @@ Available now:
 - `@takeal/cusfront-sdk` — `createClient` + types.
 - `@takeal/cusfront-sdk/auth` — auth-only entry.
 - `@takeal/cusfront-sdk/deposits` — `DepositsResource` (money IN via a funder connector).
+- `@takeal/cusfront-sdk/funding-options` — `FundingOptionsResource` (the ways to top up; see [Topping up a card directly](#topping-up-a-card-directly)).
 - `@takeal/cusfront-sdk/cards` — `CardsResource` (cards backed by the wallet balance).
 - `@takeal/cusfront-sdk/balance` — `BalanceResource` (per-currency wallet balance).
 - `@takeal/cusfront-sdk/bonus` — `BonusResource` (bonuses and a price preview; see [Bonuses](#bonuses)).

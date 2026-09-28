@@ -741,9 +741,9 @@ export type paths = {
         /**
          * Terminate a card
          * @description Permanently closes the card. This cannot be undone. Terminating a card that
-         *     is already terminated returns it unchanged. A closed card that never had a
-         *     transaction is removed altogether: the response still carries it, a later
-         *     read answers 404. Audited.
+         *     is already terminated returns it unchanged. A closed card with no
+         *     transactions, top-ups or transfers is removed altogether: the response
+         *     still carries it, a later read answers 404. Audited.
          */
         post: operations["terminate_card"];
         delete?: never;
@@ -863,8 +863,10 @@ export type paths = {
         head?: never;
         /**
          * Update a connector
-         * @description Changes the connector's URL, its status, or both. At least one field must
-         *     be present. The change takes effect immediately.
+         * @description Changes the connector's URL, its status, and for a funding connector
+         *     where its top-ups may land (`funder_mode`) and which payment methods it
+         *     takes. At least one field must be present. The change takes effect
+         *     immediately.
          */
         patch: operations["patch_connector"];
         trace?: never;
@@ -1006,6 +1008,70 @@ export type paths = {
         get: operations["connector_stats"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/deposits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List deposits
+         * @description Top-ups across all users, newest first, with the user's email and, for a
+         *     top-up onto a card, the card and how far its load got. Filter by
+         *     `card_load_status=failed` to find the ones waiting for an operator.
+         */
+        get: operations["list_deposits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/deposits/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a deposit */
+        get: operations["get_deposit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/deposits/{id}/retry-card-load": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a card load
+         * @description Asks the card provider again to load a top-up that arrived but did not
+         *     make it onto the card. The provider sees the same load id as the first
+         *     time, so a card is never loaded twice. Allowed while the load is
+         *     `failed` and the money has not gone to the wallet. If it fails again the
+         *     deposit stays `failed` and the money keeps waiting: at that point the
+         *     case needs a person.
+         */
+        post: operations["retry_card_load"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4093,8 +4159,8 @@ export type paths = {
         /**
          * Terminate a card
          * @description Only the card's owner can terminate it, and only once it holds no money.
-         *     This cannot be undone; calling it again on a terminated card is a no-op. A closed card that never had a
-         *     transaction disappears from the list; this response still carries it.
+         *     This cannot be undone; calling it again on a terminated card is a no-op. A closed card with no purchases,
+         *     top-ups or transfers disappears from the list; this response still carries it.
          */
         post: operations["me_terminate_card"];
         delete?: never;
@@ -4195,7 +4261,7 @@ export type paths = {
          * List your deposits
          * @description Most recent first.
          */
-        get: operations["list_deposits"];
+        get: operations["me_list_deposits"];
         put?: never;
         /**
          * Create a deposit
@@ -4208,6 +4274,13 @@ export type paths = {
          *     for the final state. The `Idempotency-Key` header is required: the same
          *     key with the same body returns the original deposit, the same key with a
          *     different body returns 409.
+         *
+         *     With `card_id` or `issue_card` the money goes onto a card instead of the
+         *     wallet. The deposit then has `target: card` and a `card_load_status`:
+         *     `pending` until the card provider has loaded the card, then `succeeded`
+         *     or `failed`. When the load fails, depending on the funding connector the
+         *     money either goes to the wallet (`returned_to_wallet_at` is set and the
+         *     user is notified) or waits while support looks into it.
          */
         post: operations["create_deposit"];
         delete?: never;
@@ -4227,9 +4300,10 @@ export type paths = {
         put?: never;
         /**
          * Create a deposit quote
-         * @description Prices a deposit in a currency other than the wallet's before any money
-         *     moves. The rate is locked until `expires_at`; deposits in the wallet
-         *     currency need no quote.
+         * @description Prices a deposit in a currency other than the one it credits before any
+         *     money moves: the wallet's, or a card's for a top-up that goes straight
+         *     onto a card. The rate is locked until `expires_at`; a deposit already in
+         *     the credited currency needs no quote.
          */
         post: operations["create_deposit_quote"];
         delete?: never;
@@ -4246,7 +4320,7 @@ export type paths = {
             cookie?: never;
         };
         /** Get a deposit */
-        get: operations["get_deposit"];
+        get: operations["me_get_deposit"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4335,6 +4409,29 @@ export type paths = {
          *     address is not verified for ownership.
          */
         post: operations["set_email"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/funding-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the ways to top up
+         * @description The funding connectors you can top up through, in the order the
+         *     deployment prefers them: where the money may land (the wallet, a card, or
+         *     either) and which payment methods each one takes. Build the top-up screen
+         *     from this list rather than from fixed connector names.
+         */
+        get: operations["funding_options"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6328,6 +6425,10 @@ export type components = {
              * @description When the connector was created.
              */
             created_at: string;
+            /** @description Funding connectors only: payment methods it takes, shown to users by `GET /me/funding-options`. */
+            deposit_methods: string[];
+            /** @description Funding connectors only: where top-ups may land. `wallet` (the default): on the wallet only. `the connector`: straight onto cards only, for a deployment without a wallet. `mixed`: either, as the user picks. Always `wallet` for other roles. */
+            funder_mode: string;
             /** @description URL the platform calls the connector on. */
             grpc_url: string;
             /** @description Redacted preview of the secret the platform presents when calling the connector. */
@@ -6412,11 +6513,17 @@ export type components = {
             amount: string;
             /** @description The most bonuses to add; leave it out to add as many as allowed. `POST /me/bonus/preview` shows the numbers first. */
             bonus_amount?: string | null;
+            /**
+             * Format: uuid
+             * @description Top up this card directly instead of the wallet. The card must be yours, active and prepaid. Whether a funding connector allows it is shown by `GET /me/funding-options`; one that tops up the wallet only answers 400 `target_not_allowed`. A payment in another currency than the card's needs a quote made with this `card_id`.
+             */
+            card_id?: string | null;
             /** @description ISO 4217 code of the amount being paid. */
             currency: string;
             customer?: null | components["schemas"]["CustomerInfo"];
             /** @description Optional. Slug of the funding connector to use; when omitted, the first configured one handles the deposit. An unknown slug returns 400. */
             funder_slug?: string | null;
+            issue_card?: null | components["schemas"]["CreateCardBody"];
             /** @description Key/value pairs passed to the funding connector and stored with the deposit. Two keys are understood across connectors: `return_url`, where the provider sends the user back after a 3-D Secure step (used with `redirect_required`), and on test deployments with the mock funder `mock_scenario`, which picks the outcome: `happy` (confirmed at once, the default), `pending` (confirmed about 15 seconds later), `redirect` (a hosted confirmation page where the user approves or declines) or `fail`. Other keys are provider specific. */
             metadata?: {
                 [key: string]: string;
@@ -6494,8 +6601,15 @@ export type components = {
              * @example 5000.00
              */
             amount: string;
-            /** @description ISO 4217 code of the currency paid; must differ from the wallet currency. */
+            /**
+             * Format: uuid
+             * @description Quote a top-up of this card instead of the wallet: the amount is credited in the card's currency. Pass the same `card_id` to `POST /me/deposits`.
+             */
+            card_id?: string | null;
+            /** @description ISO 4217 code of the currency paid; must differ from the currency credited. */
             currency: string;
+            /** @description Quote into this currency instead of the wallet's: the currency of a card issued with the top-up (`issue_card`). Ignored when `card_id` is set. */
+            target_currency?: string | null;
         };
         /**
          * @example {
@@ -6866,6 +6980,11 @@ export type components = {
          * @enum {string}
          */
         DepositMethod: "card" | "crypto" | "bank_transfer";
+        /**
+         * @description Where a deposit's money goes.
+         * @enum {string}
+         */
+        DepositTarget: "wallet" | "card";
         /** @description A design as clients see it on a product or a card. */
         DesignRef: {
             /**
@@ -7227,6 +7346,27 @@ export type components = {
             /** @description Why the card is frozen. Stored on the card. May be empty. */
             reason?: string;
         };
+        /**
+         * @description Where a funding connector's top-ups may land.
+         * @enum {string}
+         */
+        FunderMode: "wallet" | "spool" | "mixed";
+        /**
+         * @description One way to top up: a funding connector, where its top-ups may land and
+         *     how it takes payment.
+         */
+        FundingOptionView: {
+            /** @description Whether a new card can be issued with a top-up through it (`issue_card` on `POST /me/deposits`). */
+            issue_card: boolean;
+            /** @description Payment methods it takes: `card`, `crypto`, `bank_transfer`. */
+            methods: components["schemas"]["DepositMethod"][];
+            /** @description `wallet`: top-ups land on the wallet. `the connector`: on cards only. `mixed`: either. */
+            mode: components["schemas"]["FunderMode"];
+            /** @description Pass it as `funder_slug` to `POST /me/deposits`. */
+            slug: string;
+            /** @description Where a top-up through it may land: `wallet`, `card`, or both. */
+            targets: components["schemas"]["DepositTarget"][];
+        };
         FxProbeResult: {
             /** @description Currency converted into, ISO 4217 code. */
             dst: string;
@@ -7306,7 +7446,7 @@ export type components = {
             fx_rate?: string | null;
             /** @description Stable id of the entry, unique across kinds. */
             id: string;
-            /** @description `card_purchase`, `card_refund`, `card_issued`, `card_topup`, `card_transfer`, `wallet_deposit`, `deposit_refund`, `fee`, `balance_adjustment` or `bonus`. More kinds will be added; show an unknown one with its `title`, `amount` and `status`. */
+            /** @description `card_purchase`, `card_refund`, `card_issued`, `card_topup`, `card_transfer`, `wallet_deposit`, `card_deposit` (a top-up that went straight onto a card; `pending` until the card is loaded), `deposit_refund`, `fee`, `balance_adjustment` or `bonus`. More kinds will be added; show an unknown one with its `title`, `amount` and `status`. */
             kind: string;
             merchant?: null | components["schemas"]["Merchant"];
             /** Format: date-time */
@@ -7970,6 +8110,74 @@ export type components = {
              */
             period_start?: string | null;
         };
+        /** @description A top-up as the operator sees it. */
+        OperatorDepositRow: {
+            /** @description Amount paid, decimal string. */
+            amount: string;
+            /** @description Bonuses added on top, and what they added. */
+            bonus_units?: string | null;
+            bonus_value?: string | null;
+            /** @description Whether an operator may retry the card load now. */
+            can_retry: boolean;
+            /** @description What went towards the card, in its currency, bonuses included. */
+            card_amount?: string | null;
+            /** @description Commission taken from a top-up onto a card, in the card's currency. */
+            card_commission?: string | null;
+            /** @description Slug of the card connector that issued that card. */
+            card_connector_slug?: string | null;
+            card_currency?: string | null;
+            /**
+             * Format: uuid
+             * @description The card, for a top-up onto a card.
+             */
+            card_id?: string | null;
+            card_last4?: string | null;
+            /** Format: int32 */
+            card_load_attempts: number;
+            /** @description What the card provider answered when the load failed. */
+            card_load_error?: string | null;
+            /** @description `pending`, `succeeded` or `failed`; null for wallet top-ups. */
+            card_load_status?: string | null;
+            /** Format: date-time */
+            card_loaded_at?: string | null;
+            confirmed_amount?: string | null;
+            /** Format: date-time */
+            confirmed_at?: string | null;
+            /** @description Slug of the funding connector. */
+            connector_slug: string;
+            /** Format: date-time */
+            created_at: string;
+            credited_amount?: string | null;
+            /** @description Currency credited when the deposit was converted. */
+            credited_currency?: string | null;
+            currency: string;
+            failure_reason?: string | null;
+            /** @description The funding connector's mode when the deposit was made: `wallet`, `the connector` or `mixed`. Decides what a failed card load does. */
+            funder_mode?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description The money part of the price of a card issued with the top-up. */
+            issue_fee?: string | null;
+            /** @description The card was issued with this top-up. */
+            issues_card: boolean;
+            method: string;
+            provider_reference?: string | null;
+            /**
+             * Format: date-time
+             * @description Set when a failed card load sent the money to the wallet instead.
+             */
+            returned_to_wallet_at?: string | null;
+            /** @description `pending`, `redirect_required`, `confirmed` or `failed`. */
+            status: string;
+            /** @description Where the money goes: `wallet` or `card`. */
+            target: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description The user's email. Null if the account was deleted. */
+            user_email?: string | null;
+            /** Format: uuid */
+            user_id: string;
+        };
         OperatorPaymentRow: {
             /** @example 99.50 */
             amount: string;
@@ -8248,6 +8456,10 @@ export type components = {
             value: string;
         };
         PatchConnectorBody: {
+            /** @description Funding connectors only: the payment methods it takes, any of `card`, `crypto`, `bank_transfer`, at least one. */
+            deposit_methods?: string[] | null;
+            /** @description Funding connectors only: `wallet`, `the connector` or `mixed`. Takes effect on the next top-up; top-ups already made keep the mode they were made under. */
+            funder_mode?: string | null;
             /** @description New URL to call the connector on. Must start with `http://` or `https://`. */
             grpc_url?: string | null;
             /** @description `active` or `disabled`. */
@@ -8697,7 +8909,7 @@ export type components = {
              * @example 57.97
              */
             credited_amount: string;
-            /** @description ISO 4217 code of the wallet currency. */
+            /** @description ISO 4217 code of the currency credited: the wallet's, or the card's. */
             credited_currency: string;
             /**
              * Format: date-time
@@ -12328,6 +12540,128 @@ export interface operations {
             };
             /** @description Unknown connector slug */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_deposits: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of rows to return. Default 100, max 500. */
+                limit?: number | null;
+                /** @description Only deposits created before this moment, for the next page: pass the `created_at` of the last row. */
+                before?: string | null;
+                /** @description `pending`, `redirect_required`, `confirmed` or `failed`. */
+                status?: string | null;
+                /** @description Where the money goes: `wallet` or `card`. */
+                target?: string | null;
+                /** @description Top-ups onto a card only: `pending`, `succeeded` or `failed`. */
+                card_load_status?: string | null;
+                user_id?: string | null;
+                /** @description Top-ups onto this card. */
+                card_id?: string | null;
+                /** @description Slug of the funding connector. */
+                connector_slug?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorDepositRow"][];
+                };
+            };
+            /** @description Missing deposits.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_deposit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deposit id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorDepositRow"];
+                };
+            };
+            /** @description Missing deposits.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such deposit */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    retry_card_load: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deposit id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The deposit after the attempt; `card_load_status` says how it went */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorDepositRow"];
+                };
+            };
+            /** @description Missing cards.recharge permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such deposit */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `not_retryable`: not a top-up onto a card, not settled, already loaded, moved to the wallet, or an attempt is running */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -18643,7 +18977,7 @@ export interface operations {
             };
         };
     };
-    list_deposits: {
+    me_list_deposits: {
         parameters: {
             query?: never;
             header?: never;
@@ -18684,7 +19018,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing Idempotency-Key, invalid body, or unknown funder_slug */
+            /** @description Missing Idempotency-Key, invalid body, or unknown funder_slug. `target_not_allowed`: the funding connector does not top up this target (the wallet, or cards). `card_not_eligible`: the card can't be topped up. For `issue_card`, also the codes of `POST /me/cards` */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -18693,6 +19027,13 @@ export interface operations {
             };
             /** @description Missing or invalid token */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `card_id` is not one of your cards */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -18761,7 +19102,7 @@ export interface operations {
             };
         };
     };
-    get_deposit: {
+    me_get_deposit: {
         parameters: {
             query?: never;
             header?: never;
@@ -18990,6 +19331,33 @@ export interface operations {
             };
             /** @description Email already in use */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    funding_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Funding connectors, preferred first; empty when none is configured */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundingOptionView"][];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

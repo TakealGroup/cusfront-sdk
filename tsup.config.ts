@@ -13,6 +13,7 @@ export default defineConfig({
     index: "src/index.ts",
     "resources/auth": "src/resources/auth.ts",
     "resources/deposits": "src/resources/deposits.ts",
+    "resources/funding-options": "src/resources/funding-options.ts",
     "resources/cards": "src/resources/cards.ts",
     "resources/balance": "src/resources/balance.ts",
     "resources/bonus": "src/resources/bonus.ts",
