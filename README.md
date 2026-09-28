@@ -531,6 +531,122 @@ if (survey_pending) {
 }
 ```
 
+## Analytics
+
+Call `track()` once per event and the SDK hands it on: to PostHog on every page, to Yandex Metrica on public pages only. Nothing is bundled. PostHog comes from your own `posthog-js` when you pass `load`, otherwise from its script; Metrica comes from its tag script. Neither loads until `initAnalytics` asks for it.
+
+Every page belongs to a zone, and the zone decides what is collected:
+
+| | `public` | `cabinet`, `miniapp` |
+|---|---|---|
+| PostHog autocapture | on, with element texts | on, without texts or attributes |
+| Heatmaps | on | off |
+| Masking | inputs | every input and all text |
+| Session recording | off | off; `sessionRecording: true` turns it on, masked |
+| Yandex Metrica | yes, without Webvisor | never |
+
+### Public pages
+
+```ts
+import { initAnalytics, track, identify, posthogDistinctId } from "@takeal/cusfront-sdk/analytics";
+
+initAnalytics({
+  zone: "public",
+  posthog: { key: "phc_…", host: "https://example.com/ingest" },
+  metrika: { counterId: 12345678 },
+});
+
+track("signup_started");
+
+// The sign-up form.
+const session = await client.auth.register({
+  email,
+  password,
+  attribution: { anonymous_key: key, posthog_distinct_id: await posthogDistinctId() },
+});
+track("signup_completed");
+identify(session.user.id);
+```
+
+### Cabinet
+
+```ts
+import { initAnalytics, identify, resetAnalytics, NO_CAPTURE_CLASS } from "@takeal/cusfront-sdk/analytics";
+
+initAnalytics({
+  zone: "cabinet",
+  posthog: {
+    key: "phc_…",
+    host: "https://example.com/ingest",
+    load: () => import("posthog-js").then((m) => m.default), // posthog-js 1.187 or later
+  },
+});
+
+identify(session.user.id); // after sign-in
+resetAnalytics();          // on sign-out
+```
+
+Put card details, balances and the operations history inside `NO_CAPTURE_CLASS` (`ph-no-capture`). PostHog leaves these blocks out of autocapture and blanks them in recordings.
+
+```tsx
+<div className={NO_CAPTURE_CLASS}>{balance}</div>
+```
+
+Turn on `sessionRecording: true` last, after you have watched one of your own cabinet sessions in PostHog and seen no values in it at all: no card number, balance, amount or e-mail.
+
+### Telegram Mini App
+
+The same as the cabinet, with `zone: "miniapp"`.
+
+### Metrica only on public pages
+
+Metrica never loads in the cabinet or in the Mini App, even when `metrika` is passed. From the browser it gets page views and two goals, `signup_started` and `signup_completed`. Deposits, cards and subscriptions reach Metrica from the server with their amount in roubles, so the browser doesn't send them. Webvisor, the click map and link tracking are off: Metrica sees only what the SDK sends it.
+
+When the site and the cabinet are one app, call `setAnalyticsZone("cabinet")` as the user enters the cabinet. PostHog switches to masking, and Metrica stops receiving anything. A full page load into the cabinet is safer, because then Metrica isn't on the page at all. If `initAnalytics` finds Metrica on a cabinet page, it warns in the console.
+
+### Events and page views
+
+`track(name, props)` accepts only names from `ANALYTICS_EVENTS`, and any other name is a type error. Besides the two sign-up events, the list holds the platform's own event types (`deposit_confirmed`, `card_issued` and the rest), so an event has the same name in PostHog and in reports built from the database.
+
+Call `page()` on every route change. `initAnalytics` sends the first page view itself, and the same address twice in a row counts once.
+
+Identify users by the platform's user id (`session.user.id`), never by e-mail. PostHog creates profiles for identified users only.
+
+### What never leaves the browser
+
+Every event goes through one filter, PostHog's autocapture included:
+
+- in page addresses, UUIDs, numeric ids and long tokens become `:id`, query parameters with secrets or personal data are dropped, and so is the fragment. Campaign tags stay;
+- properties named `email`, `phone`, `name`, `first_name` and the like are dropped, and so is any value that looks like an e-mail address, a phone number or a card number;
+- amounts and currencies pass.
+
+The same filter is exported as `sanitizeUrl` and `sanitizeProperties`.
+
+### A proxy on your own domain
+
+Ad blockers cut direct requests to PostHog, so serve it from a path on your domain and pass that path as `host`. The path should:
+
+- forward `/static/*` to `https://eu-assets.i.posthog.com/static/*` and everything else to `https://eu.i.posthog.com`;
+- be left out of the service worker's offline cache, and never cached anywhere else either;
+- stay out of the sitemap and be closed to indexing (`Disallow` in `robots.txt`, `X-Robots-Tag: noindex`).
+
+With Next.js:
+
+```js
+// next.config.js
+export default {
+  skipTrailingSlashRedirect: true,
+  async rewrites() {
+    return [
+      { source: "/ingest/static/:path*", destination: "https://eu-assets.i.posthog.com/static/:path*" },
+      { source: "/ingest/:path*", destination: "https://eu.i.posthog.com/:path*" },
+    ];
+  },
+};
+```
+
+With Workbox, add `/^\/ingest\//` to `navigateFallbackDenylist` and give the path no runtime caching route.
+
 ## Notifications (inbox)
 
 Everything the API tells a user (a confirmed deposit, a card transaction, a
@@ -755,6 +871,7 @@ Available now:
 - `@takeal/cusfront-sdk/webhooks` — HMAC-SHA256 signature verifier (no network, isomorphic).
 - `@takeal/cusfront-sdk/react` — optional React hooks layer (`ClientProvider` + `useMe` / `useDeposits` / `useCards` / `useCardProducts` / `useBalance` / `useNotifications` / `useUnreadCount`). React is a `peerDependency`, never bundled.
 - `@takeal/cusfront-sdk/telegram` — Telegram Mini App `initData` → authenticated client bridge.
+- `@takeal/cusfront-sdk/analytics` — `initAnalytics`, `track`, `page`, `identify`, `resetAnalytics`, `posthogDistinctId` (PostHog and Yandex Metrica behind one call; see [Analytics](#analytics)).
 
 ### Verifying webhooks
 

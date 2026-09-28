@@ -36,6 +36,9 @@ export default defineConfig({
     // Telegram Mini App adapter — its own entry so non-TG consumers never
     // pull it (and the `window.Telegram` access stays out of the core path).
     telegram: "src/telegram.ts",
+    // Analytics layer: loads PostHog and Metrica itself, only when asked,
+    // so nothing lands in the bundle of an app that doesn't import it.
+    analytics: "src/analytics.ts",
     // Optional React hooks — its own entry so non-React consumers never
     // pull it in, and React stays out of the bundle (peer dep).
     "react/index": "src/react/index.ts",

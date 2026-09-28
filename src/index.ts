@@ -182,6 +182,29 @@ export type {
   AttributionStatus,
   AnonymousKeyOptions,
 } from "./resources/attribution.js";
+export {
+  ANALYTICS_EVENTS,
+  METRIKA_GOALS,
+  NO_CAPTURE_CLASS,
+  initAnalytics,
+  setAnalyticsZone,
+  track,
+  page,
+  identify,
+  resetAnalytics,
+  posthogDistinctId,
+  sanitizeUrl,
+  sanitizeProperties,
+} from "./analytics.js";
+export type {
+  AnalyticsZone,
+  AnalyticsEvent,
+  AnalyticsProperties,
+  AnalyticsOptions,
+  PostHogOptions,
+  MetrikaOptions,
+  PostHogLike,
+} from "./analytics.js";
 export type { UserSession } from "./resources/sessions.js";
 export type {
   PushStatus,

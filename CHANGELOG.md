@@ -8,6 +8,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Analytics: `@takeal/cusfront-sdk/analytics` (also exported from the root).
+  `initAnalytics({ zone, posthog, metrika })` with three zones: `public`
+  (autocapture with texts, heatmaps, Yandex Metrica without Webvisor),
+  `cabinet` and `miniapp` (no element texts, every input and all text masked,
+  recordings only with `sessionRecording: true`, never Metrica). `track()`
+  takes names from a fixed list and sends them to PostHog, and the two
+  sign-up goals to Metrica on public pages. `page()`, `identify()`,
+  `resetAnalytics()`, `setAnalyticsZone()`, `posthogDistinctId()` for
+  `auth.register`. Every event passes one filter (`sanitizeUrl`,
+  `sanitizeProperties`) that cuts ids from addresses and drops e-mails,
+  phones and names. No new dependencies: PostHog and Metrica load only when
+  configured.
+
 - Promo and referral codes: `auth.register({ code })` and
   `auth.exchangeTelegram({ code })` (a `startapp` code is read by the server
   too) return `code_result`; `promoCode` on `cards.create` and `promo_code`
