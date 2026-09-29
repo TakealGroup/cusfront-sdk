@@ -214,7 +214,9 @@ export class DocumentsResource {
 
   /** Every saved text of a document, newest first, with the date each took effect. */
   async versions(slug: string): Promise<DocumentVersionSummary[]> {
-    return this.http.get<DocumentVersionSummary[]>(`/documents/${encodeURIComponent(slug)}/versions`);
+    return this.http.get<DocumentVersionSummary[]>(
+      `/documents/${encodeURIComponent(slug)}/versions`,
+    );
   }
 
   /** The document as it read in one version. */

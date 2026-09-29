@@ -13,7 +13,11 @@ import { AuthResource, type JwtIssued, type User } from "./auth.js";
 import { SessionsResource } from "./sessions.js";
 import { PushResource, base64UrlToBytes } from "./push.js";
 import { MeResource } from "./me.js";
-import { NotificationsResource, type InboxItem, type NotificationPreferences } from "./notifications.js";
+import {
+  NotificationsResource,
+  type InboxItem,
+  type NotificationPreferences,
+} from "./notifications.js";
 import { DevicesResource, devicePlatformOf, type Device } from "./devices.js";
 import { AttributionResource, anonymousKey, currentTouch } from "./attribution.js";
 import { HistoryResource } from "./history.js";
@@ -104,9 +108,7 @@ describe("DepositsResource", () => {
     const { captured, http } = rig(DEPOSIT);
     const deposits = new DepositsResource(http);
     await deposits.get("dep 1/with?chars");
-    expect(captured[0]!.url).toBe(
-      "https://api.test/v1/me/deposits/dep%201%2Fwith%3Fchars",
-    );
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/deposits/dep%201%2Fwith%3Fchars");
     expect(captured[0]!.init.method).toBe("GET");
 
     const { captured: c2, http: h2 } = rig([DEPOSIT]);
@@ -173,9 +175,7 @@ const PRODUCT: CardProduct = {
   currency: "USD",
   features: { scheme: "mastercard", apple_pay: true },
   design: { id: null, name: "Default", image_url: "/card-designs/default.svg" },
-  designs: [
-    { id: "dsg_1", name: "Midnight", image_url: "https://api.test/assets/midnight.png" },
-  ],
+  designs: [{ id: "dsg_1", name: "Midnight", image_url: "https://api.test/assets/midnight.png" }],
   price: {
     amount: "4.50",
     currency: "USD",
@@ -280,17 +280,30 @@ describe("CardsResource", () => {
   });
 
   it("topUpTerms GETs and topUp POSTs /me/cards/{id}/topup with the idempotency key", async () => {
-    const terms = { available: true, reason: null, currency: "USD",
-      wallet_available: { amount: "91", currency: "USD" }, min: { amount: "10", currency: "USD" }, max: null };
+    const terms = {
+      available: true,
+      reason: null,
+      currency: "USD",
+      wallet_available: { amount: "91", currency: "USD" },
+      min: { amount: "10", currency: "USD" },
+      max: null,
+    };
     const { captured, http } = rig(terms);
     expect(await new CardsResource(http).topUpTerms("card_1")).toEqual(terms);
     expect(captured[0]!.url).toBe("https://api.test/v1/me/cards/card_1/topup");
     expect(captured[0]!.init.method).toBe("GET");
 
-    const result = { topup: { id: "t1", status: "confirmed" }, card: CARD,
-      card_balance: { amount: "25", currency: "USD" }, wallet: { amount: "66", currency: "USD" } };
+    const result = {
+      topup: { id: "t1", status: "confirmed" },
+      card: CARD,
+      card_balance: { amount: "25", currency: "USD" },
+      wallet: { amount: "66", currency: "USD" },
+    };
     const { captured: c2, http: h2 } = rig(result);
-    const out = await new CardsResource(h2).topUp("card_1", { amount: "15.00", idempotencyKey: "idem-topup-1" });
+    const out = await new CardsResource(h2).topUp("card_1", {
+      amount: "15.00",
+      idempotencyKey: "idem-topup-1",
+    });
     expect(out).toEqual(result);
     expect(c2[0]!.url).toBe("https://api.test/v1/me/cards/card_1/topup");
     expect(c2[0]!.init.method).toBe("POST");
@@ -300,8 +313,15 @@ describe("CardsResource", () => {
 
   it("transfer POSTs /me/cards/{id}/transfer with the other card in the body", async () => {
     const result = {
-      transfer: { id: "tr1", from_card_id: "card_1", to_card_id: "card_2",
-        status: "confirmed", amount: "8.00", currency: "USD", failure_reason: null },
+      transfer: {
+        id: "tr1",
+        from_card_id: "card_1",
+        to_card_id: "card_2",
+        status: "confirmed",
+        amount: "8.00",
+        currency: "USD",
+        failure_reason: null,
+      },
       from_balance: { amount: "12", currency: "USD" },
       to_balance: { amount: "8", currency: "USD" },
       wallet: { amount: "40", currency: "USD" },
@@ -321,10 +341,18 @@ describe("CardsResource", () => {
 
   it("reveal hands back the billing address the card is registered at", async () => {
     const revealed = {
-      pan: "4242424242424242", cvv: "123", expiry_month: 9, expiry_year: 2029,
-      holder_name: "Alex Doe", expires_in_seconds: 30,
-      billing_address: { line1: "12 Marylebone Road", city: "London",
-        postal_code: "NW1 5LA", country: "GB" },
+      pan: "4242424242424242",
+      cvv: "123",
+      expiry_month: 9,
+      expiry_year: 2029,
+      holder_name: "Alex Doe",
+      expires_in_seconds: 30,
+      billing_address: {
+        line1: "12 Marylebone Road",
+        city: "London",
+        postal_code: "NW1 5LA",
+        country: "GB",
+      },
     };
     const { captured, http } = rig(revealed);
     const out = await new CardsResource(http).reveal("card_1");
@@ -364,9 +392,7 @@ describe("CardsResource", () => {
     const { captured, http } = rig(bal);
     const out = await new CardsResource(http).balance("card_1", "USD");
     expect(out).toEqual(bal);
-    expect(captured[0]!.url).toBe(
-      "https://api.test/v1/me/cards/card_1/balance?currency=USD",
-    );
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/cards/card_1/balance?currency=USD");
   });
 
   it("exposes ownership-gated lifecycle methods", async () => {
@@ -464,9 +490,14 @@ describe("BalanceResource", () => {
 describe("DepositsResource (fx quotes)", () => {
   it("quote POSTs /me/deposits/quotes and initiate carries quote_id", async () => {
     const q = {
-      id: "q1", source_amount: "5000", source_currency: "RUB",
-      credited_amount: "57.97", credited_currency: "USD",
-      rate: "0.011832", spread_bps: 200, provider: "manual",
+      id: "q1",
+      source_amount: "5000",
+      source_currency: "RUB",
+      credited_amount: "57.97",
+      credited_currency: "USD",
+      rate: "0.011832",
+      spread_bps: 200,
+      provider: "manual",
       expires_at: "2026-08-24T00:02:00Z",
     };
     const { captured, http } = rig(q);
@@ -478,11 +509,17 @@ describe("DepositsResource (fx quotes)", () => {
     const dep = { id: "d1" } as unknown as Deposit;
     const rig2 = rig(dep);
     await new DepositsResource(rig2.http).initiate({
-      amount: "5000", currency: "RUB", method: "card",
-      idempotencyKey: "k1", quote_id: "q1",
+      amount: "5000",
+      currency: "RUB",
+      method: "card",
+      idempotencyKey: "k1",
+      quote_id: "q1",
     });
     expect(bodyOf(rig2.captured[0]!)).toEqual({
-      amount: "5000", currency: "RUB", method: "card", quote_id: "q1",
+      amount: "5000",
+      currency: "RUB",
+      method: "card",
+      quote_id: "q1",
     });
   });
 });
@@ -555,7 +592,13 @@ describe("DocumentsResource", () => {
     const { captured, http, tokens } = rig(page);
     await tokens.set("jwt-1");
     const out = await new DocumentsResource(http).list({
-      category: "knowledge-base", folderId: "f1", tag: "fees", locale: "ru", q: "top up", page: 2, perPage: 5,
+      category: "knowledge-base",
+      folderId: "f1",
+      tag: "fees",
+      locale: "ru",
+      q: "top up",
+      page: 2,
+      perPage: 5,
     });
     expect(out).toEqual(page);
     expect(captured[0]!.url).toBe(
@@ -573,17 +616,29 @@ describe("DocumentsResource", () => {
 
   it("get takes a moment and returns the structured body", async () => {
     const doc = {
-      slug: "offer", title: "Offer", excerpt: "", body_markdown: "# H",
-      body_blocks: [{ type: "heading", level: 1, text: "H" }], tags: [], reading_minutes: 1,
-      published_at: null, updated_at: "2026-09-25T00:00:00Z", category: "legal",
-      path: [{ id: "c", key: "legal", title: "Legal documents" }], read_scope: "public",
-      version: 2, effective_from: "2026-01-01T00:00:00Z", site_path: "/docs/offer",
+      slug: "offer",
+      title: "Offer",
+      excerpt: "",
+      body_markdown: "# H",
+      body_blocks: [{ type: "heading", level: 1, text: "H" }],
+      tags: [],
+      reading_minutes: 1,
+      published_at: null,
+      updated_at: "2026-09-25T00:00:00Z",
+      category: "legal",
+      path: [{ id: "c", key: "legal", title: "Legal documents" }],
+      read_scope: "public",
+      version: 2,
+      effective_from: "2026-01-01T00:00:00Z",
+      site_path: "/docs/offer",
     };
     const { captured, http } = rig(doc);
     const r = new DocumentsResource(http);
     const out = await r.get("offer", { at: new Date("2026-03-01T00:00:00Z") });
     expect(out.site_path).toBe("/docs/offer");
-    expect(captured[0]!.url).toBe("https://api.test/v1/documents/offer?at=2026-03-01T00%3A00%3A00.000Z");
+    expect(captured[0]!.url).toBe(
+      "https://api.test/v1/documents/offer?at=2026-03-01T00%3A00%3A00.000Z",
+    );
     await r.get("offer");
     expect(captured[1]!.url).toBe("https://api.test/v1/documents/offer");
   });
@@ -864,7 +919,10 @@ describe("MeResource", () => {
 
   it("unlinkTelegram surfaces 409 last_credential", async () => {
     const { http } = rig({ code: "last_credential", message: "no password" }, 409);
-    const err = await new MeResource(http).unlinkTelegram().then(() => null).catch((e: unknown) => e);
+    const err = await new MeResource(http)
+      .unlinkTelegram()
+      .then(() => null)
+      .catch((e: unknown) => e);
     expect(isApiError(err)).toBe(true);
     expect((err as ApiError).status).toBe(409);
     expect((err as ApiError).code).toBe("last_credential");
@@ -949,7 +1007,8 @@ describe("SessionsResource", () => {
 });
 
 describe("PushResource", () => {
-  const KEY = "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U";
+  const KEY =
+    "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U";
 
   it("status / remove hit /me/push-subscription", async () => {
     const { captured, http } = rig({ subscribed: false, vapid_public_key: KEY });
@@ -1019,7 +1078,8 @@ function router(routes: Record<string, { status?: number; body?: unknown }>) {
     const u = new URL(String(url));
     const key = `${init?.method ?? "GET"} ${u.pathname}`;
     const route = routes[key];
-    if (!route) return new Response(JSON.stringify({ code: "not_found", message: key }), { status: 404 });
+    if (!route)
+      return new Response(JSON.stringify({ code: "not_found", message: key }), { status: 404 });
     const status = route.status ?? 200;
     if (status === 204 || route.body === undefined) return new Response(null, { status });
     return new Response(JSON.stringify(route.body), {
@@ -1147,10 +1207,15 @@ const DEVICE: Device = {
   is_current: true,
 };
 
-const KEY = "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U";
+const KEY =
+  "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U";
 const PWA = { platform: "pwa" as const, version: "0.3.0" };
 
-function fakeRegistration(state: { subscribed: boolean; usedKey?: Uint8Array; unsubscribed?: boolean }) {
+function fakeRegistration(state: {
+  subscribed: boolean;
+  usedKey?: Uint8Array;
+  unsubscribed?: boolean;
+}) {
   return {
     pushManager: {
       getSubscription: async () =>
@@ -1185,11 +1250,21 @@ describe("DevicesResource", () => {
   });
 
   it("register PUTs /me/devices with the client version as app_version by default", async () => {
-    const out = { id: "dev_tg", kind: "telegram_miniapp", platform: "telegram", vapid_public_key: null };
+    const out = {
+      id: "dev_tg",
+      kind: "telegram_miniapp",
+      platform: "telegram",
+      vapid_public_key: null,
+    };
     const { captured, http } = rig(out, 201);
     const r = new DevicesResource(http, PWA);
     expect(
-      await r.register({ kind: "telegram_miniapp", platform: "telegram", credential: {}, locale: "ru" }),
+      await r.register({
+        kind: "telegram_miniapp",
+        platform: "telegram",
+        credential: {},
+        locale: "ru",
+      }),
     ).toEqual(out);
     expect(captured[0]!.init.method).toBe("PUT");
     expect(captured[0]!.url).toBe("https://api.test/v1/me/devices");
@@ -1201,7 +1276,12 @@ describe("DevicesResource", () => {
       app_version: "0.3.0",
     });
 
-    await r.register({ kind: "fcm", platform: "android", credential: { token: "t" }, app_version: "9.9" });
+    await r.register({
+      kind: "fcm",
+      platform: "android",
+      credential: { token: "t" },
+      app_version: "9.9",
+    });
     expect(bodyOf(captured[1]!)).toEqual({
       kind: "fcm",
       platform: "android",
@@ -1244,13 +1324,16 @@ describe("DevicesResource", () => {
 
   it("registerWebPush skips the key lookup when given one, and maps telegram-miniapp to telegram", async () => {
     const { captured, http } = router({
-      "PUT /v1/me/devices": { status: 200, body: { id: "dev_1", kind: "webpush", platform: "telegram", vapid_public_key: KEY } },
+      "PUT /v1/me/devices": {
+        status: 200,
+        body: { id: "dev_1", kind: "webpush", platform: "telegram", vapid_public_key: KEY },
+      },
     });
     const state = { subscribed: false };
-    await new DevicesResource(http, { platform: "telegram-miniapp", version: "1.0" }).registerWebPush(
-      fakeRegistration(state),
-      { vapidPublicKey: KEY },
-    );
+    await new DevicesResource(http, {
+      platform: "telegram-miniapp",
+      version: "1.0",
+    }).registerWebPush(fakeRegistration(state), { vapidPublicKey: KEY });
     expect(captured).toHaveLength(1);
     expect((bodyOf(captured[0]!) as { platform: string }).platform).toBe("telegram");
     expect(devicePlatformOf("telegram-miniapp")).toBe("telegram");
@@ -1287,7 +1370,9 @@ describe("DevicesResource", () => {
   it("unregisterWebPush deletes exactly the given device id", async () => {
     const { captured, http } = router({ "DELETE /v1/me/devices/dev_9": { status: 204 } });
     const state = { subscribed: false };
-    await new DevicesResource(http, PWA).unregisterWebPush(fakeRegistration(state), { deviceId: "dev_9" });
+    await new DevicesResource(http, PWA).unregisterWebPush(fakeRegistration(state), {
+      deviceId: "dev_9",
+    });
     expect(captured.map((c) => [c.init.method, c.url])).toEqual([
       ["DELETE", "https://api.test/v1/me/devices/dev_9"],
     ]);
@@ -1345,8 +1430,12 @@ describe("AttributionResource", () => {
     const g = globalThis as { document?: unknown; localStorage?: unknown };
     let cookie = "";
     g.document = {
-      get cookie() { return cookie; },
-      set cookie(v: string) { cookie = v.split(";")[0]!; },
+      get cookie() {
+        return cookie;
+      },
+      set cookie(v: string) {
+        cookie = v.split(";")[0]!;
+      },
       referrer: "",
     };
     g.localStorage = {
@@ -1369,7 +1458,11 @@ describe("AttributionResource", () => {
 
 describe("AuthResource (attribution at sign-up)", () => {
   it("register sends the attribution block as given", async () => {
-    const { captured, http } = rig({ access_token: "t", expires_at: "2026-01-01T00:00:00Z", user: {} });
+    const { captured, http } = rig({
+      access_token: "t",
+      expires_at: "2026-01-01T00:00:00Z",
+      user: {},
+    });
     await new AuthResource(http, inMemoryStore()).register({
       email: "a@example.invalid",
       password: "Correct-Horse-Battery-9",
@@ -1398,7 +1491,9 @@ describe("HistoryResource", () => {
   it("list GETs /me/history with the filters it was given", async () => {
     const { captured, http } = rig({ items: [], next_cursor: null });
     await new HistoryResource(http).list({ cardId: "c1", limit: 10, lang: "ru", cursor: "abc" });
-    expect(captured[0]!.url).toBe("https://api.test/v1/me/history?card_id=c1&cursor=abc&limit=10&lang=ru");
+    expect(captured[0]!.url).toBe(
+      "https://api.test/v1/me/history?card_id=c1&cursor=abc&limit=10&lang=ru",
+    );
   });
 
   it("all() follows next_cursor to the end", async () => {
@@ -1409,7 +1504,10 @@ describe("HistoryResource", () => {
     const urls: string[] = [];
     const fake: FetchLike = async (url) => {
       urls.push(String(url));
-      return new Response(JSON.stringify(pages.shift()), { status: 200, headers: { "Content-Type": "application/json" } });
+      return new Response(JSON.stringify(pages.shift()), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     };
     const http = new HttpClient("https://api.test", inMemoryStore(), fake);
     const ids: string[] = [];
@@ -1420,13 +1518,18 @@ describe("HistoryResource", () => {
 });
 
 describe("AuthResource (remember me)", () => {
-  function routed(routes: Record<string, (init: RequestInit) => { status?: number; body?: unknown }>) {
+  function routed(
+    routes: Record<string, (init: RequestInit) => { status?: number; body?: unknown }>,
+  ) {
     const calls: { url: string; init: RequestInit }[] = [];
     const fake: FetchLike = async (url, init) => {
       const u = String(url);
       calls.push({ url: u, init: init ?? {} });
       const key = `${init?.method ?? "GET"} ${u.replace("https://api.test", "")}`;
-      const r = routes[key]?.(init ?? {}) ?? { status: 404, body: { code: "not_found", message: key } };
+      const r = routes[key]?.(init ?? {}) ?? {
+        status: 404,
+        body: { code: "not_found", message: key },
+      };
       return new Response(r.body === undefined ? null : JSON.stringify(r.body), {
         status: r.status ?? 200,
         headers: { "Content-Type": "application/json" },
@@ -1437,16 +1540,26 @@ describe("AuthResource (remember me)", () => {
 
   it("login with remember sends remember_me and keeps the remember token", async () => {
     const { calls, fake } = routed({
-      "POST /v1/auth/login": () => ({ body: { stage: "jwt", access_token: "a1", expires_at: "x", user: {}, remember_token: "r1" } }),
+      "POST /v1/auth/login": () => ({
+        body: { stage: "jwt", access_token: "a1", expires_at: "x", user: {}, remember_token: "r1" },
+      }),
     });
     const tokens = inMemoryStore();
     const remembered = inMemoryStore();
-    await new AuthResource(new HttpClient("https://api.test", tokens, fake), tokens, remembered).login({
+    await new AuthResource(
+      new HttpClient("https://api.test", tokens, fake),
+      tokens,
+      remembered,
+    ).login({
       email: "a@example.invalid",
       password: "p",
       remember: true,
     });
-    expect(JSON.parse(String(calls[0]!.init.body))).toEqual({ email: "a@example.invalid", password: "p", remember_me: true });
+    expect(JSON.parse(String(calls[0]!.init.body))).toEqual({
+      email: "a@example.invalid",
+      password: "p",
+      remember_me: true,
+    });
     expect(tokens.get()).toBe("a1");
     expect(remembered.get()).toBe("r1");
   });
@@ -1457,9 +1570,13 @@ describe("AuthResource (remember me)", () => {
       "GET /v1/auth/me": (init) => {
         meCalls++;
         const auth = new Headers(init.headers).get("Authorization");
-        return auth === "Bearer a2" ? { body: { id: "u1" } } : { status: 401, body: { code: "unauthenticated", message: "x" } };
+        return auth === "Bearer a2"
+          ? { body: { id: "u1" } }
+          : { status: 401, body: { code: "unauthenticated", message: "x" } };
       },
-      "POST /v1/auth/refresh": () => ({ body: { stage: "jwt", access_token: "a2", expires_at: "x", user: {}, remember_token: "r2" } }),
+      "POST /v1/auth/refresh": () => ({
+        body: { stage: "jwt", access_token: "a2", expires_at: "x", user: {}, remember_token: "r2" },
+      }),
     });
     const tokens = inMemoryStore();
     tokens.set("a1");
@@ -1471,7 +1588,9 @@ describe("AuthResource (remember me)", () => {
     expect(a.id).toBe("u1");
     expect(b.id).toBe("u1");
     expect(calls.filter((c) => c.url.endsWith("/auth/refresh")).length).toBe(1);
-    expect(JSON.parse(String(calls.find((c) => c.url.endsWith("/auth/refresh"))!.init.body))).toEqual({ remember_token: "r1" });
+    expect(
+      JSON.parse(String(calls.find((c) => c.url.endsWith("/auth/refresh"))!.init.body)),
+    ).toEqual({ remember_token: "r1" });
     expect(tokens.get()).toBe("a2");
     expect(remembered.get()).toBe("r2");
     expect(meCalls).toBe(4);
@@ -1480,13 +1599,20 @@ describe("AuthResource (remember me)", () => {
   it("a refused remember token signs out locally and the 401 comes through", async () => {
     const { fake } = routed({
       "GET /v1/auth/me": () => ({ status: 401, body: { code: "unauthenticated", message: "x" } }),
-      "POST /v1/auth/refresh": () => ({ status: 401, body: { code: "remember_token_invalid", message: "x" } }),
+      "POST /v1/auth/refresh": () => ({
+        status: 401,
+        body: { code: "remember_token_invalid", message: "x" },
+      }),
     });
     const tokens = inMemoryStore();
     tokens.set("a1");
     const remembered = inMemoryStore();
     remembered.set("r1");
-    const auth = new AuthResource(new HttpClient("https://api.test", tokens, fake), tokens, remembered);
+    const auth = new AuthResource(
+      new HttpClient("https://api.test", tokens, fake),
+      tokens,
+      remembered,
+    );
     await expect(auth.me()).rejects.toMatchObject({ status: 401 });
     expect(tokens.get()).toBeNull();
     expect(remembered.get()).toBeNull();
@@ -1498,7 +1624,11 @@ describe("AuthResource (remember me)", () => {
     tokens.set("a1");
     const remembered = inMemoryStore();
     remembered.set("r1");
-    await new AuthResource(new HttpClient("https://api.test", tokens, fake), tokens, remembered).signOut();
+    await new AuthResource(
+      new HttpClient("https://api.test", tokens, fake),
+      tokens,
+      remembered,
+    ).signOut();
     expect(JSON.parse(String(calls[0]!.init.body))).toEqual({ remember_token: "r1" });
     expect(tokens.get()).toBeNull();
     expect(remembered.get()).toBeNull();
@@ -1513,7 +1643,13 @@ describe("codes, referral, subscription", () => {
       kind: "promo",
       reason: null,
       message: null,
-      discount: { kind: "percent", bps: 5000, amount: null, currency: null, applies_to: "card_issuance" },
+      discount: {
+        kind: "percent",
+        bps: 5000,
+        amount: null,
+        currency: null,
+        applies_to: "card_issuance",
+      },
       discount_value: "5",
       effects: [{ kind: "bonus_credit", amount: "2" }],
     };
@@ -1540,7 +1676,14 @@ describe("codes, referral, subscription", () => {
       code: "ALICE",
       link: "https://t.me/examplebot/app?startapp=ALICE",
       invited_count: 1,
-      invited: [{ joined_at: "2026-09-28T00:00:00Z", rewarded: "11.00", has_card: false, has_topped_up: true }],
+      invited: [
+        {
+          joined_at: "2026-09-28T00:00:00Z",
+          rewarded: "11.00",
+          has_card: false,
+          has_topped_up: true,
+        },
+      ],
       total_rewarded: "11.00",
       rewards: [],
     };
@@ -1598,12 +1741,29 @@ describe("codes, referral, subscription", () => {
     const session = {
       access_token: "t",
       expires_at: "2026-09-29T00:00:00Z",
-      user: { id: "u", email: "a@example.invalid", role: "user", is_active: true, created_at: "", updated_at: "" },
-      code_result: { code: "SPRING", status: "rejected", reason: "expired", message: "This code has expired.", effects: [] },
+      user: {
+        id: "u",
+        email: "a@example.invalid",
+        role: "user",
+        is_active: true,
+        created_at: "",
+        updated_at: "",
+      },
+      code_result: {
+        code: "SPRING",
+        status: "rejected",
+        reason: "expired",
+        message: "This code has expired.",
+        effects: [],
+      },
     };
     const { captured, http, tokens } = rig(session);
     const auth = new AuthResource(http, tokens);
-    const r = await auth.register({ email: "a@example.invalid", password: "Correct-Horse-Battery-9", code: "SPRING" });
+    const r = await auth.register({
+      email: "a@example.invalid",
+      password: "Correct-Horse-Battery-9",
+      code: "SPRING",
+    });
     expect(r.code_result?.reason).toBe("expired");
     expect(bodyOf(captured[0]!)).toMatchObject({ code: "SPRING" });
     await auth.exchangeTelegram({ initData: "x", code: "ALICE" });

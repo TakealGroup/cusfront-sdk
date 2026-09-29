@@ -74,7 +74,9 @@ export class PushResource {
   async enable(registration: PushCapableRegistration): Promise<PushStatus> {
     const { vapid_public_key } = await this.status();
     if (!vapid_public_key) {
-      throw new Error("@takeal/cusfront-sdk: push notifications are not enabled on this deployment");
+      throw new Error(
+        "@takeal/cusfront-sdk: push notifications are not enabled on this deployment",
+      );
     }
     const sub = await registration.pushManager.subscribe({
       userVisibleOnly: true,

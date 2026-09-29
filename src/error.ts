@@ -31,7 +31,10 @@ export class ApiError extends Error {
 export class NetworkError extends Error {
   readonly isNetworkError = true as const;
 
-  constructor(message: string, public readonly cause?: unknown) {
+  constructor(
+    message: string,
+    public readonly cause?: unknown,
+  ) {
     super(message);
     this.name = "NetworkError";
   }
@@ -39,9 +42,7 @@ export class NetworkError extends Error {
 
 /** Type guard — preferred over `instanceof` (bundler-safe). */
 export function isApiError(e: unknown): e is ApiError {
-  return (
-    typeof e === "object" && e !== null && (e as { isApiError?: boolean }).isApiError === true
-  );
+  return typeof e === "object" && e !== null && (e as { isApiError?: boolean }).isApiError === true;
 }
 
 export function isNetworkError(e: unknown): e is NetworkError {

@@ -66,13 +66,7 @@ export interface SignupAttribution {
 }
 
 export type SurveyAnswer =
-  | "friend"
-  | "telegram_channel"
-  | "search"
-  | "ads"
-  | "review"
-  | "other"
-  | "skipped";
+  "friend" | "telegram_channel" | "search" | "ads" | "review" | "other" | "skipped";
 
 export interface AttributionStatus {
   /** `true` while the app should ask "how did you hear about us". */
@@ -157,7 +151,9 @@ export function anonymousKey(opts: AnonymousKeyOptions = {}): string | undefined
   const fromCookie = readCookie(name);
   let key = [fromCookie, stored].find((k): k is string => !!k && KEY_SHAPE.test(k));
   if (!key) {
-    key = g.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+    key =
+      g.crypto?.randomUUID?.() ??
+      `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
   }
   try {
     g.localStorage?.setItem(name, key);

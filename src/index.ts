@@ -40,11 +40,7 @@ import {
   type ClientDescriptor,
   type ResolvedClientDescriptor,
 } from "./client-platform.js";
-import {
-  defaultBrowserStore,
-  inMemoryStore,
-  type TokenStore,
-} from "./token-store.js";
+import { defaultBrowserStore, inMemoryStore, type TokenStore } from "./token-store.js";
 import type { BrandConfig } from "./brand.js";
 import { resolveAssetUrl } from "./assets.js";
 import { fetchReady, type ReadyInfo } from "./compat.js";
@@ -74,15 +70,12 @@ export type {
   InitiateDepositInput,
   CreateDepositRefundInput,
   Refund,
-  CreateQuoteInput, FundingQuote,
+  CreateQuoteInput,
+  FundingQuote,
   CardLoadStatus,
   IssueCardInput,
 } from "./resources/deposits.js";
-export type {
-  DepositTarget,
-  FunderMode,
-  FundingOption,
-} from "./resources/funding-options.js";
+export type { DepositTarget, FunderMode, FundingOption } from "./resources/funding-options.js";
 export type {
   Card,
   CardType,
@@ -144,10 +137,7 @@ export type {
   DocumentVersionSummary,
   DocumentTag,
 } from "./resources/documents.js";
-export type {
-  Subscriptions,
-  BroadcastChannel,
-} from "./resources/subscriptions.js";
+export type { Subscriptions, BroadcastChannel } from "./resources/subscriptions.js";
 export type {
   User,
   LoginInput,

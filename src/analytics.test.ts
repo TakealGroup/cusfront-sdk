@@ -44,9 +44,16 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 const scripts = () => Array.from(document.querySelectorAll("script")).map((s) => s.src);
 const ymCalls = () => (w.ym?.a ?? []).map((args) => Array.from(args as ArrayLike<unknown>));
 
-async function start(opts: Partial<AnalyticsOptions> & Pick<AnalyticsOptions, "zone">, ph = fakePostHog()) {
+async function start(
+  opts: Partial<AnalyticsOptions> & Pick<AnalyticsOptions, "zone">,
+  ph = fakePostHog(),
+) {
   initAnalytics({
-    posthog: { key: "phc_test", host: "https://example.com/ingest", load: async () => ph as unknown as PostHogLike },
+    posthog: {
+      key: "phc_test",
+      host: "https://example.com/ingest",
+      load: async () => ph as unknown as PostHogLike,
+    },
     metrika: { counterId: 12345678 },
     ...opts,
   });
@@ -69,7 +76,9 @@ afterEach(() => {
 describe("sanitizeUrl", () => {
   it("cuts ids from the path, secrets from the query and drops the fragment", () => {
     expect(
-      sanitizeUrl(`https://example.com/cards/${UUID}/details?utm_source=tg&token=abc&email=a%40b.io&card=4242&page=2#k=v`),
+      sanitizeUrl(
+        `https://example.com/cards/${UUID}/details?utm_source=tg&token=abc&email=a%40b.io&card=4242&page=2#k=v`,
+      ),
     ).toBe("https://example.com/cards/:id/details?utm_source=tg&card=:id&page=:id");
   });
 
@@ -80,13 +89,15 @@ describe("sanitizeUrl", () => {
   });
 
   it("keeps slugs and campaign tags", () => {
-    expect(sanitizeUrl("https://example.com/blog/how-to-top-up-2026?utm_campaign=spring-2026")).toBe(
-      "https://example.com/blog/how-to-top-up-2026?utm_campaign=spring-2026",
-    );
+    expect(
+      sanitizeUrl("https://example.com/blog/how-to-top-up-2026?utm_campaign=spring-2026"),
+    ).toBe("https://example.com/blog/how-to-top-up-2026?utm_campaign=spring-2026");
   });
 
   it("drops a parameter whose value is an address or a phone", () => {
-    expect(sanitizeUrl("/?ref=john%40example.com&q=%2B7%20999%20123-45-67&lang=ru")).toBe("/?lang=ru");
+    expect(sanitizeUrl("/?ref=john%40example.com&q=%2B7%20999%20123-45-67&lang=ru")).toBe(
+      "/?lang=ru",
+    );
   });
 });
 
@@ -176,37 +187,56 @@ describe("zones", () => {
     expect(ymCalls()[0]).toEqual([
       12345678,
       "init",
-      { defer: true, webvisor: false, clickmap: false, trackLinks: false, accurateTrackBounce: true },
+      {
+        defer: true,
+        webvisor: false,
+        clickmap: false,
+        trackLinks: false,
+        accurateTrackBounce: true,
+      },
     ]);
   });
 
-  it.each(["cabinet", "miniapp"] as const)("%s: no texts, everything masked, no recording by default", async (zone) => {
-    const ph = await start({ zone });
-    expect(initConfig(ph)).toMatchObject({
-      autocapture: { capture_copied_text: false },
-      mask_all_text: true,
-      mask_all_element_attributes: true,
-      enable_heatmaps: false,
-      disable_session_recording: true,
-      session_recording: { maskAllInputs: true, maskTextSelector: "*", blockClass: "ph-no-capture" },
-    });
-  });
+  it.each(["cabinet", "miniapp"] as const)(
+    "%s: no texts, everything masked, no recording by default",
+    async (zone) => {
+      const ph = await start({ zone });
+      expect(initConfig(ph)).toMatchObject({
+        autocapture: { capture_copied_text: false },
+        mask_all_text: true,
+        mask_all_element_attributes: true,
+        enable_heatmaps: false,
+        disable_session_recording: true,
+        session_recording: {
+          maskAllInputs: true,
+          maskTextSelector: "*",
+          blockClass: "ph-no-capture",
+        },
+      });
+    },
+  );
 
-  it.each(["cabinet", "miniapp"] as const)("%s: Metrica is never loaded, whatever is called", async (zone) => {
-    await start({ zone });
-    track("signup_started");
-    track("signup_completed", { method: "email" });
-    identify(UUID);
-    page("/cards");
-    resetAnalytics();
-    await flush();
-    expect(w.ym).toBeUndefined();
-    expect(scripts().some((s) => s.includes("yandex"))).toBe(false);
-  });
+  it.each(["cabinet", "miniapp"] as const)(
+    "%s: Metrica is never loaded, whatever is called",
+    async (zone) => {
+      await start({ zone });
+      track("signup_started");
+      track("signup_completed", { method: "email" });
+      identify(UUID);
+      page("/cards");
+      resetAnalytics();
+      await flush();
+      expect(w.ym).toBeUndefined();
+      expect(scripts().some((s) => s.includes("yandex"))).toBe(false);
+    },
+  );
 
   it("recording in the cabinet only with its flag", async () => {
     const ph = fakePostHog();
-    await start({ zone: "cabinet", posthog: { key: "k", sessionRecording: true, load: async () => ph as unknown as PostHogLike } });
+    await start({
+      zone: "cabinet",
+      posthog: { key: "k", sessionRecording: true, load: async () => ph as unknown as PostHogLike },
+    });
     expect(initConfig(ph).disable_session_recording).toBe(false);
   });
 
@@ -242,17 +272,34 @@ describe("zones", () => {
 describe("track", () => {
   it("sends one event to PostHog and, for a sign-up goal on a public page, to Metrica", async () => {
     const ph = await start({ zone: "public", initialPageview: false });
-    track("signup_completed", { method: "email", email: "a@b.io", amount_minor: 500, currency: "USD" });
+    track("signup_completed", {
+      method: "email",
+      email: "a@b.io",
+      amount_minor: 500,
+      currency: "USD",
+    });
     await flush();
-    expect(ph.capture).toHaveBeenCalledWith("signup_completed", { method: "email", amount_minor: 500, currency: "USD" });
-    expect(ymCalls()).toContainEqual([12345678, "reachGoal", "signup_completed", { method: "email", amount_minor: 500, currency: "USD" }]);
+    expect(ph.capture).toHaveBeenCalledWith("signup_completed", {
+      method: "email",
+      amount_minor: 500,
+      currency: "USD",
+    });
+    expect(ymCalls()).toContainEqual([
+      12345678,
+      "reachGoal",
+      "signup_completed",
+      { method: "email", amount_minor: 500, currency: "USD" },
+    ]);
   });
 
   it("keeps deposits, cards and subscriptions out of Metrica: the server sends them", async () => {
     const ph = await start({ zone: "public", initialPageview: false });
     track("deposit_confirmed", { amount_minor: 1000, currency: "USD" });
     await flush();
-    expect(ph.capture).toHaveBeenCalledWith("deposit_confirmed", { amount_minor: 1000, currency: "USD" });
+    expect(ph.capture).toHaveBeenCalledWith("deposit_confirmed", {
+      amount_minor: 1000,
+      currency: "USD",
+    });
     expect(ymCalls().filter((c) => c[1] === "reachGoal")).toEqual([]);
   });
 
@@ -272,8 +319,16 @@ describe("track", () => {
     const ph = await start({ zone: "public" });
     const beforeSend = initConfig(ph).before_send as (e: unknown) => unknown;
     expect(
-      beforeSend({ event: "$autocapture", properties: { $current_url: "https://example.com/u/77", $el_text: "a@b.io" }, $set: { name: "A" } }),
-    ).toEqual({ event: "$autocapture", properties: { $current_url: "https://example.com/u/:id" }, $set: {} });
+      beforeSend({
+        event: "$autocapture",
+        properties: { $current_url: "https://example.com/u/77", $el_text: "a@b.io" },
+        $set: { name: "A" },
+      }),
+    ).toEqual({
+      event: "$autocapture",
+      properties: { $current_url: "https://example.com/u/:id" },
+      $set: {},
+    });
     expect(beforeSend(null)).toBeNull();
   });
 });
@@ -290,15 +345,19 @@ describe("pages and identity", () => {
       { $current_url: "https://example.com/cards/:id" },
       { $current_url: "https://example.com/pricing", $referrer: "https://example.com/cards/:id" },
     ]);
-    expect(ymCalls().filter((c) => c[1] === "hit").map((c) => c[2])).toEqual([
-      "https://example.com/cards/:id",
-      "https://example.com/pricing",
-    ]);
+    expect(
+      ymCalls()
+        .filter((c) => c[1] === "hit")
+        .map((c) => c[2]),
+    ).toEqual(["https://example.com/cards/:id", "https://example.com/pricing"]);
   });
 
   it("sends the first page view on init", async () => {
     const ph = await start({ zone: "cabinet" });
-    expect(ph.capture).toHaveBeenCalledWith("$pageview", expect.objectContaining({ $current_url: expect.any(String) }));
+    expect(ph.capture).toHaveBeenCalledWith(
+      "$pageview",
+      expect.objectContaining({ $current_url: expect.any(String) }),
+    );
   });
 
   it("identifies by the platform's user id and resets on sign-out", async () => {
@@ -328,14 +387,23 @@ describe("pages and identity", () => {
 
 describe("PostHog from its script", () => {
   it("loads array.js from the proxy host and replays calls once it runs", async () => {
-    initAnalytics({ zone: "cabinet", posthog: { key: "phc_test", host: "https://example.com/ingest/" }, initialPageview: false });
+    initAnalytics({
+      zone: "cabinet",
+      posthog: { key: "phc_test", host: "https://example.com/ingest/" },
+      initialPageview: false,
+    });
     track("card_issued", { amount_minor: 500, currency: "EUR" });
-    const tag = document.querySelector<HTMLScriptElement>('script[src="https://example.com/ingest/static/array.js"]');
+    const tag = document.querySelector<HTMLScriptElement>(
+      'script[src="https://example.com/ingest/static/array.js"]',
+    );
     expect(tag).not.toBeNull();
     const placeholder = w.posthog as { __SV: number; _i: unknown[][] };
     expect(placeholder.__SV).toBe(1);
     expect(placeholder._i[0]![0]).toBe("phc_test");
-    expect(placeholder._i[0]![1]).toMatchObject({ api_host: "https://example.com/ingest", mask_all_text: true });
+    expect(placeholder._i[0]![1]).toMatchObject({
+      api_host: "https://example.com/ingest",
+      mask_all_text: true,
+    });
 
     const ph = fakePostHog();
     w.posthog = ph;

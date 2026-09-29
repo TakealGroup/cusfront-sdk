@@ -103,7 +103,11 @@ describe("X-Takeal-Client", () => {
       calls.push(init ?? {});
       return ok({});
     };
-    return { calls, fake, headers: (i: number) => (calls[i]?.headers ?? {}) as Record<string, string> };
+    return {
+      calls,
+      fake,
+      headers: (i: number) => (calls[i]?.headers ?? {}) as Record<string, string>,
+    };
   }
 
   it("sends `<platform>; <version>` on every request when `client` is given", async () => {
@@ -135,7 +139,11 @@ describe("X-Takeal-Client", () => {
 
   it("defaults to `web` outside a browser and does not crash without navigator", async () => {
     const { fake, headers } = capture();
-    const client = createClient({ baseUrl: "https://example.test", fetch: fake, tokenStore: inMemoryStore() });
+    const client = createClient({
+      baseUrl: "https://example.test",
+      fetch: fake,
+      tokenStore: inMemoryStore(),
+    });
     await client.branding.get();
     expect(headers(0)["X-Takeal-Client"]).toBe(`web; ${SDK_VERSION}`);
   });
@@ -145,7 +153,11 @@ describe("X-Takeal-Client", () => {
     g.Telegram = { WebApp: { initData: "query_id=AAH&hash=abc" } };
     try {
       const { fake, headers } = capture();
-      const client = createClient({ baseUrl: "https://example.test", fetch: fake, tokenStore: inMemoryStore() });
+      const client = createClient({
+        baseUrl: "https://example.test",
+        fetch: fake,
+        tokenStore: inMemoryStore(),
+      });
       await client.branding.get();
       expect(headers(0)["X-Takeal-Client"]).toBe(`telegram-miniapp; ${SDK_VERSION}`);
     } finally {

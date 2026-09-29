@@ -89,9 +89,7 @@ describe("assertWellFormed", () => {
       user: JSON.stringify({ id: 1 }),
       auth_date: String(NOW),
     }).toString();
-    expect(() => assertWellFormed(noHash, { nowUnix: NOW })).toThrowError(
-      /missing `hash`/,
-    );
+    expect(() => assertWellFormed(noHash, { nowUnix: NOW })).toThrowError(/missing `hash`/);
 
     const noDate = new URLSearchParams({
       user: JSON.stringify({ id: 1 }),
@@ -112,9 +110,9 @@ describe("assertWellFormed", () => {
       assertWellFormed(raw, { nowUnix: NOW + 2 * 86_400, maxAgeSeconds: 86_400 }),
     ).toThrowError(/stale/);
     // window disabled → no throw even when ancient.
-    expect(
-      assertWellFormed(raw, { nowUnix: NOW + 10 * 86_400, maxAgeSeconds: 0 }).user?.id,
-    ).toBe(777000);
+    expect(assertWellFormed(raw, { nowUnix: NOW + 10 * 86_400, maxAgeSeconds: 0 }).user?.id).toBe(
+      777000,
+    );
   });
 });
 
@@ -187,7 +185,12 @@ describe("fromInitData", () => {
     };
     await exchangeInitData(
       makeInitData(NOW),
-      { baseUrl: "https://api.test", tokenStore: inMemoryStore(), fetch: fake, client: { platform: "web", version: "2.1.0" } },
+      {
+        baseUrl: "https://api.test",
+        tokenStore: inMemoryStore(),
+        fetch: fake,
+        client: { platform: "web", version: "2.1.0" },
+      },
       { nowUnix: NOW + 5 },
     );
     const hdrs = (captured[0]!.init.headers ?? {}) as Record<string, string>;
@@ -199,7 +202,9 @@ describe("fromInitData", () => {
     const fake: FetchLike = async (url, init) => {
       captured.push({ url: String(url), init: init ?? {} });
       if (String(url).endsWith("/me/devices")) {
-        return new Response(JSON.stringify({ code: "validation", message: "nope" }), { status: 400 });
+        return new Response(JSON.stringify({ code: "validation", message: "nope" }), {
+          status: 400,
+        });
       }
       return new Response(JSON.stringify(JWT_SESSION), {
         status: 200,
@@ -277,7 +282,10 @@ describe("fromInitData / exchangeInitData with provision:false", () => {
     expect(err).toBeInstanceOf(TelegramUnknownError);
     expect((err as TelegramUnknownError).name).toBe("TelegramUnknownError");
     expect((err as TelegramUnknownError).initData).toBe(raw);
-    expect(JSON.parse(captured[0]!.init.body as string)).toEqual({ init_data: raw, provision: false });
+    expect(JSON.parse(captured[0]!.init.body as string)).toEqual({
+      init_data: raw,
+      provision: false,
+    });
     expect(await store.get()).toBeNull();
   });
 

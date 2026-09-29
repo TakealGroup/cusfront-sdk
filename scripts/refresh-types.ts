@@ -52,7 +52,10 @@ function dedupeOperationIds(spec: unknown): void {
       // Path looks like `/v1/admin/...` or `/v1/me/...` — use the first
       // segment after the API version as the prefix.
       const prefix =
-        pathKey.split("/").filter(Boolean).find((s) => !/^v\d+$/.test(s)) ?? "x";
+        pathKey
+          .split("/")
+          .filter(Boolean)
+          .find((s) => !/^v\d+$/.test(s)) ?? "x";
       const next = `${prefix}_${op.operationId}`;
       op.operationId = next;
       seen.add(next);

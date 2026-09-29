@@ -24,11 +24,7 @@ import type { DepositTarget, FunderMode } from "./funding-options.js";
  */
 
 /** Lifecycle of a deposit. `redirect_required` carries `redirect_url`. */
-export type DepositStatus =
-  | "pending"
-  | "redirect_required"
-  | "confirmed"
-  | "failed";
+export type DepositStatus = "pending" | "redirect_required" | "confirmed" | "failed";
 
 /** Top-up rail. The chosen funder decides which it supports. */
 export type DepositMethod = "card" | "crypto" | "bank_transfer";
@@ -299,14 +295,11 @@ export class DepositsResource {
    * connector settles inline; otherwise the row stays `pending` and flips
    * later via the inbound `deposit.refunded` event.
    */
-  async refund(
-    depositId: string,
-    input: CreateDepositRefundInput,
-  ): Promise<Refund> {
+  async refund(depositId: string, input: CreateDepositRefundInput): Promise<Refund> {
     const { idempotencyKey, ...body } = input;
-    return this.http.post<Refund>(
-      `/me/deposits/${encodeURIComponent(depositId)}/refunds`,
-      { body, idempotencyKey },
-    );
+    return this.http.post<Refund>(`/me/deposits/${encodeURIComponent(depositId)}/refunds`, {
+      body,
+      idempotencyKey,
+    });
   }
 }

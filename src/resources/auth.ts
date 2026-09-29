@@ -196,7 +196,9 @@ export interface OtpSentResponse {
 }
 
 /** Send `remember` as the API's `remember_me`. */
-function withRemember<T extends { remember?: boolean }>(input: T): Omit<T, "remember"> & { remember_me?: boolean } {
+function withRemember<T extends { remember?: boolean }>(
+  input: T,
+): Omit<T, "remember"> & { remember_me?: boolean } {
   const { remember, ...rest } = input;
   return remember ? { ...rest, remember_me: true } : rest;
 }

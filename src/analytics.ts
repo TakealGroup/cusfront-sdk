@@ -129,30 +129,86 @@ const UUID_ONLY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
  *  string, or a long token of letters and digits. Slugs have dashes and
  *  stay, even with a year in them. */
 function isId(v: string): boolean {
-  return /^\d+$/.test(v) || UUID_ONLY.test(v) || /^[0-9a-f]{16,}$/i.test(v) ||
-    (/^[A-Za-z0-9_]{20,}$/.test(v) && /\d.*\d/.test(v) && /[A-Za-z].*[A-Za-z]/.test(v));
+  return (
+    /^\d+$/.test(v) ||
+    UUID_ONLY.test(v) ||
+    /^[0-9a-f]{16,}$/i.test(v) ||
+    (/^[A-Za-z0-9_]{20,}$/.test(v) && /\d.*\d/.test(v) && /[A-Za-z].*[A-Za-z]/.test(v))
+  );
 }
 const PLACEHOLDER = ":id";
 
 /** Keys whose value is personal whatever it looks like: any key with one of
  *  these words... */
 const PERSONAL_WORDS = new Set([
-  "email", "mail", "phone", "tel", "telephone", "mobile", "msisdn", "surname", "patronymic",
-  "firstname", "lastname", "fullname", "username", "nickname",
+  "email",
+  "mail",
+  "phone",
+  "tel",
+  "telephone",
+  "mobile",
+  "msisdn",
+  "surname",
+  "patronymic",
+  "firstname",
+  "lastname",
+  "fullname",
+  "username",
+  "nickname",
 ]);
 /** ...and `name` alone or after one of these (`first_name`, `holder_name`).
  *  `merchant_name` names a company and stays. */
 const PERSON_NAME_QUALIFIERS = new Set([
-  "first", "last", "full", "user", "display", "given", "family", "middle", "nick", "real",
-  "holder", "cardholder", "customer", "contact", "person", "owner", "account", "legal",
+  "first",
+  "last",
+  "full",
+  "user",
+  "display",
+  "given",
+  "family",
+  "middle",
+  "nick",
+  "real",
+  "holder",
+  "cardholder",
+  "customer",
+  "contact",
+  "person",
+  "owner",
+  "account",
+  "legal",
 ]);
 /** Query keys that carry secrets or personal data. */
 const SECRET_QUERY_WORDS = new Set([
-  "token", "code", "key", "secret", "password", "pass", "pwd", "otp", "sig", "signature",
-  "session", "sid", "auth", "jwt", "pan", "cvv", "cvc", "iban",
+  "token",
+  "code",
+  "key",
+  "secret",
+  "password",
+  "pass",
+  "pwd",
+  "otp",
+  "sig",
+  "signature",
+  "session",
+  "sid",
+  "auth",
+  "jwt",
+  "pan",
+  "cvv",
+  "cvc",
+  "iban",
 ]);
 /** Money is not personal: kept as it is. */
-const MONEY_KEYS = new Set(["amount", "amount_minor", "currency", "value", "price", "revenue", "sum"]);
+const MONEY_KEYS = new Set([
+  "amount",
+  "amount_minor",
+  "currency",
+  "value",
+  "price",
+  "revenue",
+  "sum",
+]);
 
 function words(key: string): string[] {
   return key
@@ -170,12 +226,18 @@ function personalKey(key: string): boolean {
   if (w.some((x) => PERSONAL_WORDS.has(x)) || PERSONAL_WORDS.has(joined)) return true;
   // PostHog's own `$…` keys are never names of people.
   if (key.startsWith("$")) return false;
-  return w.some((x, i) => x === "name" && (w.length === 1 || PERSON_NAME_QUALIFIERS.has(w[i - 1] ?? "")));
+  return w.some(
+    (x, i) => x === "name" && (w.length === 1 || PERSON_NAME_QUALIFIERS.has(w[i - 1] ?? "")),
+  );
 }
 
 function urlKey(key: string): boolean {
   const k = key.replace(/^\$+/, "").toLowerCase();
-  return /(^|_)(url|href|pathname|path|referrer|referer)$/.test(k) || k === "page" || k.startsWith("attr__href");
+  return (
+    /(^|_)(url|href|pathname|path|referrer|referer)$/.test(k) ||
+    k === "page" ||
+    k.startsWith("attr__href")
+  );
 }
 
 function digitCount(s: string): number {
@@ -216,13 +278,18 @@ export function sanitizeUrl(raw: string): string {
   } catch {
     return redactText(raw.split(/[?#]/)[0] ?? "").replace(UUID, PLACEHOLDER);
   }
-  const path = u.pathname.split("/").map((seg) => (seg ? idSegment(seg) : seg)).join("/");
+  const path = u.pathname
+    .split("/")
+    .map((seg) => (seg ? idSegment(seg) : seg))
+    .join("/");
   const query: string[] = [];
   u.searchParams.forEach((value, key) => {
     const k = words(key);
     if (k.some((w) => SECRET_QUERY_WORDS.has(w)) || personalKey(key)) return;
     if (redactText(value) !== value) return;
-    query.push(`${encodeURIComponent(key)}=${isId(value) ? PLACEHOLDER : encodeURIComponent(value)}`);
+    query.push(
+      `${encodeURIComponent(key)}=${isId(value) ? PLACEHOLDER : encodeURIComponent(value)}`,
+    );
   });
   const search = query.length ? `?${query.join("&")}` : "";
   return (absolute ? `${u.protocol}//${u.host}` : "") + path + search;
@@ -235,14 +302,18 @@ function cleanValue(key: string, v: unknown, depth: number): unknown {
     if (MONEY_KEYS.has(key.toLowerCase()) || UUID_ONLY.test(v)) return v;
     if (urlKey(key) || /^https?:\/\//i.test(v)) return sanitizeUrl(v);
     if (key === "$elements_chain") {
-      return redactText(v).replace(/attr__href="([^"]*)"/g, (_, h: string) => `attr__href="${sanitizeUrl(h)}"`);
+      return redactText(v).replace(
+        /attr__href="([^"]*)"/g,
+        (_, h: string) => `attr__href="${sanitizeUrl(h)}"`,
+      );
     }
     const r = redactText(v);
     // A value that was nothing but an address or a number goes entirely.
     return r.replace(/\[(email|number)\]/g, "").trim() === "" && r !== v ? undefined : r;
   }
   if (depth > 5) return undefined;
-  if (Array.isArray(v)) return v.map((x) => cleanValue(key, x, depth + 1)).filter((x) => x !== undefined);
+  if (Array.isArray(v))
+    return v.map((x) => cleanValue(key, x, depth + 1)).filter((x) => x !== undefined);
   if (typeof v === "object") return sanitizeProperties(v as Record<string, unknown>, depth + 1);
   return undefined;
 }
@@ -253,7 +324,10 @@ function cleanValue(key: string, v: unknown, depth: number): unknown {
  * values that look like an e-mail address, a phone or a card number; page
  * addresses go through {@link sanitizeUrl}. Amounts and currencies pass.
  */
-export function sanitizeProperties<T extends Record<string, unknown>>(props: T, depth = 0): Partial<T> {
+export function sanitizeProperties<T extends Record<string, unknown>>(
+  props: T,
+  depth = 0,
+): Partial<T> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(props)) {
     if (personalKey(k)) continue;
@@ -264,9 +338,13 @@ export function sanitizeProperties<T extends Record<string, unknown>>(props: T, 
 }
 
 /** PostHog's `before_send`: the same filter for what PostHog captures by itself. */
-function beforeSend<E extends { properties?: Record<string, unknown>; $set?: Record<string, unknown>; $set_once?: Record<string, unknown> }>(
-  event: E | null,
-): E | null {
+function beforeSend<
+  E extends {
+    properties?: Record<string, unknown>;
+    $set?: Record<string, unknown>;
+    $set_once?: Record<string, unknown>;
+  },
+>(event: E | null): E | null {
   if (!event) return event;
   const out = { ...event };
   if (event.properties) out.properties = sanitizeProperties(event.properties);
@@ -357,17 +435,24 @@ function assetsHost(o: PostHogOptions): string {
 
 /** Load posthog-js the way its own snippet does: a placeholder that the
  *  script replaces with the instance once it runs. */
-function loadPostHogScript(o: PostHogOptions, config: Record<string, unknown>): Promise<PostHogLike | undefined> {
+function loadPostHogScript(
+  o: PostHogOptions,
+  config: Record<string, unknown>,
+): Promise<PostHogLike | undefined> {
   return new Promise((resolve) => {
     const w = win();
     if (!w.document) return resolve(undefined);
-    const placeholder = Object.assign([] as unknown[], { __SV: 1, _i: [[o.key, config, "posthog"]] });
+    const placeholder = Object.assign([] as unknown[], {
+      __SV: 1,
+      _i: [[o.key, config, "posthog"]],
+    });
     w.posthog = placeholder;
     injectScript(
       `${assetsHost(o)}/static/array.js`,
       () => {
         const ph = w.posthog;
-        const live = ph !== placeholder && typeof (ph as PostHogLike | undefined)?.capture === "function";
+        const live =
+          ph !== placeholder && typeof (ph as PostHogLike | undefined)?.capture === "function";
         resolve(live ? (ph as PostHogLike) : undefined);
       },
       () => resolve(undefined),
@@ -378,14 +463,18 @@ function loadPostHogScript(o: PostHogOptions, config: Record<string, unknown>): 
 class PostHogSink implements Sink {
   readonly ready: Promise<PostHogLike | undefined>;
 
-  constructor(private readonly o: PostHogOptions, zone: AnalyticsZone) {
+  constructor(
+    private readonly o: PostHogOptions,
+    zone: AnalyticsZone,
+  ) {
     const config = posthogConfig(zone, o);
-    this.ready = (o.load
-      ? o.load().then((ph) => {
-          ph.init(o.key, config);
-          return ph;
-        })
-      : loadPostHogScript(o, config)
+    this.ready = (
+      o.load
+        ? o.load().then((ph) => {
+            ph.init(o.key, config);
+            return ph;
+          })
+        : loadPostHogScript(o, config)
     )
       .then((ph) => {
         ph?.register({ zone });
@@ -504,7 +593,9 @@ function sinks(s: State): Sink[] {
 export function initAnalytics(options: AnalyticsOptions): void {
   if (state() || !win().document) return;
   if (options.zone !== "public" && win().ym) {
-    console.warn("[analytics] Yandex Metrica is on a page outside the public zone; it must not be.");
+    console.warn(
+      "[analytics] Yandex Metrica is on a page outside the public zone; it must not be.",
+    );
   }
   const s: State = { options, zone: options.zone };
   holder[KEY] = s;
@@ -543,7 +634,8 @@ export function page(url?: string): void {
   if (!s || !raw) return;
   const clean = sanitizeUrl(raw);
   if (clean === s.lastPage) return;
-  const referrer = s.lastPage ?? (w.document?.referrer ? sanitizeUrl(w.document.referrer) : undefined);
+  const referrer =
+    s.lastPage ?? (w.document?.referrer ? sanitizeUrl(w.document.referrer) : undefined);
   s.lastPage = clean;
   for (const sink of sinks(s)) sink.page(clean, referrer);
 }

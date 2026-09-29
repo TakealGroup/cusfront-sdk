@@ -42,11 +42,7 @@ export interface ClientProviderProps {
  * needs no JSX transform configured.
  */
 export function ClientProvider(props: ClientProviderProps) {
-  return createElement(
-    ClientContext.Provider,
-    { value: props.client },
-    props.children,
-  );
+  return createElement(ClientContext.Provider, { value: props.client }, props.children);
 }
 
 /**

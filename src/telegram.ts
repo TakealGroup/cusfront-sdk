@@ -16,11 +16,7 @@
  * before spending a network round-trip on an obviously-bad payload.
  */
 
-import {
-  createClient,
-  type CreateClientOptions,
-  type CusfrontClient,
-} from "./index.js";
+import { createClient, type CreateClientOptions, type CusfrontClient } from "./index.js";
 import type { JwtIssued, TelegramUnknown } from "./resources/auth.js";
 
 /** The Telegram `user` object embedded (URL-encoded JSON) in initData. */
@@ -52,12 +48,7 @@ export interface ParsedInitData {
 export class InitDataError extends Error {
   constructor(
     message: string,
-    readonly reason:
-      | "empty"
-      | "missing_hash"
-      | "missing_auth_date"
-      | "bad_user"
-      | "stale",
+    readonly reason: "empty" | "missing_hash" | "missing_auth_date" | "bad_user" | "stale",
   ) {
     super(message);
     this.name = "InitDataError";
@@ -81,8 +72,7 @@ export function parseInitData(initData: string): ParsedInitData {
   }
 
   const authDateRaw = params.auth_date;
-  const auth_date =
-    authDateRaw && /^\d+$/.test(authDateRaw) ? Number(authDateRaw) : undefined;
+  const auth_date = authDateRaw && /^\d+$/.test(authDateRaw) ? Number(authDateRaw) : undefined;
 
   return {
     raw: initData,
@@ -107,24 +97,14 @@ export interface WellFormedOptions {
 /** Fail-fast structural check: `hash` present, `auth_date` present + a valid
  *  `user`, and (optionally) not stale. Throws {@link InitDataError}. Does NOT
  *  verify the HMAC — only the server can. */
-export function assertWellFormed(
-  initData: string,
-  opts: WellFormedOptions = {},
-): ParsedInitData {
+export function assertWellFormed(initData: string, opts: WellFormedOptions = {}): ParsedInitData {
   if (!initData) throw new InitDataError("initData is empty", "empty");
   const parsed = parseInitData(initData);
-  if (!parsed.hash)
-    throw new InitDataError("initData is missing `hash`", "missing_hash");
+  if (!parsed.hash) throw new InitDataError("initData is missing `hash`", "missing_hash");
   if (parsed.auth_date === undefined)
-    throw new InitDataError(
-      "initData is missing a valid `auth_date`",
-      "missing_auth_date",
-    );
+    throw new InitDataError("initData is missing a valid `auth_date`", "missing_auth_date");
   if (!parsed.user || typeof parsed.user.id !== "number")
-    throw new InitDataError(
-      "initData is missing a valid `user`",
-      "bad_user",
-    );
+    throw new InitDataError("initData is missing a valid `user`", "bad_user");
 
   const maxAge = opts.maxAgeSeconds ?? 86_400;
   if (maxAge > 0) {

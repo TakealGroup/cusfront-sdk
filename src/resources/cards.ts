@@ -47,12 +47,7 @@ export type CardType = "credit" | "prepaid" | "gift";
  * provider reference and no user-visible side effects.
  */
 export type CardStatus =
-  | "pending_payment"
-  | "active"
-  | "frozen"
-  | "terminated"
-  | "redeemed"
-  | "failed";
+  "pending_payment" | "active" | "frozen" | "terminated" | "redeemed" | "failed";
 
 /**
  * A card design: the artwork a card is shown with. `image_url` is the front,
@@ -452,9 +447,7 @@ export class CardsResource {
 
   /** One product from the catalog. 404 when unknown, disabled or hidden. */
   async getProduct(id: string): Promise<CardProduct> {
-    return this.http.get<CardProduct>(
-      `/me/card-products/${encodeURIComponent(id)}`,
-    );
+    return this.http.get<CardProduct>(`/me/card-products/${encodeURIComponent(id)}`);
   }
 
   /**
@@ -498,9 +491,7 @@ export class CardsResource {
    */
   async balance(id: string, currency: string): Promise<CardBalance> {
     const q = new URLSearchParams({ currency }).toString();
-    return this.http.get<CardBalance>(
-      `/me/cards/${encodeURIComponent(id)}/balance?${q}`,
-    );
+    return this.http.get<CardBalance>(`/me/cards/${encodeURIComponent(id)}/balance?${q}`);
   }
 
   /**
@@ -544,10 +535,10 @@ export class CardsResource {
    */
   async transfer(fromCardId: string, input: TransferInput): Promise<TransferResult> {
     const { toCardId, amount, idempotencyKey } = input;
-    return this.http.post<TransferResult>(
-      `/me/cards/${encodeURIComponent(fromCardId)}/transfer`,
-      { body: { to_card_id: toCardId, amount }, idempotencyKey },
-    );
+    return this.http.post<TransferResult>(`/me/cards/${encodeURIComponent(fromCardId)}/transfer`, {
+      body: { to_card_id: toCardId, amount },
+      idempotencyKey,
+    });
   }
 
   /**
@@ -556,10 +547,7 @@ export class CardsResource {
    * 404 if the card isn't the caller's; 501 if the issuer can't freeze.
    */
   async freeze(id: string, reason?: string): Promise<Card> {
-    return this.http.post<Card>(
-      `/me/cards/${encodeURIComponent(id)}/freeze`,
-      { body: { reason } },
-    );
+    return this.http.post<Card>(`/me/cards/${encodeURIComponent(id)}/freeze`, { body: { reason } });
   }
 
   /**
@@ -581,10 +569,7 @@ export class CardsResource {
 
   /** Unfreeze a previously-frozen card. Idempotent on an already-active card. */
   async unfreeze(id: string): Promise<Card> {
-    return this.http.post<Card>(
-      `/me/cards/${encodeURIComponent(id)}/unfreeze`,
-      { body: {} },
-    );
+    return this.http.post<Card>(`/me/cards/${encodeURIComponent(id)}/unfreeze`, { body: {} });
   }
 
   /**
@@ -593,9 +578,8 @@ export class CardsResource {
    * already-terminated card.
    */
   async terminate(id: string, reason?: string): Promise<Card> {
-    return this.http.post<Card>(
-      `/me/cards/${encodeURIComponent(id)}/terminate`,
-      { body: { reason } },
-    );
+    return this.http.post<Card>(`/me/cards/${encodeURIComponent(id)}/terminate`, {
+      body: { reason },
+    });
   }
 }

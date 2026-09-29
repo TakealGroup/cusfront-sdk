@@ -13,7 +13,11 @@ import {
 import type { CusfrontClient } from "../index.js";
 import type { Balance } from "../resources/balance.js";
 import type { CardProduct } from "../resources/cards.js";
-import type { InboxItem, NotificationPage, ListNotificationsParams } from "../resources/notifications.js";
+import type {
+  InboxItem,
+  NotificationPage,
+  ListNotificationsParams,
+} from "../resources/notifications.js";
 
 /**
  * React-hook tests. Scoped to jsdom via the file-level pragma above so
@@ -33,11 +37,13 @@ const USD: Balance = { amount: "100.00", currency: "USD" };
 
 /** Build a minimal fake client. Only the methods under test are real;
  *  the rest are present as typed no-ops so the cast is sound. */
-function fakeClient(overrides: {
-  balanceGet?: (currency: string) => Promise<Balance>;
-  listProducts?: () => Promise<CardProduct[]>;
-  notifications?: Partial<CusfrontClient["notifications"]>;
-} = {}): CusfrontClient {
+function fakeClient(
+  overrides: {
+    balanceGet?: (currency: string) => Promise<Balance>;
+    listProducts?: () => Promise<CardProduct[]>;
+    notifications?: Partial<CusfrontClient["notifications"]>;
+  } = {},
+): CusfrontClient {
   const balanceGet =
     overrides.balanceGet ?? ((currency: string) => Promise.resolve({ amount: "100.00", currency }));
   return {
@@ -77,19 +83,13 @@ describe("ClientProvider + useClient", () => {
   it("throws a clear error when used outside a provider", () => {
     // Silence React's error-boundary console noise for this case.
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(() => renderHook(() => useClient())).toThrow(
-      /outside of a <ClientProvider>/,
-    );
+    expect(() => renderHook(() => useClient())).toThrow(/outside of a <ClientProvider>/);
     spy.mockRestore();
   });
 
   it("renders children", () => {
     render(
-      createElement(
-        ClientProvider,
-        { client: fakeClient() },
-        createElement("span", null, "hello"),
-      ),
+      createElement(ClientProvider, { client: fakeClient() }, createElement("span", null, "hello")),
     );
     expect(screen.getByText("hello")).toBeTruthy();
   });
@@ -149,10 +149,10 @@ describe("useBalance", () => {
     const get = vi.fn((currency: string) => Promise.resolve({ amount: "1.00", currency }));
     const client = fakeClient({ balanceGet: get });
 
-    const { result, rerender } = renderHook(
-      ({ cur }: { cur: string }) => useBalance(cur),
-      { wrapper: wrapper(client), initialProps: { cur: "USD" } },
-    );
+    const { result, rerender } = renderHook(({ cur }: { cur: string }) => useBalance(cur), {
+      wrapper: wrapper(client),
+      initialProps: { cur: "USD" },
+    });
     await waitFor(() => expect(result.current.data?.currency).toBe("USD"));
 
     rerender({ cur: "EUR" });
@@ -208,7 +208,9 @@ describe("useNotifications", () => {
       first: { items: [item("a"), item("b")], next_cursor: "c2", unread_count: 3 },
       c2: { items: [item("c", true)], next_cursor: null, unread_count: 3 },
     };
-    const list = vi.fn((p: ListNotificationsParams = {}) => Promise.resolve(pages[p.cursor ?? "first"]!));
+    const list = vi.fn((p: ListNotificationsParams = {}) =>
+      Promise.resolve(pages[p.cursor ?? "first"]!),
+    );
     const { result } = renderHook(() => useNotifications({ limit: 2, unreadOnly: true }), {
       wrapper: wrapper(fakeClient({ notifications: { list } })),
     });

@@ -22,11 +22,7 @@
  * All hooks are SSR-safe (no top-level `window` / `document` access;
  * effects only) and free of third-party data-fetching deps.
  */
-export {
-  ClientProvider,
-  useClient,
-  type ClientProviderProps,
-} from "./context.js";
+export { ClientProvider, useClient, type ClientProviderProps } from "./context.js";
 export {
   useMe,
   useDeposits,

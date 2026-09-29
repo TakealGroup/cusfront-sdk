@@ -29,7 +29,8 @@ export type HistoryKind =
   // Any kind added later still type-checks.
   | (string & {});
 
-export type HistoryStatus = "completed" | "pending" | "declined" | "reversed" | "failed" | (string & {});
+export type HistoryStatus =
+  "completed" | "pending" | "declined" | "reversed" | "failed" | (string & {});
 
 export interface HistoryAmount {
   /** Decimal string, never negative; see `direction`. */
@@ -118,7 +119,9 @@ export class HistoryResource {
     if (params.limit !== undefined) q.set("limit", String(params.limit));
     if (params.lang) q.set("lang", params.lang);
     const qs = q.toString();
-    return this.http.get<HistoryPage>(`/me/history${qs ? `?${qs}` : ""}`, { signal: params.signal });
+    return this.http.get<HistoryPage>(`/me/history${qs ? `?${qs}` : ""}`, {
+      signal: params.signal,
+    });
   }
 
   /** Every entry, page after page, newest first. */

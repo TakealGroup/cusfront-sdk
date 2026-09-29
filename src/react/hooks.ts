@@ -148,9 +148,7 @@ export function useCards(): AsyncState<Card[]> {
  */
 export function useCardProducts(): AsyncState<CardProduct[]> {
   const client = useClient();
-  return publicState(
-    useAsyncResource<CardProduct[]>(() => client.cards.listProducts(), [client]),
-  );
+  return publicState(useAsyncResource<CardProduct[]>(() => client.cards.listProducts(), [client]));
 }
 
 /**

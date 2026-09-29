@@ -67,7 +67,10 @@ describe.runIf(await reachable())("live Cusfront journey", () => {
     const depGet = await client.deposits.get(dep.id);
     expect(depGet.id).toBe(dep.id);
     const depList = await client.deposits.list();
-    expect(depList.some((d) => d.id === dep.id), "deposit appears in list").toBe(true);
+    expect(
+      depList.some((d) => d.id === dep.id),
+      "deposit appears in list",
+    ).toBe(true);
 
     // mock funder settles synchronously → balance should rise by 100.
     const confirmed = dep.status === "confirmed";
@@ -103,7 +106,10 @@ describe.runIf(await reachable())("live Cusfront journey", () => {
     const cardGet = await client.cards.get(card.id);
     expect(cardGet.id).toBe(card.id);
     const cardList = await client.cards.list();
-    expect(cardList.some((c) => c.id === card.id), "card appears in list").toBe(true);
+    expect(
+      cardList.some((c) => c.id === card.id),
+      "card appears in list",
+    ).toBe(true);
 
     // prepaid balance (live, from the issuer).
     const cb = await client.cards.balance(card.id, CCY);
@@ -260,7 +266,9 @@ describe.runIf(await reachable())("live Cusfront journey", () => {
     expect(typeof (await client.notifications.markAllRead()).marked).toBe("number");
 
     const prefs = await client.notifications.getPreferences();
-    expect(Array.isArray(prefs.available_channels), `prefs (got ${JSON.stringify(prefs)})`).toBe(true);
+    expect(Array.isArray(prefs.available_channels), `prefs (got ${JSON.stringify(prefs)})`).toBe(
+      true,
+    );
     expect(typeof prefs.categories).toBe("object");
     const ru = await client.notifications.setPreferences({ locale: "ru" });
     expect(ru.locale).toBe("ru");
@@ -289,11 +297,18 @@ describe.runIf(await reachable())("live Cusfront journey", () => {
     expect(mine!.is_current).toBe(true);
     expect(mine!.app_version).toBe("journey");
     // Registering the same marker again is idempotent (200, same id).
-    const again = await client.devices.register({ kind: "telegram_miniapp", platform: "telegram", credential: {} });
+    const again = await client.devices.register({
+      kind: "telegram_miniapp",
+      platform: "telegram",
+      credential: {},
+    });
     expect(again.id).toBe(dev.id);
     await client.devices.remove(dev.id);
     expect((await client.devices.list()).some((d) => d.id === dev.id)).toBe(false);
-    const gone = await client.devices.remove(dev.id).then(() => null).catch((e) => e);
+    const gone = await client.devices
+      .remove(dev.id)
+      .then(() => null)
+      .catch((e) => e);
     expect(isApiError(gone), `expected ApiError, got ${gone}`).toBe(true);
     expect((gone as ApiError).status).toBe(404);
 
@@ -320,11 +335,17 @@ describe.runIf(await reachable())("live Cusfront journey", () => {
       .then(() => null)
       .catch((e) => e);
     expect(isApiError(badCcy), `expected ApiError, got ${badCcy}`).toBe(true);
-    expect((badCcy as ApiError).status, `bad-currency status (msg: ${(badCcy as ApiError).message})`).toBe(400);
+    expect(
+      (badCcy as ApiError).status,
+      `bad-currency status (msg: ${(badCcy as ApiError).message})`,
+    ).toBe(400);
 
     // Unauthenticated balance → 401.
     const anon = createClient({ baseUrl: LIVE, tokenStore: inMemoryStore() });
-    const noAuth = await anon.balance.get(CCY).then(() => null).catch((e) => e);
+    const noAuth = await anon.balance
+      .get(CCY)
+      .then(() => null)
+      .catch((e) => e);
     expect(isApiError(noAuth), `expected ApiError, got ${noAuth}`).toBe(true);
     expect((noAuth as ApiError).status).toBe(401);
   });
@@ -377,7 +398,10 @@ describe.runIf((await reachable()) && Boolean(BOT_TOKEN))("live Telegram link jo
     const linked = await app.auth.linkTelegram({ initData, email, password });
     expect(linked.stage).toBe("jwt");
     expect(linked.user.id).toBe(registered.user.id);
-    expect(linked.user.telegram, `telegram on link (got ${JSON.stringify(linked.user)})`).not.toBeNull();
+    expect(
+      linked.user.telegram,
+      `telegram on link (got ${JSON.stringify(linked.user)})`,
+    ).not.toBeNull();
     expect(linked.user.telegram?.username).toBe(`journey_${tgId}`);
     expect(typeof linked.user.telegram?.linked_at).toBe("string");
     expect(await app.tokens.get()).toBe(linked.access_token);
@@ -397,7 +421,10 @@ describe.runIf((await reachable()) && Boolean(BOT_TOKEN))("live Telegram link jo
     expect(unlinked.telegram).toBeNull();
 
     // A second unlink has nothing to remove.
-    const twice = await again.me.unlinkTelegram().then(() => null).catch((e) => e);
+    const twice = await again.me
+      .unlinkTelegram()
+      .then(() => null)
+      .catch((e) => e);
     expect(isApiError(twice), `expected ApiError, got ${twice}`).toBe(true);
     expect((twice as ApiError).status).toBe(404);
   });

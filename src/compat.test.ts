@@ -44,11 +44,12 @@ describe("satisfies", () => {
 
 describe("client.ready()", () => {
   function clientAnswering(status: number, body: unknown) {
-    const fetch = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) =>
-      new Response(JSON.stringify(body), {
-        status,
-        headers: { "Content-Type": "application/json" },
-      }),
+    const fetch = vi.fn(
+      async (_url: string | URL | Request, _init?: RequestInit) =>
+        new Response(JSON.stringify(body), {
+          status,
+          headers: { "Content-Type": "application/json" },
+        }),
     );
     const client = createClient({
       baseUrl: "https://api.example.test",
@@ -61,8 +62,9 @@ describe("client.ready()", () => {
   it("calls the unversioned /ready without a token", async () => {
     const tokens = inMemoryStore();
     await tokens.set("jwt-123");
-    const fetch = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) =>
-      new Response(JSON.stringify({ status: "ready", ops: { platform_version: "0.5.0" } })),
+    const fetch = vi.fn(
+      async (_url: string | URL | Request, _init?: RequestInit) =>
+        new Response(JSON.stringify({ status: "ready", ops: { platform_version: "0.5.0" } })),
     );
     const client = createClient({
       baseUrl: "https://api.example.test/",
@@ -92,7 +94,10 @@ describe("client.ready()", () => {
   });
 
   it("warns when the platform version is out of range", async () => {
-    const { client } = clientAnswering(200, { status: "ready", ops: { platform_version: "0.6.1" } });
+    const { client } = clientAnswering(200, {
+      status: "ready",
+      ops: { platform_version: "0.6.1" },
+    });
     const r = await client.ready();
     expect(r.compatible).toBe(false);
     expect(r.platformVersion).toBe("0.6.1");

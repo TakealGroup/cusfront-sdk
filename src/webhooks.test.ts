@@ -16,10 +16,8 @@ import {
  */
 
 const SECRET = "whsec_test_secret";
-const BODY =
-  '{"event_type":"deposit.confirmed","id":"11111111-1111-1111-1111-111111111111"}';
-const KNOWN_SIG =
-  "sha256=da5b556196884d5ef73cf3bd4a1a4de06a63f016373093fb55d6aeaaf73b3e32";
+const BODY = '{"event_type":"deposit.confirmed","id":"11111111-1111-1111-1111-111111111111"}';
+const KNOWN_SIG = "sha256=da5b556196884d5ef73cf3bd4a1a4de06a63f016373093fb55d6aeaaf73b3e32";
 
 describe("webhook signature constants", () => {
   it("pins the exact Takeal header names", () => {
@@ -88,12 +86,10 @@ describe("verifyWebhook", () => {
   });
 
   it("rejects a missing / empty signature header", async () => {
-    expect(
-      await verifyWebhook({ payload: BODY, signatureHeader: null, secret: SECRET }),
-    ).toBe(false);
-    expect(
-      await verifyWebhook({ payload: BODY, signatureHeader: "", secret: SECRET }),
-    ).toBe(false);
+    expect(await verifyWebhook({ payload: BODY, signatureHeader: null, secret: SECRET })).toBe(
+      false,
+    );
+    expect(await verifyWebhook({ payload: BODY, signatureHeader: "", secret: SECRET })).toBe(false);
     expect(
       await verifyWebhook({
         payload: BODY,
@@ -132,8 +128,6 @@ describe("verifyWebhook", () => {
   it("round-trips: computeSignature output verifies", async () => {
     const payload = '{"event_type":"payment.succeeded","amount":"42.00"}';
     const sig = await computeSignature(SECRET, payload);
-    expect(await verifyWebhook({ payload, signatureHeader: sig, secret: SECRET })).toBe(
-      true,
-    );
+    expect(await verifyWebhook({ payload, signatureHeader: sig, secret: SECRET })).toBe(true);
   });
 });

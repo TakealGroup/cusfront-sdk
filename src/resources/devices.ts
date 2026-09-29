@@ -151,7 +151,9 @@ export class DevicesResource {
   ): Promise<RegisteredDevice> {
     const key = opts.vapidPublicKey ?? (await this.vapidPublicKey());
     if (!key) {
-      throw new Error("@takeal/cusfront-sdk: push notifications are not enabled on this deployment");
+      throw new Error(
+        "@takeal/cusfront-sdk: push notifications are not enabled on this deployment",
+      );
     }
     const sub = await registration.pushManager.subscribe({
       userVisibleOnly: true,

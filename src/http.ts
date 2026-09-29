@@ -133,8 +133,7 @@ export class HttpClient {
       ...(opts.signal ? { signal: opts.signal } : {}),
     };
     if (opts.body !== undefined) {
-      init.body =
-        typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body);
+      init.body = typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body);
     }
 
     let resp: Response;
@@ -143,10 +142,7 @@ export class HttpClient {
     } catch (e) {
       // DNS failure, connection refused, abort — anything before the
       // server returns a status. Map to NetworkError for the consumer.
-      throw new NetworkError(
-        e instanceof Error ? e.message : "network error",
-        e,
-      );
+      throw new NetworkError(e instanceof Error ? e.message : "network error", e);
     }
 
     if (resp.status === 401 && !opts.skipAuth && !opts.retried && this.refresher) {
