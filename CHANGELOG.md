@@ -359,5 +359,5 @@ Initial release of the typed client for the Takeal end-user API.
 - Dual ESM + CJS builds with `.d.ts` types; per-resource sub-entrypoints for
   tree-shaking.
 
-[Unreleased]: https://git.wiseless.xyz/takeal/cusfront-sdk/compare/v0.1.0...HEAD
-[0.1.0]: https://git.wiseless.xyz/takeal/cusfront-sdk/releases/tag/v0.1.0
+[Unreleased]: https://git.wiseless.net/takeal/cusfront-sdk/compare/v0.1.0...HEAD
+[0.1.0]: https://git.wiseless.net/takeal/cusfront-sdk/releases/tag/v0.1.0

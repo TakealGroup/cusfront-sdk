@@ -54,5 +54,5 @@ file list before publishing.
 ## Repository link
 
 npm renders `repository.url` as a link. It only opens for people who aren't
-signed in to git.wiseless.xyz when both the repository and the organization
+signed in to git.wiseless.net when both the repository and the organization
 that owns it are public.
