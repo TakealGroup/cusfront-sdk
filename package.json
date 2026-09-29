@@ -157,7 +157,8 @@
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run typecheck && npm run test && npm run build",
     "refresh-types": "tsx scripts/refresh-types.ts",
-    "lint": "tsc --noEmit"
+    "lint": "eslint --ext .ts,.tsx src scripts && prettier --check . && tsc --noEmit",
+    "format": "prettier --write ."
   },
   "peerDependencies": {
     "react": ">=18",
@@ -175,8 +176,14 @@
     "@testing-library/react": "^16.0.0",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.71.0",
+    "@typescript-eslint/parser": "^8.71.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-react-hooks": "^4.6.2",
     "jsdom": "^25.0.0",
     "openapi-typescript": "^7.4.0",
+    "prettier": "^3.9.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tsup": "^8.3.0",
