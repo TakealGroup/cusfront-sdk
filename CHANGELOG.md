@@ -4,6 +4,14 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] — 2026-10-04
+
+### Changed
+
+- Works with platform (TKL) 0.6: `SUPPORTED_MEISTER` is now
+  `>=0.5.0, <0.7.0`, and `client.ready()` no longer warns on a 0.6
+  deployment.
+
 ## [0.5.0] — 2026-09-29
 
 First release with a version of its own: from here the SDK version no longer

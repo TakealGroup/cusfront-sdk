@@ -96,12 +96,12 @@ describe("client.ready()", () => {
   it("warns when the platform version is out of range", async () => {
     const { client } = clientAnswering(200, {
       status: "ready",
-      ops: { platform_version: "0.6.1" },
+      ops: { platform_version: "0.7.1" },
     });
     const r = await client.ready();
     expect(r.compatible).toBe(false);
-    expect(r.platformVersion).toBe("0.6.1");
-    expect(r.warning).toContain("0.6.1");
+    expect(r.platformVersion).toBe("0.7.1");
+    expect(r.warning).toContain("0.7.1");
     expect(r.warning).toContain(SUPPORTED_MEISTER);
   });
 
@@ -132,5 +132,6 @@ describe("SUPPORTED_MEISTER", () => {
   it("is a range CI can read and the helper can parse", () => {
     expect(SUPPORTED_MEISTER).toMatch(/^[<>=]{1,2}\d+\.\d+\.\d+(, [<>=]{1,2}\d+\.\d+\.\d+)*$/);
     expect(satisfies("0.5.0", SUPPORTED_MEISTER)).toBe(true);
+    expect(satisfies("0.6.4", SUPPORTED_MEISTER)).toBe(true);
   });
 });

@@ -819,7 +819,7 @@ or `android` yourself. `version` defaults to the SDK version (`SDK_VERSION`).
 ## Platform version (`client.ready()`)
 
 Each SDK release works with a range of platform versions, published as
-`SUPPORTED_MEISTER` (for example `">=0.5.0, <0.6.0"`). `client.ready()` calls
+`SUPPORTED_MEISTER` (for example `">=0.5.0, <0.7.0"`). `client.ready()` calls
 `GET /ready` (public, no login) and checks the version the deployment reports
 against that range:
 
@@ -831,7 +831,7 @@ const r = await client.ready();
 // {
 //   compatible: true,
 //   platformVersion: "0.5.0",
-//   supportedMeister: ">=0.5.0, <0.6.0",
+//   supportedMeister: ">=0.5.0, <0.7.0",
 //   healthy: true,
 //   status: "ready",
 //   raw: { ... }   // the full /ready body
