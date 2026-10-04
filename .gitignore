@@ -5,8 +5,7 @@ coverage
 .DS_Store
 .vscode
 .idea
-pnpm-lock.yaml
 
-# Full API-spec dump used only for `pnpm refresh-types` (a maintainer task).
+# Full API-spec dump used only for `npm run refresh-types` (a maintainer task).
 # Not shipped publicly — the generated src/types.gen.ts is the committed output.
 openapi-snapshot.json
