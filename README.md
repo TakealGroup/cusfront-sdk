@@ -125,6 +125,52 @@ product are rejected with a 400 whose `code` says which check failed
 Calls without `productId` keep working as before: `type` is then required and
 the deployment picks the product.
 
+### Card states
+
+A card is not always ready the moment it comes back from `create()`:
+
+```ts
+switch (card.status) {
+  case "pending":
+    // The issuer took the order and has not issued the card yet. The price is
+    // paid. Show "being issued", no numbers, no actions; the card turns
+    // `active` by itself, or `failed` with the price back on the wallet.
+    break;
+  case "frozen":
+    // Who froze it decides what the user can do. The issuer's own freeze
+    // (a risk check, a lost-card report) is not the holder's to undo.
+    if (card.status_source === "provider") {
+      hideUnfreezeButton();
+      say("The card was frozen by the issuer. The freeze is lifted through the issuer's support.");
+    } else {
+      showUnfreezeButton(); // cards.unfreeze(card.id)
+    }
+    break;
+  case "terminating":
+    // Closing. The balance comes back to the wallet when the issuer is done.
+    break;
+}
+
+if (card.close_blocked === "first_purchase_required") {
+  // Hide "close": this card closes after its first purchase.
+}
+if (card.topups_pending) {
+  // Money on its way to the card, in the card's currency. Show it next to the
+  // balance; the balance itself has not moved yet.
+}
+if (card.topups_held) {
+  // A top-up waited too long. The money is safe and support settles it; say
+  // so instead of offering a retry.
+}
+if (card.card_form === "physical") {
+  // Plastic: the numbers are on the card, and it takes a PIN (see below).
+}
+```
+
+`status_source` is `holder`, `operator` or `provider`, or `null` for a card
+whose status never changed. Trying to unfreeze a card the issuer froze answers
+409 `card_locked`.
+
 `resolveAssetUrl(baseUrl, url)` is the same helper as a standalone function,
 exported from the package root, for code that has no client at hand.
 
@@ -156,6 +202,15 @@ Every error is a sentence the user can read (`error.message`): not enough in
 the wallet (402), amount outside the floor or cap (400), card frozen or still
 being issued (409), provider declined or unreachable (502/503, the wallet is
 untouched).
+
+Some issuers load a card a little later than they take the order. Then
+`topup.status` comes back as `pending`: the wallet has paid, `card_balance`
+has not moved, and the amount shows in `card.topups_pending`. It turns
+`confirmed` on its own (the user gets a `card_topup` notification), or
+`failed` with the money back on the wallet. A top-up that waits longer than
+the deployment allows is `stalled` and shows in `card.topups_held`: support
+finishes it, either back to the wallet (`returned`) or, when the issuer kept
+the money, closed with a reason (`written_off`).
 
 ## Topping up a card directly
 
@@ -197,6 +252,37 @@ it for support to finish (`card_load_status: "failed"`). Errors:
 `card_not_eligible` (the card isn't active or isn't prepaid),
 `amount_too_small` (a new card's price plus a starting balance don't fit in
 the amount).
+
+## Card details and PIN
+
+`cards.reveal(id)` returns the full card number and CVV to the signed-in user,
+with the billing address the card is registered at and, when the platform
+keeps one, the `cardholder` (name, phone, address) a checkout asks for. No
+password or code is asked again; the API rate-limits and logs every call.
+Keep the result in memory only and clear it after `expires_in_seconds`.
+
+Some issuers do not hand out the numbers and show them on a page of their
+own instead. Then `reveal_url` is set and `pan` and `cvv` are empty:
+
+```tsx
+const r = await client.cards.reveal(card.id);
+if (r.reveal_url) {
+  // The issuer's page. Open it at once: the address is short-lived and
+  // often good for one opening. Never store or log it.
+  return <iframe src={r.reveal_url} sandbox="allow-scripts allow-same-origin" title="Card details" />;
+}
+showNumbers(r.pan, r.cvv, r.expiry_month, r.expiry_year);
+```
+
+A physical card takes a PIN from the user. Send it once; neither the SDK nor
+the API keeps it, and the user gets a notification that it was set:
+
+```ts
+await client.cards.setPin(card.id, { pin: "4321" }); // four to six digits
+```
+
+400 when the PIN is not four to six digits or the card is not active, 409
+`provider_refused` when the issuer did not take it, 501 for a virtual card.
 
 ## Telegram Mini App
 
@@ -673,6 +759,13 @@ about the event, and `href`: a path inside your app to open on tap
 (`/cards/<id>`, `/deposits/<id>`, `/subscription`, `/settings/sessions`) or
 `null`. Route `href` through your own router; the SDK doesn't navigate.
 
+A `card_otp` item carries a code the card issuer sent and could not deliver
+itself; the user needs it right now. `data.purpose` says what for: `payment`
+(a 3-D Secure purchase; `merchant_name`, `amount` and `currency` are there)
+or `wallet` (adding the card to Apple Pay or Google Pay). Show the code large,
+with a copy button and a countdown from `expires_in_minutes`; `isCardOtp(item)`
+narrows the type.
+
 A small inbox screen:
 
 ```tsx
@@ -1062,6 +1155,17 @@ try {
   }
 }
 ```
+
+Codes worth a wording of their own on the card screens:
+
+| `e.code` | What happened | What to tell the user |
+|---|---|---|
+| `provider_unavailable` (503) | The card issuer did not answer. Nothing was moved. | Try again in a few minutes. The card itself keeps paying: only the action failed. |
+| `provider_declined` (502) | The issuer refused the move. Nothing was moved. | The issuer would not do it; the wallet is untouched. |
+| `provider_refused` (409) | The issuer did not take the PIN. | Try another PIN or later. |
+| `card_locked` (409) | Support holds the card, or the issuer froze it. | Only support can change this card. |
+| `not_supported` (501) | This issuer cannot do that (take money back off a card, reveal, PIN). | Hide the control. |
+| `insufficient_funds` (402) | The wallet holds less than that. | Top up the wallet first. |
 
 ## Development
 

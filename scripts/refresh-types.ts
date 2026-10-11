@@ -73,6 +73,8 @@ dedupeOperationIds(spec);
 const SCRUB: Array<[RegExp, string]> = [
   [/\s*\((?:ADR|see ADR)\s*\d{4}[^)]*\)/g, ""], // parenthetical internal decision-record references
   [/\s*\(#\d+\)/g, ""], // "(#42)"
+  [/\s*\((?:TKL|WXL)-\d+(?:,\s*(?:TKL|WXL)-\d+)*\)/g, ""], // "(TKL-188)"
+  [/\s*[/,]?\s*\b(?:TKL|WXL)-\d+\b\s*(?:[:—–-]\s*)?/g, " "], // bare tracker references
   [/\s*\(#\d+[^)]*\)/g, ""], // "(#22, …)"
   // Bare issue references: "#34: provider-driven …", "before #34", "/ #6".
   [/\s*[/,]?\s*#\d+\s*(?:[:—–-]\s*)?/g, " "],

@@ -4,6 +4,32 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Card states `pending` (the issuer took the order and has not issued the
+  card yet) and `terminating` (closing, the balance comes back later), and
+  the fields that go with them on `Card`: `status_source` (`holder`,
+  `operator` or `provider`; a `provider` freeze is lifted through the
+  issuer's support, so the README says not to offer "unfreeze" then),
+  `card_form` (`virtual` or `physical`), `close_blocked`, `topups_pending`
+  and `topups_held`.
+- Top-up statuses `stalled`, `returned` and `written_off` on `CardTopUp`
+  (`CardTopUpStatus`), and what a `pending` top-up means for the balance.
+- `cards.reveal()` may return `reveal_url` instead of the numbers, for
+  issuers that show them on a page of their own; `pan` and `cvv` are empty
+  then. The README shows the frame. The response also carries the
+  `cardholder` the issuer knows.
+- `cards.setPin(id, { pin })` for physical cards (`POST /me/cards/{id}/pin`).
+- README: the `card_otp` notification's `purpose` (`payment` or `wallet`), and
+  a table of the error codes the card screens meet, with `provider_unavailable`
+  explained as "the action failed, the card itself keeps paying".
+
+### Changed
+
+- Types regenerated from the platform API that carries the above.
+
 ## [0.6.0] — 2026-10-04
 
 ### Changed

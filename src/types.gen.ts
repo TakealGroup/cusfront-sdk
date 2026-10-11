@@ -44,6 +44,29 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/changelog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the platform changelog
+         * @description Returns the changelog of the platform version this deployment runs, as
+         *     Markdown, newest version first: what's new, what changed and what to do
+         *     when upgrading. English unless another available language is asked for.
+         *     For staff accounts only.
+         */
+        get: operations["get_changelog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -479,6 +502,139 @@ export type paths = {
         patch: operations["patch_design"];
         trace?: never;
     };
+    "/v1/admin/card-stock/{id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate plastic for a holder
+         * @description The provider activates the card from the stock for the holder; the
+         *     program's price is charged to the holder's wallet; the card appears in
+         *     their list as a physical card. Activating the same card again returns
+         *     the card it became.
+         */
+        post: operations["activate_stock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/card-stock/{id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bind plastic to a holder
+         * @description Marks a card of the stock as sent to a holder, before it is activated.
+         *     With `user_id` null the binding comes off and the card is in stock again.
+         */
+        post: operations["assign_stock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/card-stock/{id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Void plastic
+         * @description A card of the stock that will never be activated. Only a card in stock or
+         *     bound to a holder can be voided.
+         */
+        post: operations["void_stock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/card-topups/{id}/recheck": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the issuer about a top-up
+         * @description For a top-up the issuer accepted and has not loaded onto the card: asks
+         *     the issuer how it stands. An answer settles the top-up the way the
+         *     issuer's own report would; no answer leaves it as it is.
+         */
+        post: operations["recheck_topup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/card-topups/{id}/return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Return a stalled top-up to the wallet
+         * @description The issuer has had the top-up for too long and the operator gives up
+         *     waiting: the money goes from the card's transit account back to the
+         *     holder's wallet, and the holder is told. On a deployment without a
+         *     wallet the holder cannot see that balance; prefer writing the top-up off
+         *     or waiting.
+         */
+        post: operations["return_topup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/card-topups/{id}/write-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write a stalled top-up off
+         * @description The issuer kept the money and will not load the card: the operator takes
+         *     the amount off the card's transit account onto the platform's adjustments
+         *     account, with a note. The holder is not told; support handles the case.
+         */
+        post: operations["write_off_topup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/card-transactions": {
         parameters: {
             query?: never;
@@ -595,6 +751,31 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/cards/{id}/adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Correct one side of a card
+         * @description For a card whose books and issuer disagree. Pick the side that missed
+         *     the movement: `provider` raises or lowers what the card can spend at the
+         *     issuer and leaves the books alone; `books` posts the movement on the
+         *     platform's books and leaves the issuer alone. The other side is never
+         *     touched, so the gap closes instead of moving. A reason is required and
+         *     audited. The next reconciliation reading confirms the result.
+         */
+        post: operations["adjust_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/cards/{id}/debit": {
         parameters: {
             query?: never;
@@ -612,6 +793,30 @@ export type paths = {
          *     provider's pooled funds. Audited.
          */
         post: operations["debit_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards/{id}/force-sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync a card's balance with the provider
+         * @description For a card whose balance here differs from the provider's. Asks the
+         *     provider for the card's balance now and records the difference on the
+         *     platform's books, so the two agree. The provider's side is not touched.
+         *     The difference warning is cleared, and the audit log records who did it
+         *     and what was recorded.
+         */
+        post: operations["force_sync_card"];
         delete?: never;
         options?: never;
         head?: never;
@@ -656,6 +861,49 @@ export type paths = {
          *     nothing. Audited.
          */
         put: operations["set_moderation"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards/{id}/no-pin-limit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set a physical card's no-PIN limit
+         * @description The amount under which a purchase on the card is approved without the
+         *     PIN, set at the provider. Only for physical cards.
+         */
+        patch: operations["set_no_pin_limit"];
+        trace?: never;
+    };
+    "/v1/admin/cards/{id}/provider-fees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the provider's fees for a card
+         * @description What the card provider charged the platform for operations on this card,
+         *     newest first. These come off the platform's wallet at the provider, not
+         *     off the card or the holder.
+         */
+        get: operations["card_provider_fees"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -746,6 +994,28 @@ export type paths = {
          *     still carries it, a later read answers 404. Audited.
          */
         post: operations["terminate_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards/{id}/topups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a card's top-ups
+         * @description Every top-up of the card from the holder's wallet, newest first, with
+         *     how each one ended. A `pending` top-up is with the issuer; a `stalled`
+         *     one has been there too long and waits for an operator.
+         */
+        get: operations["list_card_topups"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -920,6 +1190,45 @@ export type paths = {
         patch: operations["patch_promo_code"];
         trace?: never;
     };
+    "/v1/admin/connector-jobs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a job */
+        get: operations["get_job"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/connector-jobs/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry the cards a job could not close
+         * @description Queues a new job over the cards the provider refused in this one. Needs
+         *     the `cards.mass_terminate` permission and the current code from your
+         *     authenticator.
+         */
+        post: operations["retry_job"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/connectors": {
         parameters: {
             query?: never;
@@ -1019,6 +1328,57 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/connectors/{slug}/card-stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a connector's plastic
+         * @description Every card of the stock for this card connector, with who it is bound to
+         *     and what it became. Activation codes are never returned.
+         */
+        get: operations["list_stock"];
+        put?: never;
+        /**
+         * Import a batch of plastic
+         * @description Puts the cards into the connector's stock. A card already there (same
+         *     activation code) is skipped, so a batch can be imported again safely.
+         *     Codes are stored sealed and never shown again.
+         */
+        post: operations["import_stock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/connectors/{slug}/cards/terminate-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close every card of a card connector
+         * @description Starts a background job that closes every open card the connector has
+         *     and brings what was on each card back to its holder, the way a single
+         *     close does. Needs the `cards.mass_terminate` permission and the current
+         *     code from your authenticator. One job per connector runs at a time; the
+         *     cards the provider refuses stay on the job and can be retried.
+         */
+        post: operations["terminate_all"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/connectors/{slug}/configuration": {
         parameters: {
             query?: never;
@@ -1072,6 +1432,26 @@ export type paths = {
         patch: operations["patch_configuration_key"];
         trace?: never;
     };
+    "/v1/admin/connectors/{slug}/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a connector's jobs
+         * @description Newest first, with their progress.
+         */
+        get: operations["list_jobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/connectors/{slug}/programs": {
         parameters: {
             query?: never;
@@ -1088,6 +1468,28 @@ export type paths = {
          *     storefront endpoints.
          */
         get: operations["list_programs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/connectors/{slug}/provider-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a card connector's provider fees and wallet credits
+         * @description What the card provider took off the platform's wallet with it, per day
+         *     and kind, and what the platform put on it, with the latest events. The
+         *     wallet's balance itself is `GET /admin/connectors/{slug}/balances`.
+         */
+        get: operations["connector_provider_events"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1179,6 +1581,28 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/deposits/{id}/recheck-card-load": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the issuer about a waiting card load
+         * @description For a top-up onto a card whose load the issuer accepted and has not
+         *     finished: asks the issuer how it stands. An answer finishes the load the
+         *     way the issuer's own report would; no answer leaves it waiting.
+         */
+        post: operations["recheck_card_load"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/deposits/{id}/retry-card-load": {
         parameters: {
             query?: never;
@@ -1198,6 +1622,51 @@ export type paths = {
          *     case needs a person.
          */
         post: operations["retry_card_load"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/deposits/{id}/return-card-load": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Return a waiting card load to the wallet
+         * @description The issuer has had the load for too long and the operator gives up
+         *     waiting: the money goes from the card's transit account to the holder's
+         *     wallet, and the holder is told. On a deployment without a wallet the
+         *     holder cannot see that balance; prefer writing the load off or waiting.
+         */
+        post: operations["return_card_load"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/deposits/{id}/write-off-card-load": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write a waiting card load off
+         * @description The issuer kept the money and will not load the card: the operator takes
+         *     the amount off the card's transit account onto the platform's adjustments
+         *     account, with a note. The deposit's load ends `failed`.
+         */
+        post: operations["write_off_card_load"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1453,6 +1922,247 @@ export type paths = {
         patch: operations["patch_version"];
         trace?: never;
     };
+    "/v1/admin/failed-tasks/announcements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List announcements that failed
+         * @description Announcements of a document or blog post that didn't go out and weren't
+         *     sent again since, newest first. Sending again uses
+         *     `POST /admin/documents/{id}/broadcast` with the same channel.
+         */
+        get: operations["list_announcements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/failed-tasks/card-drift": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List cards whose balance differs from the provider's
+         * @description Cards whose balance here and at the provider have differed for long enough
+         *     to tell operators, newest first. A card leaves the list once the two agree
+         *     again.
+         */
+        get: operations["list_card_drift"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/failed-tasks/compensations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List compensations that failed
+         * @description When an operation fails, the platform undoes what it already did: gives
+         *     held bonuses back, returns money to the wallet, closes a card at the
+         *     provider. Each item here is one of those steps that failed too, so money
+         *     or a card is left where it shouldn't be. Every item says what is stuck and
+         *     what to check. Open ones come first, newest first.
+         */
+        get: operations["list_compensations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/failed-tasks/compensations/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close a failed compensation by hand
+         * @description For after the money or the card has been put right by hand. Nothing is
+         *     moved here: this only records who closed the item and the note saying
+         *     what was done. Closing one says the books are right again, so it takes
+         *     `settlements.write`, the finance permission. Audited.
+         */
+        post: operations["resolve_compensation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/failed-tasks/connector-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List connector events that weren't handled
+         * @description Events a connector sent whose handling failed, newest first. A resend from
+         *     the connector runs them again, and so does a retry from here.
+         */
+        get: operations["list_connector_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/failed-tasks/connector-events/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a connector event again
+         * @description Handles the stored event as if the connector had sent it again. On success
+         *     it leaves this list. If it fails, the answer says why and the event stays.
+         *     Audited.
+         */
+        post: operations["retry_connector_event"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/failed-tasks/holder-mail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List cardholder mail that couldn't be handled
+         * @description Messages in the cardholders' shared inbox that couldn't be read or passed
+         *     on to the holder after several tries, newest first. Each one is still in
+         *     the mailbox, marked read: look at it there, then close it here.
+         */
+        get: operations["list_holder_mail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/failed-tasks/holder-mail/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close a cardholder message that couldn't be handled
+         * @description For a message dealt with by hand in the mailbox. It leaves the list; the
+         *     note and who closed it are kept and audited.
+         */
+        post: operations["resolve_holder_mail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/failed-tasks/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count open failures by kind
+         * @description The counters for the Failed tasks page. Each number matches what the list
+         *     of that kind shows.
+         */
+        get: operations["summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/failed-tasks/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List webhooks that ran out of attempts
+         * @description Webhooks to merchants and organizations that failed every attempt, newest
+         *     first.
+         */
+        get: operations["list_webhooks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/failed-tasks/webhooks/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a failed webhook again
+         * @description Puts the webhook back in the queue with a fresh set of attempts, signed and
+         *     addressed as it was the first time. It leaves this list; if every attempt
+         *     fails again, it comes back. Audited.
+         */
+        post: operations["retry_webhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/fx/probe": {
         parameters: {
             query?: never;
@@ -1488,6 +2198,29 @@ export type paths = {
          *     the one currently active.
          */
         get: operations["fx_providers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/license": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Show the license state in full
+         * @description Returns what this deployment's license allows and what it last reported
+         *     to Takeal: the installation, the lease in use with its features and
+         *     limits, and the last heartbeat exactly as it was sent. `GET /ready` shows
+         *     only the mode and the lease's dates; this is the complete view.
+         */
+        get: operations["get_license"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1605,7 +2338,14 @@ export type paths = {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Change your profile
+         * @description Sets the language of the console and of your notifications. It is saved
+         *     on the account, so every browser you sign in from picks it up. Send
+         *     `"locale": null` to go back to the browser's language. A field you leave
+         *     out keeps its value. The response is the same as for `GET /admin/me`.
+         */
+        patch: operations["update_my_profile"];
         trace?: never;
     };
     "/v1/admin/merchants": {
@@ -1975,8 +2715,8 @@ export type paths = {
          * Create a merchant user
          * @description Creates a merchant portal login with a temporary password. The plaintext
          *     password is returned only in this response and cannot be recovered later,
-         *     so pass it to the person out of band. A password change on first login is
-         *     not enforced by the API.
+         *     so pass it to the person out of band. The user has to replace it with a
+         *     password of their own at the first sign-in.
          */
         post: operations["create_merchant_user"];
         delete?: never;
@@ -2001,6 +2741,34 @@ export type paths = {
          *     not belong to the merchant in the path. Operator-only, audited.
          */
         delete: operations["delete_merchant_user"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a merchant user's role or block them
+         * @description Both fields are optional; what is left out stays as it is. A role change
+         *     applies to the user's open sessions at their next request. Operator-only,
+         *     audited.
+         */
+        patch: operations["update_merchant_user"];
+        trace?: never;
+    };
+    "/v1/admin/merchants/{id}/users/{user_id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset a merchant user's password
+         * @description Issues a new temporary password, shown only in this response. The user's
+         *     open sessions end, and at the next sign-in they have to pick a password of
+         *     their own. Operator-only, audited.
+         */
+        post: operations["reset_merchant_user_password"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2043,8 +2811,9 @@ export type paths = {
         put?: never;
         /**
          * Create a webhook endpoint for a merchant
-         * @description Adds an endpoint on the merchant's default shop. The signing secret is
-         *     returned only in this response. Audited.
+         * @description Adds an endpoint on the shop named in `shop_id`, or on the merchant's
+         *     default shop when `shop_id` is omitted. The signing secret is returned only
+         *     in this response. Audited.
          */
         post: operations["admin_create"];
         delete?: never;
@@ -2460,9 +3229,54 @@ export type paths = {
         /**
          * Create an organization user
          * @description Creates a login for the organization with a temporary password. The
-         *     password is returned only in this response and cannot be recovered later.
+         *     password is returned only in this response and cannot be recovered later,
+         *     so pass it to the person out of band. The user has to replace it with a
+         *     password of their own at the first sign-in.
          */
         post: operations["create_user"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/organizations/{id}/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change an organization user's role or block them
+         * @description Both fields are optional; what is left out stays as it is. A role change
+         *     applies to the user's open sessions at their next request. Audited.
+         */
+        patch: operations["update_user"];
+        trace?: never;
+    };
+    "/v1/admin/organizations/{id}/users/{user_id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset an organization user's password
+         * @description Issues a new temporary password, shown only in this response. The user's
+         *     open sessions end, and at the next sign-in they have to pick a password of
+         *     their own. Audited.
+         */
+        post: operations["reset_user_password"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4300,6 +5114,28 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/cards/{id}/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a physical card's PIN
+         * @description Sends the new PIN to the card issuer. Only for physical cards that are
+         *     active. The PIN is never kept on the platform; you get a notification that
+         *     it was set. Rate limited like revealing card details.
+         */
+        post: operations["set_card_pin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/cards/{id}/reveal": {
         parameters: {
             query?: never;
@@ -5129,6 +5965,37 @@ export type paths = {
         delete?: never;
         options?: never;
         head?: never;
+        /**
+         * Change your profile
+         * @description Sets the language of the portal and of your notifications. It is saved on
+         *     the account, so every browser you sign in from picks it up. Send
+         *     `"locale": null` to go back to the browser's language. A field you leave
+         *     out keeps its value. You can call it before replacing a password an
+         *     operator gave you. The response is the same as for `GET /auth/me`.
+         */
+        patch: operations["update_me"];
+        trace?: never;
+    };
+    "/v1/org/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change your password
+         * @description Needs the current password and a new one that passes the policy. This is
+         *     also how a user replaces a password issued by an operator. Every session
+         *     of the account ends, this one included: the response carries a new bearer
+         *     token (and a new `remember_token` if `remember_me` is set) to carry on with.
+         */
+        post: operations["org_change_password"];
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -5434,7 +6301,7 @@ export type paths = {
             cookie?: never;
         };
         /** List webhook endpoints */
-        get: operations["list_webhooks"];
+        get: operations["org_list_webhooks"];
         put?: never;
         /**
          * Create a webhook endpoint
@@ -5497,6 +6364,16 @@ export type paths = {
 export type webhooks = Record<string, never>;
 export type components = {
     schemas: {
+        ActivateStockBody: {
+            customer?: null | components["schemas"]["CustomerInfo"];
+            /** @description The holder's name for the card. */
+            name?: string | null;
+            /**
+             * Format: uuid
+             * @description The holder. Required unless the card is bound to one already; then it must match.
+             */
+            user_id?: string | null;
+        };
         /**
          * @description Postal address. ISO 3166 codes are recommended for `state` and `country`
          *     but not enforced.
@@ -5537,6 +6414,40 @@ export type components = {
              */
             user_id: string;
         };
+        AdjustBody: {
+            /**
+             * @description Amount, decimal string, positive.
+             * @example 8.00
+             */
+            amount: string;
+            /** @description ISO 4217 code. Must match the card's currency. */
+            currency: string;
+            /** @description `in` adds to the card, `out` takes from it. */
+            direction: components["schemas"]["AdjustDirectionBody"];
+            /**
+             * Format: uuid
+             * @description UUID chosen by the caller, kept the same across retries. A repeat call with the same key changes nothing twice.
+             */
+            idempotency_key: string;
+            /** @description Extra key-value pairs passed to the provider on a provider-side adjustment. */
+            metadata?: {
+                [key: string]: string;
+            };
+            /** @description Why this correction is made, in your own words. Recorded in the audit trail. */
+            reason: string;
+            /** @description Which side to correct. `provider` when the books already hold a movement the issuer missed; `books` when the issuer already moved and the books did not. */
+            side: components["schemas"]["AdjustSideBody"];
+        };
+        /**
+         * @description Whether the adjustment adds to the card or takes from it.
+         * @enum {string}
+         */
+        AdjustDirectionBody: "in" | "out";
+        /**
+         * @description Which side of the card an adjustment touches.
+         * @enum {string}
+         */
+        AdjustSideBody: "provider" | "books";
         AdminCreateCardBody: {
             /** @description Card BIN to issue on. Passed to the connector as `issuer_bin`. */
             bin?: string | null;
@@ -5638,6 +6549,11 @@ export type components = {
             amount: string;
             currency: string;
         };
+        AnnouncementPage: {
+            items: components["schemas"]["FailedAnnouncement"][];
+            /** Format: int64 */
+            total: number;
+        };
         /**
          * @description An API key as shown in listings. The secret is never included; it was
          *     shown once when the key was created.
@@ -5722,6 +6638,15 @@ export type components = {
              * @description Tier to put the user on.
              */
             tier_id: string;
+        };
+        AssignStockBody: {
+            /** @description How and when it was sent, for the record. */
+            shipped_note?: string | null;
+            /**
+             * Format: uuid
+             * @description The holder the plastic goes to. Null takes an existing binding off.
+             */
+            user_id?: string | null;
         };
         AttributionView: {
             /** @description The latest id per click-id name before sign-up. */
@@ -6251,6 +7176,11 @@ export type components = {
          *     in the creation response; later reads leave it out.
          */
         Card: {
+            /**
+             * @description `virtual` or `physical`. Plastic is activated from the
+             *     platform's stock, has a PIN and a limit under which purchases ask none.
+             */
+            card_form: string;
             card_type: components["schemas"]["CardType"];
             /** @description Identifier of the card connector that issued this card. */
             connector_slug: string;
@@ -6296,9 +7226,20 @@ export type components = {
             program_code?: string | null;
             /** @description Reference assigned by the card provider. */
             provider_reference?: string | null;
+            /**
+             * @description The provider's own reason for a status it set, or for refusing a
+             *     close; for operators, not holders.
+             */
+            provider_status_reason?: string | null;
             /** @description Gift cards only. Present in the creation response and omitted from later reads. */
             redemption_code?: string | null;
             status: components["schemas"]["CardStatus"];
+            /**
+             * @description Who made the last status change: `holder`, `operator` or
+             *     `provider`. Null for cards whose status never changed since issuance,
+             *     and for changes made before this was recorded.
+             */
+            status_source?: string | null;
             /** Format: date-time */
             updated_at: string;
             /**
@@ -6414,7 +7355,44 @@ export type components = {
          * @description Where a card is in its lifecycle.
          * @enum {string}
          */
-        CardStatus: "pending_payment" | "active" | "frozen" | "terminated" | "redeemed" | "failed";
+        CardStatus: "pending_payment" | "pending" | "active" | "frozen" | "terminating" | "terminated" | "redeemed" | "failed";
+        /**
+         * @description One card of the stock, as operators see it. The activation code is not
+         *     here: it is read once, sealed, when the card is activated.
+         */
+        CardStock: {
+            /** Format: date-time */
+            activated_at?: string | null;
+            /** Format: date-time */
+            assigned_at?: string | null;
+            /** @description The operator's name for the batch it came with. */
+            batch_label?: string | null;
+            /**
+             * Format: uuid
+             * @description The card this plastic became, once activated.
+             */
+            card_id?: string | null;
+            connector_slug: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            id: string;
+            /** @description The last four digits printed on the plastic. */
+            last4: string;
+            program_code: string;
+            /** @description How and when the plastic was sent, in the operator's words. */
+            shipped_note?: string | null;
+            /** @description `in_stock`, `assigned` (bound to a holder, on its way), `activated` or `void`. */
+            status: string;
+            /** Format: date-time */
+            updated_at: string;
+            /**
+             * Format: uuid
+             * @description The holder the card is bound to, once it is.
+             */
+            user_id?: string | null;
+            void_reason?: string | null;
+        };
         /** @description One top-up attempt as stored in `card_topups`. */
         CardTopup: {
             /** @description What landed on the card, decimal string, in `currency`. */
@@ -6428,7 +7406,28 @@ export type components = {
             failure_reason?: string | null;
             /** Format: uuid */
             id: string;
-            /** @description `pending`, `confirmed` or `failed`. */
+            /**
+             * Format: date-time
+             * @description When the platform last asked the provider about a top-up it had not
+             *     finished; null when it never had to.
+             */
+            provider_checked_at?: string | null;
+            /** @description The provider's reference for the reload, once it answered. */
+            provider_reload_reference?: string | null;
+            /** @description The operator's note on a returned or written-off top-up. */
+            resolution_note?: string | null;
+            /**
+             * @description Who settled a top-up the provider had not finished at once: `event`
+             *     (the provider reported), `poll` (the platform asked) or `operator`.
+             */
+            resolved_by?: string | null;
+            /**
+             * @description `pending` (asked of the provider, or accepted by it and not loaded
+             *     yet), `confirmed`, `failed`, `stalled` (the provider has had it longer
+             *     than the platform waits; the money is held on the card's transit
+             *     account for an operator), `returned` (an operator sent a stalled
+             *     top-up back to the wallet) or `written_off` (an operator gave it up).
+             */
             status: string;
             /** Format: date-time */
             updated_at: string;
@@ -6543,6 +7542,10 @@ export type components = {
             design: components["schemas"]["DesignRef"];
             moderation?: null | components["schemas"]["CardModeration"];
             product?: null | components["schemas"]["ProductRef"];
+            /** @description Top-ups the issuer has held too long, summed, decimal string in the card's currency: the money waits until the issuer answers or an operator decides. Null when there are none. */
+            topups_held?: string | null;
+            /** @description Top-ups the issuer has accepted and not loaded onto the card yet, summed, decimal string in the card's currency. Null when there are none. */
+            topups_pending?: string | null;
         };
         /**
          * @description What the provider expects behind a cardholder record.
@@ -6588,12 +7591,33 @@ export type components = {
              */
             new_password: string;
         };
+        ChangePasswordRequest: {
+            /** @description The password currently on the account. */
+            current_password: string;
+            /**
+             * @description At least 12 characters with a lower-case letter, an upper-case letter
+             *     and a digit; must differ from the current password.
+             */
+            new_password: string;
+            /** @description Keep this browser signed in, as at login. */
+            remember_me?: boolean;
+        };
         ChangePasswordResult: {
             /**
              * Format: int64
              * @description Number of other sessions that were signed out.
              */
             revoked_sessions: number;
+        };
+        Changelog: {
+            /** @description Languages the changelog is available in. */
+            available_langs: string[];
+            /** @description Language of `markdown`. */
+            lang: string;
+            /** @description The changelog as Markdown, newest version first. */
+            markdown: string;
+            /** @description Platform version this deployment runs (TKL). */
+            version: string;
         };
         ChannelHealth: {
             /** @description `telegram`, `push`, `email` or `sms`. */
@@ -6729,6 +7753,11 @@ export type components = {
             /** Format: int64 */
             total: number;
         };
+        CompensationPage: {
+            items: components["schemas"]["FailedCompensation"][];
+            /** Format: int64 */
+            total: number;
+        };
         /**
          * @description Where a lane's configuration came from.
          * @enum {string}
@@ -6755,6 +7784,65 @@ export type components = {
             /** @description Settlement connectors (merchant payouts). */
             settlers: number;
         };
+        ConnectorEventPage: {
+            items: components["schemas"]["FailedConnectorEvent"][];
+            /** Format: int64 */
+            total: number;
+        };
+        /** @description A job over a connector's cards and how far it got. */
+        ConnectorJob: {
+            connector_slug: string;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: int32
+             * @description Cards closed, or closing at the provider.
+             */
+            done: number;
+            /**
+             * Format: int32
+             * @description Cards the provider refused to close.
+             */
+            failed: number;
+            /** @description The refused cards, with the provider's reason. Empty until the job ran. */
+            failed_cards: components["schemas"]["FailedCard"][];
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description `terminate_all`. */
+            kind: string;
+            reason: string;
+            /**
+             * Format: uuid
+             * @description The job this one retries, when it only goes over refused cards.
+             */
+            retry_of?: string | null;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: uuid */
+            started_by?: string | null;
+            /** @description `queued`, `running` or `done`. A `done` job may have refused cards; see `failed`. */
+            status: string;
+            /**
+             * Format: int32
+             * @description Cards the job goes through.
+             */
+            total: number;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ConnectorProviderEvents: {
+            /**
+             * Format: int64
+             * @description The window the totals cover, in days.
+             */
+            days: number;
+            /** @description The latest events themselves, newest first. */
+            recent: components["schemas"]["ProviderEventRow"][];
+            /** @description Fees and credits summed per day, event type, kind and currency, newest day first. */
+            totals: components["schemas"]["DailyTotal"][];
+        };
         ConnectorStats: {
             /** @description What `amount` adds up for this role, e.g. "payment amount" or "deposit amount". */
             amount_basis: string;
@@ -6780,11 +7868,22 @@ export type components = {
          *     so an operator can recognise them but not recover the value.
          */
         ConnectorView: {
+            /** @description Card connectors only: the provider accounts to watch (keys from the balances endpoint) and the balance, decimal string, under which operators are told once. Empty when nothing is watched. */
+            balance_alerts: Record<string, never>;
             /**
              * Format: int32
              * @description Order in which connectors of the same role are tried. Lower comes first.
              */
             cascade_priority: number;
+            /**
+             * Format: date-time
+             * @description When the connector last reported its version. Null if it never has.
+             */
+            compat_checked_at?: string | null;
+            /** @description Why the connector is incompatible, naming its version and the platform versions it supports. Null unless `compat_status` is `incompatible`. */
+            compat_note?: string | null;
+            /** @description Whether the connector supports the platform version this deployment runs, as of its last configuration poll: `unknown` (it hasn't reported yet, or is older than version reporting), `compatible` or `incompatible`. An incompatible connector takes no traffic and can't be edited until its version matches. */
+            compat_status: string;
             /** @description Configuration variable names with each value redacted. Empty when none are set. Use the configuration endpoint to read plaintext. */
             configuration_variables_preview: {
                 [key: string]: string;
@@ -6941,6 +8040,11 @@ export type components = {
             event_filter?: string[];
             /** @description Name to tell endpoints apart. */
             label: string;
+            /**
+             * Format: uuid
+             * @description Shop the endpoint belongs to. Omitted means the default shop.
+             */
+            shop_id?: string | null;
             /** @description HTTPS URL that receives the deliveries. */
             url: string;
         };
@@ -7262,6 +8366,20 @@ export type components = {
          * @enum {string}
          */
         CycleStatus: "open" | "freezing" | "posted" | "completed" | "failed";
+        /** @description One day's total of one kind of event in one currency. */
+        DailyTotal: {
+            amount: string;
+            /**
+             * Format: int64
+             * @description How many events made the total.
+             */
+            count: number;
+            currency: string;
+            /** @description The day, `YYYY-MM-DD`, in UTC. */
+            day: string;
+            event_type: string;
+            kind: string;
+        };
         DayBucket: {
             /**
              * Format: int64
@@ -7645,6 +8763,37 @@ export type components = {
              */
             version: number;
         };
+        DriftPage: {
+            items: components["schemas"]["DriftingCard"][];
+            /** Format: int64 */
+            total: number;
+        };
+        /** @description A card whose balance here differs from the provider's. */
+        DriftingCard: {
+            /** Format: uuid */
+            card_id: string;
+            connector_slug: string;
+            currency: string;
+            /**
+             * @description Our balance minus the provider's: negative means the provider shows
+             *     more than we do.
+             */
+            drift: string;
+            last4?: string | null;
+            /**
+             * Format: date-time
+             * @description When operators were told about it.
+             */
+            reported_at: string;
+            /**
+             * Format: date-time
+             * @description Since when the gap has been there.
+             */
+            since?: string | null;
+            user_email?: string | null;
+            /** Format: uuid */
+            user_id: string;
+        };
         /**
          * @description One thing a program does. A program's effects run in order; the ones for
          *     the person using the code are applied when the operation completes, the
@@ -7738,6 +8887,180 @@ export type components = {
             /** @description Plaintext secret used to sign deliveries. Shown only once, at creation or rotation. */
             signing_secret: string;
         };
+        /** @description An announcement of a document that didn't go out. */
+        FailedAnnouncement: {
+            /** @description `email` or `telegram`. */
+            channel: string;
+            /** Format: int32 */
+            content_version: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            document_id: string;
+            /** @description What went wrong. */
+            error?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /**
+             * Format: uuid
+             * @description The attempt's id.
+             */
+            id: string;
+            slug: string;
+            title: string;
+        };
+        /** @description A card the provider would not close, as kept on the job. */
+        FailedCard: {
+            /** Format: uuid */
+            card_id: string;
+            last4?: string | null;
+            reason: string;
+        };
+        /** @description A step that should have undone a failed operation and failed itself. */
+        FailedCompensation: {
+            /** @description How much is stuck, when it's money. */
+            amount?: string | null;
+            /**
+             * @description References that help find the movement: the hold key, the ledger
+             *     reference, the amount on the card when the wallet paid in another
+             *     currency.
+             */
+            context: Record<string, never>;
+            /** Format: date-time */
+            created_at: string;
+            currency?: string | null;
+            /** @description What the failed step said. */
+            error: string;
+            /** @description What to check and do before closing it. */
+            hint: string;
+            /** Format: uuid */
+            id: string;
+            /** @description What failed to happen, e.g. `card_load_refund`. */
+            kind: string;
+            /** Format: date-time */
+            last_failed_at: string;
+            object_id: string;
+            /** @description `card`, `deposit`, `card_topup`, `card_transfer` or `subscription`. */
+            object_type: string;
+            /**
+             * Format: int32
+             * @description How many times this step failed for this object while open.
+             */
+            occurrences: number;
+            /** Format: uuid */
+            organization_id?: string | null;
+            organization_name?: string | null;
+            resolution_note?: string | null;
+            /** Format: date-time */
+            resolved_at?: string | null;
+            /**
+             * Format: uuid
+             * @description The operator who closed it. Empty when the system did.
+             */
+            resolved_by?: string | null;
+            resolved_by_email?: string | null;
+            /** @description One line on what is stuck. */
+            title: string;
+            user_email?: string | null;
+            /**
+             * Format: uuid
+             * @description Whose money it is, when that's known.
+             */
+            user_id?: string | null;
+        };
+        /** @description An event from a connector that wasn't handled. */
+        FailedConnectorEvent: {
+            /**
+             * Format: int32
+             * @description How many times it was run, counting resends from the connector.
+             */
+            attempts: number;
+            event_type: string;
+            /**
+             * Format: date-time
+             * @description When the last run failed.
+             */
+            failed_at?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description What the last run said. Empty when the run never reported back. */
+            last_error?: string | null;
+            /** @description Why not, when `retryable` is false. */
+            not_retryable_reason?: string | null;
+            /** @description The provider's own id for the event. */
+            raw_provider_event_id: string;
+            /** Format: date-time */
+            received_at: string;
+            /** @description False when the event can't be run again from here. */
+            retryable: boolean;
+            /** @description The connector that sent it. */
+            slug: string;
+        };
+        /**
+         * @description A message in the cardholders' inbox the worker gave up on. It is still in
+         *     the mailbox, marked read.
+         */
+        FailedHolderMail: {
+            /** Format: int32 */
+            attempts: number;
+            /** Format: date-time */
+            first_failed_at: string;
+            /** @description IMAP folder and UID of the message. */
+            folder: string;
+            from_address?: string | null;
+            /** Format: date-time */
+            gave_up_at?: string | null;
+            /** Format: uuid */
+            id: string;
+            last_error: string;
+            message_id?: string | null;
+            subject?: string | null;
+            /** Format: int64 */
+            uid: number;
+        };
+        /** @description A webhook that ran out of attempts. */
+        FailedWebhook: {
+            /** Format: int32 */
+            attempts: number;
+            /**
+             * Format: date-time
+             * @description When the event was queued.
+             */
+            created_at: string;
+            /**
+             * @description Whether that endpoint still takes deliveries. A retry only goes out
+             *     to an active endpoint.
+             */
+            endpoint_active: boolean;
+            /**
+             * Format: uuid
+             * @description The endpoint it was meant for, when it went to one of the merchant's
+             *     endpoints rather than the single webhook URL.
+             */
+            endpoint_id?: string | null;
+            event_type: string;
+            /**
+             * Format: date-time
+             * @description When the last attempt failed.
+             */
+            failed_at: string;
+            /** Format: uuid */
+            id: string;
+            last_error?: string | null;
+            /**
+             * Format: uuid
+             * @description Set for a merchant's webhook.
+             */
+            merchant_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Set for an organization's webhook.
+             */
+            organization_id?: string | null;
+            /** @description Whose webhook it is: the merchant's or the organization's legal name. */
+            owner_name?: string | null;
+            url: string;
+        };
         /** @description A folder in the tree. The four at the top are the categories. */
         Folder: {
             /** Format: date-time */
@@ -7776,6 +9099,25 @@ export type components = {
             /** Format: int32 */
             position?: number | null;
             title?: string | null;
+        };
+        ForceSyncBody: {
+            /** @description Optional note for the audit log. */
+            note?: string | null;
+        };
+        /** @description What a sync with the provider did. */
+        ForceSyncResult: {
+            /** @description The card's balance on the platform before the sync. */
+            books_before: string;
+            /** Format: uuid */
+            card_id: string;
+            currency: string;
+            /**
+             * @description What was recorded on the platform's books to match: positive in,
+             *     negative out, zero when they already agreed.
+             */
+            posted: string;
+            /** @description The balance the provider reported for the card just now. */
+            provider: string;
         };
         FreezeBody: {
             /** @description Why the card is frozen. Stored on the card. May be empty. */
@@ -7853,6 +9195,8 @@ export type components = {
             spend: string;
         };
         Health: {
+            /** @description Platform version (TKL): the version other services check their compatibility against. */
+            platform_version: string;
             /** @description Always `ok`. */
             status: string;
             /** @description Version of the running API build. */
@@ -7897,6 +9241,11 @@ export type components = {
             /** @description Pass as `cursor` for the next, older page; null on the last page. */
             next_cursor?: string | null;
         };
+        HolderMailPage: {
+            items: components["schemas"]["FailedHolderMail"][];
+            /** Format: int64 */
+            total: number;
+        };
         /** @description Metadata of an uploaded image. The bytes are served by the image endpoint. */
         ImageMeta: {
             /** @description Alt text. */
@@ -7918,6 +9267,14 @@ export type components = {
         ImageView: components["schemas"]["ImageMeta"] & {
             /** @description Public URL to use in document bodies. */
             url: string;
+        };
+        ImportStockBody: {
+            /** @description Your name for the batch, e.g. the shipment number. */
+            batch_label?: string | null;
+            /** @description The cards. Up to 5000 per call. */
+            cards: components["schemas"]["StockCardBody"][];
+            /** @description The physical program of the connector these cards belong to. */
+            program_code: string;
         };
         /** @description One notification as the user sees it. */
         InboxItem: {
@@ -8006,6 +9363,8 @@ export type components = {
         IssuanceInfo: {
             /** @description Card BIN, if the provider reports one. */
             bin?: string | null;
+            /** @description `virtual` or `physical`, as the connector declares it. A physical program's cards are activated from the connector's stock, never created. */
+            card_form: string;
             /** @description `credit`, `prepaid` or `gift`. */
             card_type: string;
             /** @description Country a made-up holder's address and phone belong to, ISO 3166-1 alpha-2. Null: the deployment's default country. */
@@ -8098,10 +9457,12 @@ export type components = {
             configured: boolean;
             /** @description The sender, when configured. */
             from?: string | null;
+            /** @description JMAP session URL, when the provider is JMAP. */
+            jmap_url?: string | null;
             lane: components["schemas"]["Lane"];
             /** @description What is missing, when something is set up but incomplete. */
             problem?: string | null;
-            /** @description `postmark` or `smtp`, when configured. */
+            /** @description `postmark`, `smtp` or `jmap`, when configured. */
             provider?: string | null;
             /** @description Whether deliveries, opens and clicks come back (Postmark only). */
             reports_events: boolean;
@@ -8136,6 +9497,55 @@ export type components = {
             text: string;
             /** Format: date-time */
             updated_at?: string | null;
+        };
+        LicenseView: {
+            /** @description Message from Takeal for the operator, if there is one. */
+            banner?: string | null;
+            /** @description The environment the installation was enrolled for, e.g. `production`. */
+            environment?: string | null;
+            /**
+             * Format: date-time
+             * @description When the lease in use expires. The deployment renews it every five minutes.
+             */
+            exp?: string | null;
+            /** @description What the license includes: connector, provider or module slug mapped to `{"mode": "full" | "service", "until": time or absent}`. `service` keeps what already exists working and opens nothing new. A connector that isn't listed is switched off. */
+            features: Record<string, never>;
+            /** @description This installation's id at Takeal. */
+            installation_id?: string | null;
+            /**
+             * Format: date-time
+             * @description Last time this process checked its lease.
+             */
+            last_check_at?: string | null;
+            /** @description Why the last check failed. Null when it succeeded. */
+            last_error?: string | null;
+            /**
+             * Format: date-time
+             * @description When the lease in use was received from Takeal.
+             */
+            last_good_at?: string | null;
+            /** @description The last heartbeat this deployment sent to Takeal, exactly as sent: counters, connector states, user, card and merchant counts, and turnover per currency over the last 24 hours. No personal data. Null before the first heartbeat, and on processes that don't send one. */
+            last_heartbeat?: Record<string, never> | null;
+            /**
+             * Format: int64
+             * @description Serial number of the lease in use.
+             */
+            lease_serial?: number | null;
+            /** @description The license this installation runs under. */
+            license_id?: string | null;
+            /** @description Limits of the license: name mapped to a number. */
+            limits: Record<string, never>;
+            /** @description `active`, `grace` (running on a saved or expired lease), `refusing` (new transactions are refused) or `disabled` (licensing is switched off on this deployment). */
+            mode: string;
+            /** @description Why new transactions are refused: `revoked`, `suspended` or `expired`. Null unless `mode` is `refusing`. */
+            reason?: string | null;
+            /** @description Status of the lease in use: `active`, `suspended` or `revoked`. */
+            status?: string | null;
+            /**
+             * Format: date-time
+             * @description When grace ends and new transactions start being refused. Null unless `mode` is `grace`.
+             */
+            until?: string | null;
         };
         /** @description Optional reason for freezing or terminating a card. */
         LifecycleReasonBody: {
@@ -8325,8 +9735,20 @@ export type components = {
             is_active: boolean;
             /** Format: date-time */
             last_login_at?: string | null;
+            /**
+             * @description The language the user picked for the portal and their notifications,
+             *     one of `takeal_domain::locale::LOCALES`; `None` means automatic (the
+             *     browser's language).
+             */
+            locale?: string | null;
             /** Format: uuid */
             merchant_id: string;
+            /**
+             * @description The password was set by an operator: the user has to pick their own
+             *     before anything but `/merchants/auth/me` and `/merchants/auth/password`
+             *     works.
+             */
+            must_change_password: boolean;
             role: components["schemas"]["MerchantRole"];
             /** Format: date-time */
             updated_at: string;
@@ -8401,6 +9823,8 @@ export type components = {
         /** @description The signed-in operator's role and what it grants. */
         MyAccess: {
             email: string;
+            /** @description Language picked for the console and notifications: `en`, `ru`, `de`, `es`, `fr`, `pt-BR` or `zh-Hans`. `null` means automatic, which follows the browser. */
+            locale?: string | null;
             /** @description Every permission key the role grants, `*` for all of them. Empty for an end-user account. */
             permissions: string[];
             /** @description Role name. */
@@ -8591,6 +10015,13 @@ export type components = {
             /** @description The created user. */
             user: components["schemas"]["OrgUserView"];
         };
+        NoPinLimitBody: {
+            /**
+             * @description Purchases up to this amount, in the card's currency, ask no PIN. Zero: the PIN is always asked.
+             * @example 25.00
+             */
+            amount: string;
+        };
         OpenCycleBody: {
             /**
              * Format: uuid
@@ -8617,6 +10048,8 @@ export type components = {
             bonus_value?: string | null;
             /** @description Whether an operator may retry the card load now. */
             can_retry: boolean;
+            /** @description Whether the load waits for the issuer's answer: an operator may check again, return the money or write it off. */
+            can_settle: boolean;
             /** @description What went towards the card, in its currency, bonuses included. */
             card_amount?: string | null;
             /** @description Commission taken from a top-up onto a card, in the card's currency. */
@@ -8634,8 +10067,13 @@ export type components = {
             card_load_attempts: number;
             /** @description What the card provider answered when the load failed. */
             card_load_error?: string | null;
-            /** @description `pending`, `succeeded` or `failed`; null for wallet top-ups. */
+            /** @description `pending`, `waiting` (the issuer accepted the load and has not done it), `stalled` (the issuer has had it too long; an operator decides), `succeeded` or `failed`; null for wallet top-ups. */
             card_load_status?: string | null;
+            /**
+             * Format: date-time
+             * @description Set when an operator wrote a stalled load off.
+             */
+            card_load_written_off_at?: string | null;
             /** Format: date-time */
             card_loaded_at?: string | null;
             confirmed_amount?: string | null;
@@ -8717,6 +10155,8 @@ export type components = {
             updated_at: string;
         };
         OpsInfoView: {
+            /** @description Platform version (TKL), the one connectors, consoles and SDKs check their supported range against. Usually equal to `version`; `version` can carry a release-candidate suffix. */
+            platform_version: string;
             /**
              * Format: date-time
              * @description When the process started, UTC.
@@ -8799,6 +10239,14 @@ export type components = {
             id: string;
             /** Format: date-time */
             last_login_at?: string | null;
+            /** @description Language picked for the portal and notifications: `en`, `ru`, `de`, `es`, `fr`, `pt-BR` or `zh-Hans`. `null` means automatic, which follows the browser. */
+            locale?: string | null;
+            /**
+             * @description The password was issued by an operator. Until the user picks their
+             *     own with `POST /auth/password`, every other call answers 403
+             *     `password_change_required`.
+             */
+            must_change_password: boolean;
             /** Format: uuid */
             organization_id: string;
             /** @description Legal name of the organization this user belongs to. */
@@ -8825,6 +10273,13 @@ export type components = {
             id: string;
             /** @description False when the user has been deactivated. */
             is_active: boolean;
+            /**
+             * Format: date-time
+             * @description When the user last signed in.
+             */
+            last_login_at?: string | null;
+            /** @description True until the user replaces the password an operator gave them. */
+            must_change_password: boolean;
             /**
              * Format: uuid
              * @description Organization the user belongs to.
@@ -8979,6 +10434,8 @@ export type components = {
             value: string;
         };
         PatchConnectorBody: {
+            /** @description Card connectors only: replaces the watched provider accounts. Keys are account ids from the balances endpoint, values the balance (decimal string, zero or more) under which operators are told. An empty object watches nothing. */
+            balance_alerts?: Record<string, never> | null;
             /** @description Funding connectors only: the payment methods it takes, any of `card`, `crypto`, `bank_transfer`, at least one. */
             deposit_methods?: string[] | null;
             /** @description Funding connectors only: `wallet`, `the connector` or `mixed`. Takes effect on the next top-up; top-ups already made keep the mode they were made under. */
@@ -9167,7 +10624,7 @@ export type components = {
         PreferencesBody: {
             /** @description Replaces the switches. `security` and `money` keep at least one outward channel whatever is sent. */
             categories?: Record<string, never> | null;
-            /** @description `en`, `ru` or null for the deployment default. Omit to keep. */
+            /** @description `en`, `ru`, `de`, `es`, `fr`, `pt-BR`, `zh-Hans`, or null for automatic. Leave it out to keep the current value. A notification with no text in the chosen language comes in English. */
             locale?: string | null;
             /** @description `push`, `telegram`, `email`, `sms` or null for automatic. Omit to keep. */
             primary_channel?: string | null;
@@ -9178,7 +10635,7 @@ export type components = {
             available_channels: string[];
             /** @description Per-category switches: `{"marketing": {"push": false, "email": true}}`. A missing switch means on, except for `marketing`, which is opt-in. */
             categories: Record<string, never>;
-            /** @description Language of notifications, `en` or `ru`; null = the deployment's default. */
+            /** @description Language of the interface and notifications: `en`, `ru`, `de`, `es`, `fr`, `pt-BR` or `zh-Hans`. Null means automatic: the app follows the browser, and notifications follow the Telegram profile or the deployment default. */
             locale?: string | null;
             /**
              * Format: date-time
@@ -9245,6 +10702,17 @@ export type components = {
             /** Format: uuid */
             id: string;
             name: string;
+        };
+        /**
+         * @description A change to your own profile. Every field is optional; an omitted one
+         *     keeps its value.
+         */
+        ProfileBody: {
+            /**
+             * @description Language of the interface and your notifications: `en`, `ru`, `de`, `es`, `fr`, `pt-BR` or `zh-Hans`. `null` switches back to automatic, which follows the browser.
+             * @example de
+             */
+            locale?: string | null;
         };
         /** @description A program: the rules a code works by. */
         Program: {
@@ -9432,6 +10900,29 @@ export type components = {
             /** @description False keeps the program for operator and business issuance only. */
             visible_to_users: boolean;
         };
+        /** @description One thing the provider reported about the platform's wallet with it. */
+        ProviderEventRow: {
+            /** @description Decimal string. A fee is what left the wallet, a credit what came onto it. */
+            amount: string;
+            /**
+             * Format: uuid
+             * @description The card the fee was for; null for a wallet credit, or a card since purged.
+             */
+            card_id?: string | null;
+            card_provider_reference?: string | null;
+            connector_slug: string;
+            currency: string;
+            /** @description `card.provider_fee` or `connector.wallet_credited`. */
+            event_type: string;
+            /** Format: uuid */
+            id: string;
+            /** @description The provider's kind of fee (`transaction`, `decline`, `reload`, …) or `wallet_credit`. */
+            kind: string;
+            /** Format: date-time */
+            occurred_at: string;
+            /** @description The provider's order number or the transfer's hash. */
+            provider_reference?: string | null;
+        };
         /**
          * @description A document as a reader receives it. The body comes both as Markdown and
          *     as a flat list of blocks, so the client can render it with its own
@@ -9603,7 +11094,7 @@ export type components = {
             checks: components["schemas"]["ReadinessChecks"];
             /** @description Number of configured connectors per role. */
             counts: components["schemas"]["ConnectorCounts"];
-            /** @description License state. `mode` is one of `active`, `grace`, `refusing`, `disabled`; `refusing` also carries `reason`. Does not affect the HTTP status of this endpoint. */
+            /** @description License state for the console's status bar: `mode` (`active`, `grace`, `refusing` or `disabled`; `grace` also carries `until`, `refusing` carries `reason`), the lease's `status`, `exp` (also as `valid_until`), `banner`, `last_check_at`, `last_good_at` and `last_error`. Operators see the full picture at `GET /v1/admin/license`. Does not affect the HTTP status of this endpoint. */
             license: Record<string, never>;
             /** @description Support channels and build info, fixed for the lifetime of the process. */
             ops: components["schemas"]["OpsInfoView"];
@@ -9787,6 +11278,10 @@ export type components = {
              */
             user_id: string;
         };
+        ResolveBody: {
+            /** @description What was done about it. Required. */
+            note: string;
+        };
         RevealResponse: {
             billing_address?: null | components["schemas"]["Address"];
             cardholder?: null | components["schemas"]["CardholderView"];
@@ -9811,6 +11306,8 @@ export type components = {
             holder_name: string;
             /** @description Full card number. */
             pan: string;
+            /** @description A page at the card provider that shows the card details to the holder. Present when the provider hands out a page instead of the numbers: `pan` and `cvv` are then empty, and the client opens this address in a frame. The address is short-lived and is not kept anywhere. */
+            reveal_url?: string | null;
         };
         RevealedSetting: {
             /** @description True when a value has been set explicitly. */
@@ -9952,6 +11449,11 @@ export type components = {
             /** @description Why, for other operators. Kept with the hold and in the audit log. */
             note?: string | null;
         };
+        /** @description The new PIN. No `Debug`: the PIN is in it. */
+        SetPinBody: {
+            /** @description Four to six digits. */
+            pin: string;
+        };
         /**
          * @example {
          *       "channels": [
@@ -10004,6 +11506,11 @@ export type components = {
             updated_by?: string | null;
             /** @description Current value. Redacted for `secret` settings. Null when the setting is neither set nor has a default. */
             value?: string | null;
+        };
+        /** @description An operator's note on a load they settle by hand. */
+        SettleNoteBody: {
+            /** @description Why. Kept on the deposit and in the audit log. */
+            note: string;
         };
         /**
          * @description A shop: one brand or storefront under a merchant. API keys and webhook
@@ -10081,6 +11588,26 @@ export type components = {
             count: number;
             /** @description Transaction status. */
             status: string;
+        };
+        /** @description One card of a batch as it comes from the provider. No `Debug`: the code is in it. */
+        StockCardBody: {
+            /** @description The activation code that came with it. */
+            activation_code: string;
+            /** @description The last four digits printed on the plastic. */
+            last4: string;
+        };
+        /** @description What an import did. */
+        StockImportOutcome: {
+            /**
+             * Format: int64
+             * @description Cards added to the stock.
+             */
+            imported: number;
+            /**
+             * Format: int64
+             * @description Cards already in the stock (same connector and activation code).
+             */
+            skipped: number;
         };
         /** @description One product on the storefront, with everything an operator can set. */
         StorefrontProduct: {
@@ -10204,6 +11731,55 @@ export type components = {
             available: string[];
             /** @description Channels the user is subscribed to, e.g. `["email"]`. */
             channels: string[];
+        };
+        /** @description How many open failures of each kind there are. */
+        Summary: {
+            /**
+             * Format: int64
+             * @description Announcements of a document or blog post that failed to go out.
+             */
+            announcements: number;
+            /**
+             * Format: int64
+             * @description Cards whose balance here differs from the provider's.
+             */
+            card_drift: number;
+            /**
+             * Format: int64
+             * @description Card top-ups whose money didn't reach the card.
+             */
+            card_loads: number;
+            /**
+             * Format: int64
+             * @description Steps that should have undone a failed operation and failed
+             *     themselves, still open.
+             */
+            compensations: number;
+            /**
+             * Format: int64
+             * @description Events from connectors whose handling failed.
+             */
+            connector_events: number;
+            /**
+             * Format: int64
+             * @description Mail for cardholders the inbox worker gave up on.
+             */
+            holder_mail: number;
+            /**
+             * Format: int64
+             * @description Notifications a channel refused for good and nobody sent again yet.
+             */
+            notifications: number;
+            /**
+             * Format: int64
+             * @description Cards that failed here but exist at the provider.
+             */
+            orphan_cards: number;
+            /**
+             * Format: int64
+             * @description Webhooks to merchants and organizations that ran out of attempts.
+             */
+            webhooks: number;
         };
         /**
          * @example {
@@ -10395,6 +11971,12 @@ export type components = {
             image_url?: string | null;
             /** @description Title as saved. */
             title: string;
+        };
+        TerminateAllBody: {
+            /** @description Why every card is being closed. Required; kept on the job, in the audit log and on every card. */
+            reason: string;
+            /** @description The current code from the operator's authenticator. Required even with a live session: this closes every card the connector has. */
+            totp_code: string;
         };
         TerminateBody: {
             /**
@@ -10671,6 +12253,22 @@ export type components = {
             /** @description New delivery URL. */
             url?: string | null;
         };
+        UpdateMerchantUserBody: {
+            /**
+             * @description `false` blocks the user: they can't sign in and their open sessions stop
+             *     working at the next request. `true` lets them back in.
+             */
+            is_active?: boolean | null;
+            role?: null | components["schemas"]["MerchantRole"];
+        };
+        UpdateUserBody: {
+            /**
+             * @description `false` blocks the user: they can't sign in and their open sessions stop
+             *     working at the next request. `true` lets them back in.
+             */
+            is_active?: boolean | null;
+            role?: null | components["schemas"]["OrganizationRole"];
+        };
         /** @description Fields to change on a webhook endpoint. Anything omitted stays as it is. */
         UpdateWebhookBody: {
             /** @description Event patterns to deliver. Empty means all events. */
@@ -10734,6 +12332,8 @@ export type components = {
          */
         UserCardView: {
             bonus?: null | components["schemas"]["IssuanceBonus"];
+            /** @description `virtual` or `physical`. A physical card has a PIN (`POST /me/cards/{id}/pin`); its details are on the plastic. */
+            card_form: string;
             card_type: components["schemas"]["CardType"];
             /** @description Why the card can't be closed right now, null when it can: `first_purchase_required` (it closes after its first purchase) or `card_locked` (only support can change it). */
             close_blocked?: string | null;
@@ -10760,6 +12360,12 @@ export type components = {
             /** @description Gift cards only, returned once on creation. */
             redemption_code?: string | null;
             status: components["schemas"]["CardStatus"];
+            /** @description Who made the last status change: `holder`, `operator` or `provider`. A card the provider froze (`frozen` with `provider`) is unfrozen only by the provider's support, so there is no point offering to unfreeze it. Null when the status never changed. */
+            status_source?: string | null;
+            /** @description Top-ups the issuer has held for too long, summed, decimal string in the card's currency. The money is safe and waits; support settles it. Null when there are none. */
+            topups_held?: string | null;
+            /** @description Top-ups the issuer has accepted and not loaded onto the card yet, summed, decimal string in the card's currency. Null when there are none. */
+            topups_pending?: string | null;
             /** Format: date-time */
             updated_at: string;
             /** Format: uuid */
@@ -10960,6 +12566,10 @@ export type components = {
             effective_from?: string | null;
             note?: string | null;
         };
+        VoidStockBody: {
+            /** @description Why the plastic will never be activated: lost, damaged, returned. */
+            reason: string;
+        };
         WalletBalanceRow: {
             /**
              * @description Balance in this currency, decimal string.
@@ -11023,6 +12633,11 @@ export type components = {
             /** Format: date-time */
             updated_at: string;
             url: string;
+        };
+        WebhookPage: {
+            items: components["schemas"]["FailedWebhook"][];
+            /** Format: int64 */
+            total: number;
         };
         /** @description A webhook endpoint together with its signing secret. */
         WebhookSecretView: {
@@ -11100,6 +12715,43 @@ export interface operations {
                 content: {
                     "image/svg+xml": unknown;
                 };
+            };
+        };
+    };
+    get_changelog: {
+        parameters: {
+            query?: {
+                /** @description Language code: `en`, `ru`, `de`, `es`, `fr`, `pt-BR` or `zh-Hans`. Regional variants count (`pt-PT` gives `pt-BR`, `de-AT` gives `de`). A language the changelog hasn't been translated into gives English. Without `lang`, the `Accept-Language` header decides. */
+                lang?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The changelog */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Changelog"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a staff account */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -12097,6 +13749,302 @@ export interface operations {
             };
         };
     };
+    activate_stock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Stock entry id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivateStockBody"];
+            };
+        };
+        responses: {
+            /** @description The card */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Card"];
+                };
+            };
+            /** @description No holder, or the card is void */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The holder's wallet cannot cover the program's price */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing cards.stock permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such stock entry */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `provider_refused`: the provider did not activate the card (wrong code, say) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    assign_stock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Stock entry id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignStockBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardStock"];
+                };
+            };
+            /** @description The card is activated or void */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing cards.stock permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such stock entry */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    void_stock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Stock entry id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoidStockBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardStock"];
+                };
+            };
+            /** @description The card is activated or void already */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing cards.stock permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such stock entry */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    recheck_topup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Top-up id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The top-up after asking; `status` says how it stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardTopup"];
+                };
+            };
+            /** @description Missing cards.reconcile permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such top-up */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `not_settleable`: the top-up is not with the issuer */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    return_topup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Top-up id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettleNoteBody"];
+            };
+        };
+        responses: {
+            /** @description The returned top-up */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardTopup"];
+                };
+            };
+            /** @description Missing cards.reconcile permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such top-up */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `not_settleable`: the top-up is not with the issuer */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    write_off_topup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Top-up id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettleNoteBody"];
+            };
+        };
+        responses: {
+            /** @description The written-off top-up */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardTopup"];
+                };
+            };
+            /** @description Missing cards.reconcile permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such top-up */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `not_settleable`: the top-up is not with the issuer */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_card_transactions_all: {
         parameters: {
             query?: {
@@ -12329,6 +14277,68 @@ export interface operations {
             };
         };
     };
+    adjust_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Card UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustBody"];
+            };
+        };
+        responses: {
+            /** @description The card after the correction */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Card"];
+                };
+            };
+            /** @description Amount not positive, currency mismatch, missing reason, or the card is not active (provider side) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the cards.recharge permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such card */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The issuer cannot make this movement on this card */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Connector unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     debit_card: {
         parameters: {
             query?: never;
@@ -12377,6 +14387,62 @@ export interface operations {
             };
             /** @description The card's limit cannot be edited, because it is not a shared card */
             501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Connector unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    force_sync_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Card UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Optional */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForceSyncBody"];
+            };
+        };
+        responses: {
+            /** @description Synced */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForceSyncResult"];
+                };
+            };
+            /** @description Missing the cards.reconcile permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such card */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The provider doesn't know this card, doesn't report its balance, or reports it in another currency */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12487,6 +14553,96 @@ export interface operations {
             };
             /** @description No such card */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    set_no_pin_limit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Card UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoPinLimitBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Card"];
+                };
+            };
+            /** @description Negative amount */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing cards.lifecycle permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such card */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `provider_refused`: the provider did not take the limit */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a physical card, or the connector has no PIN limit */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    card_provider_fees: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Card UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderEventRow"][];
+                };
+            };
+            /** @description Missing cards.read permission */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12710,6 +14866,35 @@ export interface operations {
             };
             /** @description Connector unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_card_topups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Card UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardTopup"][];
+                };
+            };
+            /** @description Missing cards.read permission */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13175,6 +15360,97 @@ export interface operations {
             };
         };
     };
+    get_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Job id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectorJob"];
+                };
+            };
+            /** @description Missing connectors.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such job */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    retry_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Job id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TerminateAllBody"];
+            };
+        };
+        responses: {
+            /** @description The new job, queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectorJob"];
+                };
+            };
+            /** @description Wrong or missing one-time code */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing cards.mass_terminate permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such job */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `nothing_to_retry`: the job is not finished or refused no card; `job_running`: another job on the connector has not finished */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_connectors: {
         parameters: {
             query?: never;
@@ -13307,6 +15583,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The connector's version doesn't match the platform, so it can't be changed until it does (`connector_incompatible`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     patch_connector: {
@@ -13355,6 +15638,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The connector's version doesn't match the platform, so it can't be changed until it does (`connector_incompatible`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     connector_balances: {
@@ -13394,6 +15684,141 @@ export interface operations {
             };
             /** @description Connector unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_stock: {
+        parameters: {
+            query?: {
+                /** @description `in_stock`, `assigned`, `activated` or `void`. All when omitted. */
+                status?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description Card connector slug */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardStock"][];
+                };
+            };
+            /** @description Missing cards.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    import_stock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Card connector slug */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportStockBody"];
+            };
+        };
+        responses: {
+            /** @description How many cards were added and skipped */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockImportOutcome"];
+                };
+            };
+            /** @description Not a physical program of this connector, or a malformed row */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing cards.stock permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    terminate_all: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Card connector slug */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TerminateAllBody"];
+            };
+        };
+        responses: {
+            /** @description The job, queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectorJob"];
+                };
+            };
+            /** @description No reason given */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wrong or missing one-time code */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing cards.mass_terminate permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such card connector */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `job_running`: a job on this connector has not finished */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13491,6 +15916,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The connector's version doesn't match the platform, so it can't be changed until it does (`connector_incompatible`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     delete_configuration_key: {
@@ -13525,6 +15957,13 @@ export interface operations {
             };
             /** @description No such connector */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The connector's version doesn't match the platform, so it can't be changed until it does (`connector_incompatible`) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13580,6 +16019,42 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The connector's version doesn't match the platform, so it can't be changed until it does (`connector_incompatible`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_jobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Connector slug */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectorJob"][];
+                };
+            };
+            /** @description Missing connectors.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     list_programs: {
@@ -13601,6 +16076,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProgramView"][];
+                };
+            };
+            /** @description Missing connectors.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    connector_provider_events: {
+        parameters: {
+            query?: {
+                /** @description How many days back the daily totals cover. Default 30, max 365. */
+                days?: number | null;
+            };
+            header?: never;
+            path: {
+                /** @description Card connector slug */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectorProviderEvents"];
                 };
             };
             /** @description Missing connectors.read permission */
@@ -13642,6 +16149,13 @@ export interface operations {
             };
             /** @description No such connector */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The connector's version doesn't match the platform, so it can't be changed until it does (`connector_incompatible`) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13764,6 +16278,50 @@ export interface operations {
             };
         };
     };
+    recheck_card_load: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deposit id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The deposit after asking; `card_load_status` says how it stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorDepositRow"];
+                };
+            };
+            /** @description Missing cards.reconcile permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such deposit */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `not_settleable`: no card load waits for the issuer */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     retry_card_load: {
         parameters: {
             query?: never;
@@ -13800,6 +16358,102 @@ export interface operations {
                 content?: never;
             };
             /** @description `not_retryable`: not a top-up onto a card, not settled, already loaded, moved to the wallet, or an attempt is running */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    return_card_load: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deposit id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettleNoteBody"];
+            };
+        };
+        responses: {
+            /** @description The deposit after the return */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorDepositRow"];
+                };
+            };
+            /** @description Missing cards.reconcile permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such deposit */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `not_settleable`: no card load waits for the issuer */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    write_off_card_load: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deposit id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettleNoteBody"];
+            };
+        };
+        responses: {
+            /** @description The deposit after the write-off */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorDepositRow"];
+                };
+            };
+            /** @description Missing cards.reconcile permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such deposit */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `not_settleable`: no card load waits for the issuer */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -14404,6 +17058,445 @@ export interface operations {
             };
         };
     };
+    list_announcements: {
+        parameters: {
+            query?: {
+                /** @description 1 to 200. Default 50. */
+                limit?: number;
+                /** @description Rows to skip. Default 0. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnouncementPage"];
+                };
+            };
+            /** @description limit out of range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_card_drift: {
+        parameters: {
+            query?: {
+                /** @description 1 to 200. Default 50. */
+                limit?: number;
+                /** @description Rows to skip. Default 0. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriftPage"];
+                };
+            };
+            /** @description limit out of range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the cards.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_compensations: {
+        parameters: {
+            query?: {
+                /** @description `open` (default), `resolved` or `all`. */
+                state?: "open" | "resolved" | "all";
+                /** @description 1 to 200. Default 50. */
+                limit?: number;
+                /** @description Rows to skip. Default 0. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompensationPage"];
+                };
+            };
+            /** @description limit out of range or unknown state */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    resolve_compensation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Failed compensation id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveBody"];
+            };
+        };
+        responses: {
+            /** @description Closed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Empty note, or one longer than 2000 characters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settlements.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No failed compensation with that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already closed (`already_resolved`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_connector_events: {
+        parameters: {
+            query?: {
+                /** @description 1 to 200. Default 50. */
+                limit?: number;
+                /** @description Rows to skip. Default 0. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectorEventPage"];
+                };
+            };
+            /** @description limit out of range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    retry_connector_event: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Event id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Handled */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the connectors.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already handled, being handled right now, or can't be run again (`not_retryable`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Handling failed again (`handler_failed`); the message says why */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_holder_mail: {
+        parameters: {
+            query?: {
+                /** @description 1 to 200. Default 50. */
+                limit?: number;
+                /** @description Rows to skip. Default 0. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolderMailPage"];
+                };
+            };
+            /** @description limit out of range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    resolve_holder_mail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Row id from the list */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveBody"];
+            };
+        };
+        responses: {
+            /** @description Closed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Empty note */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No open row with that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Summary"];
+                };
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_webhooks: {
+        parameters: {
+            query?: {
+                /** @description 1 to 200. Default 50. */
+                limit?: number;
+                /** @description Rows to skip. Default 0. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookPage"];
+                };
+            };
+            /** @description limit out of range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    retry_webhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Webhook id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued again */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No failed webhook with that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The endpoint is no longer active (`endpoint_inactive`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     fx_probe: {
         parameters: {
             query: {
@@ -14467,6 +17560,39 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["FxProvidersView"];
                 };
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_license: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LicenseView"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not permitted */
             403: {
@@ -14693,6 +17819,43 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MyAccess"];
                 };
+            };
+        };
+    };
+    update_my_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyAccess"];
+                };
+            };
+            /** @description Unknown language (`validation`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -15572,6 +18735,88 @@ export interface operations {
             };
         };
     };
+    update_merchant_user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Merchant UUID. The user must belong to this merchant */
+                id: string;
+                /** @description Merchant user UUID */
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMerchantUserBody"];
+            };
+        };
+        responses: {
+            /** @description Updated user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MerchantUser"];
+                };
+            };
+            /** @description Not an operator */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such merchant user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    reset_merchant_user_password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Merchant UUID. The user must belong to this merchant */
+                id: string;
+                /** @description Merchant user UUID */
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description temporary_password is plaintext and shown only once */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewMerchantUser"];
+                };
+            };
+            /** @description Not an operator */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such merchant user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     set_webhook: {
         parameters: {
             query?: never;
@@ -15682,6 +18927,20 @@ export interface operations {
             };
             /** @description Not an operator */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The merchant has no such shop */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The shop is archived */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -15950,7 +19209,7 @@ export interface operations {
             path: {
                 /** @description Event slug, e.g. `deposit_confirmed` */
                 event_type: string;
-                /** @description Two-letter language code */
+                /** @description Language code: `en`, `ru`, `de`, `es`, `fr`, `pt-BR` or `zh-Hans` */
                 locale: string;
             };
             cookie?: never;
@@ -16510,6 +19769,88 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["NewUserView"];
                 };
+            };
+        };
+    };
+    update_user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization UUID. The user must belong to this organization */
+                id: string;
+                /** @description Organization user UUID */
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserBody"];
+            };
+        };
+        responses: {
+            /** @description Updated user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgUserView"];
+                };
+            };
+            /** @description Not allowed to manage organizations */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such organization user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    reset_user_password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization UUID. The user must belong to this organization */
+                id: string;
+                /** @description Organization user UUID */
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description temporary_password is plaintext and shown only once */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewUserView"];
+                };
+            };
+            /** @description Not allowed to manage organizations */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such organization user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -19837,6 +23178,67 @@ export interface operations {
             };
         };
     };
+    set_card_pin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPinBody"];
+            };
+        };
+        responses: {
+            /** @description PIN set */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserCardView"];
+                };
+            };
+            /** @description The PIN is not four to six digits, or the card is not active */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The card belongs to another user */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `card_locked`, or `provider_refused`: the issuer did not take the PIN */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many attempts; try again later */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A virtual card has no PIN */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     reveal_card: {
         parameters: {
             query?: never;
@@ -21460,6 +24862,82 @@ export interface operations {
             };
         };
     };
+    update_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileBody"];
+            };
+        };
+        responses: {
+            /** @description Updated profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgUserPublic"];
+                };
+            };
+            /** @description Unknown language (`validation`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    org_change_password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Changed; use the new token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description New password rejected by the policy (`weak_password`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Current password is wrong, or not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     org_refresh: {
         parameters: {
             query?: never;
@@ -21873,7 +25351,7 @@ export interface operations {
             };
         };
     };
-    list_webhooks: {
+    org_list_webhooks: {
         parameters: {
             query?: never;
             header?: never;

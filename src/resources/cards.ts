@@ -22,15 +22,11 @@ import type { CustomerInfo } from "../types/customer.js";
  *   POST   /me/cards/{id}/unfreeze   → unfreeze
  *   POST   /me/cards/{id}/transfer   → transfer (to another of their cards)
  *   POST   /me/cards/{id}/terminate  → terminate (one-way)
+ *   POST   /me/cards/{id}/reveal     → reveal (the numbers, or a provider page)
+ *   POST   /me/cards/{id}/pin        → setPin (physical cards)
  *
  * The lifecycle actions are ownership-gated server-side: a caller can only
  * freeze / unfreeze / terminate a card that belongs to them (else 404).
- *
- * ## What is intentionally NOT here
- *
- * Card-data reveal (PAN / CVV) is a separate, security-sensitive flow with its
- * own re-auth + rate-limit + audit contract and is intentionally
- * NOT part of this resource (tracked separately).
  *
  * Today only PREPAID is wired end-to-end; CREDIT and GIFT return 400 from
  * the Takeal API until their issuer flows land.
@@ -42,12 +38,47 @@ export type CardType = "credit" | "prepaid" | "gift";
 /**
  * Card lifecycle state.
  *
- * `pending_payment` is a transient state: the row exists but the
- * per-card issuance-fee debit has not yet succeeded; such cards have no
- * provider reference and no user-visible side effects.
+ * - `pending_payment`: the row exists but the issuance fee has not been
+ *   paid yet; the provider has not been called and nothing is visible.
+ * - `pending`: the issuer accepted the order and has not issued the card
+ *   yet. The price is charged. Show the card as "being issued" with no
+ *   numbers; it becomes `active` on its own, or `failed` with the price
+ *   back on the wallet. Some issuers take minutes, some a day.
+ * - `active`, `frozen`: the usual states. Read `status_source` before
+ *   offering to unfreeze.
+ * - `terminating`: the holder (or the issuer) closed the card and the
+ *   issuer has not finished: the balance comes back to the wallet when it
+ *   does. Show it as closing; no actions apply.
+ * - `terminated`, `redeemed`, `failed`: final.
  */
 export type CardStatus =
-  "pending_payment" | "active" | "frozen" | "terminated" | "redeemed" | "failed";
+  | "pending_payment"
+  | "pending"
+  | "active"
+  | "frozen"
+  | "terminating"
+  | "terminated"
+  | "redeemed"
+  | "failed";
+
+/**
+ * Who made the card's last status change. `provider` on a `frozen` card
+ * means the issuer froze it (a risk check, a lost-card report): the holder
+ * cannot unfreeze it, so do not offer the button; say the freeze is lifted
+ * through the issuer's support. `holder` and `operator` freezes are undone
+ * with `unfreeze()` as usual.
+ */
+export type CardStatusSource = "holder" | "operator" | "provider";
+
+/** `virtual` cards show their numbers in the app; `physical` cards are plastic and have a PIN. */
+export type CardForm = "virtual" | "physical";
+
+/**
+ * Why `terminate()` is refused right now: `first_purchase_required` (the
+ * card closes after its first purchase) or `card_locked` (only support can
+ * change it).
+ */
+export type CloseBlockedReason = "first_purchase_required" | "card_locked";
 
 /**
  * A card design: the artwork a card is shown with. `image_url` is the front,
@@ -151,6 +182,24 @@ export interface Card {
   initial_amount: string | null;
   currency: string;
   failure_reason: string | null;
+  /** Who changed the status last; `null` when it never changed. See {@link CardStatusSource}. */
+  status_source: CardStatusSource | null;
+  /** Virtual or plastic. A `physical` card takes a PIN with {@link CardsResource.setPin}. */
+  card_form: CardForm;
+  /** Why the card cannot be closed right now, or `null` when it can. */
+  close_blocked: CloseBlockedReason | null;
+  /**
+   * Top-ups the issuer has accepted and not loaded yet, summed, decimal
+   * string in `currency`; `null` when there are none. Show it next to the
+   * balance as money on its way to the card.
+   */
+  topups_pending: string | null;
+  /**
+   * Top-ups the issuer has held for too long, summed, decimal string in
+   * `currency`; `null` when there are none. The money is safe and waits for
+   * support to settle it; say so instead of offering a retry.
+   */
+  topups_held: string | null;
   /** The name the user gave the card, or `null`. */
   name: string | null;
   /** The artwork the card is shown with. Always present. */
@@ -299,11 +348,28 @@ export interface TopUpInput {
   idempotencyKey: string;
 }
 
+/**
+ * Where a top-up stands.
+ *
+ * - `pending`: the issuer accepted it and has not loaded the card yet. The
+ *   wallet is debited, the card balance is unchanged, the amount shows in
+ *   `Card.topups_pending`. Most issuers finish within minutes.
+ * - `confirmed`: the money is on the card.
+ * - `failed`: the issuer refused; the wallet is credited back.
+ * - `stalled`: pending for longer than the deployment allows. The money is
+ *   safe and waits for support; it shows in `Card.topups_held`.
+ * - `returned`: support sent the money back to the wallet.
+ * - `written_off`: support closed it without the money coming back (the
+ *   issuer kept it); `failure_reason` says so.
+ */
+export type CardTopUpStatus =
+  "pending" | "confirmed" | "failed" | "stalled" | "returned" | "written_off";
+
 /** One top-up attempt as the API records it. */
 export interface CardTopUp {
   id: string;
   card_id: string;
-  status: "pending" | "confirmed" | "failed";
+  status: CardTopUpStatus;
   /** What landed on the card, decimal string, in `currency`. */
   amount: string;
   currency: string;
@@ -315,7 +381,13 @@ export interface CardTopUp {
   updated_at: string;
 }
 
-/** A completed top-up with the state to redraw: card, its balance, the wallet. */
+/**
+ * The outcome of a top-up with the state to redraw: card, its balance, the
+ * wallet. When `topup.status` is `pending`, the wallet has paid and
+ * `card_balance` has not moved yet: show the amount as on its way
+ * (`card.topups_pending`) and refresh the card later or on the
+ * `card_topup` notification.
+ */
 export interface TopUpResult {
   topup: CardTopUp;
   card: Card;
@@ -346,16 +418,33 @@ export interface RevealCardInput {
 }
 
 /**
- * Full card data from a successful reveal. **Security**: never persist this —
+ * Full card data from a successful reveal. **Security**: never persist this,
  * keep it in volatile memory only, clear it within `expires_in_seconds`, and
  * never write it to localStorage / logs (the API marks the response no-store).
+ *
+ * Some issuers hand out a page that shows the numbers instead of the
+ * numbers themselves. Then `reveal_url` is set, `pan` and `cvv` are empty,
+ * and the client opens the page in a frame; see the README for the frame.
  */
 export interface RevealedCard {
+  /** The card number; empty when `reveal_url` is set. */
   pan: string;
+  /** The security code; empty when `reveal_url` is set. */
   cvv: string;
   expiry_month: number;
   expiry_year: number;
   holder_name: string;
+  /**
+   * A page at the card issuer that shows the details to the holder. Present
+   * only for issuers that give a page instead of the numbers. Short-lived,
+   * often single use: open it at once in an `<iframe>` and never store it.
+   */
+  reveal_url?: string;
+  /**
+   * The person the card is registered to at its issuer: what a checkout
+   * asks for. Absent for cards issued before holders were kept.
+   */
+  cardholder?: Cardholder;
   /**
    * The address the card is registered at — what a merchant's checkout asks
    * for, and the postal code some of them decline a payment over. Absent
@@ -374,6 +463,35 @@ export interface BillingAddress {
   state?: string;
   postal_code?: string;
   country?: string;
+}
+
+/**
+ * The cardholder the issuer knows: the details to type into a checkout
+ * that asks for the name, phone or address on the card. `source` says
+ * whether the platform made them up (`generated`), the user supplied them
+ * (`provided`) or both (`mixed`).
+ */
+export interface Cardholder {
+  id: string;
+  first_name: string;
+  last_name: string;
+  /** `YYYY-MM-DD`. */
+  birth_date: string;
+  /** E.164. */
+  phone: string;
+  /** A mailbox the platform owns; mail the issuer sends there reaches the user. */
+  email: string;
+  address: BillingAddress;
+  source: "generated" | "provided" | "mixed";
+}
+
+/** The new PIN for a physical card. */
+export interface SetPinInput {
+  /**
+   * Four to six digits, as the user typed them. Sent once to the issuer and
+   * kept nowhere: not by the SDK, not by the API. Never log it.
+   */
+  pin: string;
 }
 
 /** What to move, and the key that makes a retry safe. */
@@ -542,9 +660,11 @@ export class CardsResource {
   }
 
   /**
-   * Freeze the caller's own card. Reversible via {@link unfreeze}. The optional
-   * `reason` is recorded on the audit trail. Resolves to the updated card.
-   * 404 if the card isn't the caller's; 501 if the issuer can't freeze.
+   * Freeze the caller's own card. Reversible via {@link unfreeze} while
+   * `status_source` is `holder` or `operator`. The optional `reason` is
+   * recorded on the audit trail. Resolves to the updated card. 404 if the
+   * card isn't the caller's; 409 `card_locked` when support holds it; 501 if
+   * the issuer can't freeze.
    */
   async freeze(id: string, reason?: string): Promise<Card> {
     return this.http.post<Card>(`/me/cards/${encodeURIComponent(id)}/freeze`, { body: { reason } });
@@ -560,16 +680,39 @@ export class CardsResource {
    * keep the result in volatile memory only, never write it to
    * localStorage / logs, and clear it within `expires_in_seconds`.
    *
-   * 401 bad re-auth · 403 not your card · 429 rate-limited · 501 connector
-   * has no sensitive-data endpoint · 503 provider error.
+   * The result is the numbers, or `reveal_url` with empty `pan` and `cvv`
+   * when the issuer shows them on a page of its own: open that page in a
+   * frame right away, it is short-lived.
+   *
+   * 403 not your card · 409 `card_locked` · 429 rate-limited · 501 connector
+   * has no sensitive-data endpoint · 503 `provider_unavailable`.
    */
   async reveal(id: string, _input?: RevealCardInput): Promise<RevealedCard> {
     return this.http.post<RevealedCard>(`/me/cards/${encodeURIComponent(id)}/reveal`);
   }
 
-  /** Unfreeze a previously-frozen card. Idempotent on an already-active card. */
+  /**
+   * Unfreeze a previously-frozen card. Idempotent on an already-active card.
+   * A card the issuer froze (`status_source: "provider"`) is not the
+   * holder's to unfreeze: the API answers 409 `card_locked`, so hide the
+   * button and say the freeze is lifted through the issuer's support.
+   */
   async unfreeze(id: string): Promise<Card> {
     return this.http.post<Card>(`/me/cards/${encodeURIComponent(id)}/unfreeze`, { body: {} });
+  }
+
+  /**
+   * Set the PIN of the caller's own physical card. The session is enough; the
+   * call is rate-limited like {@link reveal} and the PIN is kept nowhere.
+   * Resolves to the card; the user also gets a notification that the PIN
+   * was set. 400 not four to six digits or the card is not active · 403 not
+   * your card · 409 `card_locked`, or `provider_refused` when the issuer did
+   * not take it · 429 too many attempts · 501 a virtual card has no PIN.
+   */
+  async setPin(id: string, input: SetPinInput): Promise<Card> {
+    return this.http.post<Card>(`/me/cards/${encodeURIComponent(id)}/pin`, {
+      body: { pin: input.pin },
+    });
   }
 
   /**

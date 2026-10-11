@@ -154,6 +154,11 @@ const CARD: Card = {
   connector_slug: "spool-mock",
   provider_reference: "prov_1",
   status: "active",
+  status_source: "holder",
+  card_form: "virtual",
+  close_blocked: null,
+  topups_pending: null,
+  topups_held: null,
   last4: "4242",
   expiry_month: 6,
   expiry_year: 2028,
@@ -425,6 +430,99 @@ describe("CardsResource", () => {
     expect(captured[0]!.url).toBe("https://api.test/v1/me/cards/card_1/reveal");
     expect(captured[0]!.init.method).toBe("POST");
     expect(captured[0]!.init.body ?? null).toBeNull();
+  });
+
+  it("reveal returns the issuer's page when the numbers are not handed out", async () => {
+    const revealed = {
+      pan: "",
+      cvv: "",
+      expiry_month: 6,
+      expiry_year: 2028,
+      holder_name: "",
+      reveal_url: "https://cards.issuer.example/show?token=one-time",
+      expires_in_seconds: 30,
+      cardholder: {
+        id: "ch_1",
+        first_name: "Alice",
+        last_name: "Tester",
+        birth_date: "1990-01-02",
+        phone: "+447700900000",
+        email: "ch_1@holders.example",
+        address: {
+          line1: "12 Marylebone Road",
+          city: "London",
+          postal_code: "NW1 5LA",
+          country: "GB",
+        },
+        source: "generated",
+      },
+    };
+    const { http } = rig(revealed);
+    const out = await new CardsResource(http).reveal("card_1");
+    expect(out.reveal_url).toBe("https://cards.issuer.example/show?token=one-time");
+    expect(out.pan).toBe("");
+    expect(out.cardholder?.source).toBe("generated");
+  });
+
+  it("setPin POSTs /me/cards/{id}/pin with the pin only", async () => {
+    const physical: Card = { ...CARD, card_form: "physical" };
+    const { captured, http } = rig(physical);
+    const out = await new CardsResource(http).setPin("card_1", { pin: "4321" });
+    expect(out.card_form).toBe("physical");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/cards/card_1/pin");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({ pin: "4321" });
+  });
+
+  it("reads a card the issuer is still issuing, and one it froze", async () => {
+    const pending: Card = {
+      ...CARD,
+      status: "pending",
+      last4: null,
+      status_source: null,
+      topups_pending: "20.00",
+    };
+    const frozen: Card = {
+      ...CARD,
+      status: "frozen",
+      status_source: "provider",
+      close_blocked: "card_locked",
+    };
+    const { http } = rig([pending, frozen]);
+    const cards = await new CardsResource(http).list();
+    expect(cards[0]!.status).toBe("pending");
+    expect(cards[0]!.topups_pending).toBe("20.00");
+    // The rule for the unfreeze button: only the holder's and the operator's freezes.
+    const canUnfreeze = (c: Card) => c.status === "frozen" && c.status_source !== "provider";
+    expect(canUnfreeze(frozen)).toBe(false);
+    expect(canUnfreeze({ ...frozen, status_source: "holder" })).toBe(true);
+  });
+
+  it("topUp returns a pending top-up when the issuer has not loaded the card yet", async () => {
+    const result = {
+      topup: {
+        id: "tp_1",
+        card_id: "card_1",
+        status: "pending",
+        amount: "15.00",
+        currency: "USD",
+        wallet_amount: "15.00",
+        wallet_currency: "USD",
+        failure_reason: null,
+        created_at: "2026-10-11T00:00:00Z",
+        updated_at: "2026-10-11T00:00:00Z",
+      },
+      card: { ...CARD, topups_pending: "15.00" },
+      card_balance: { amount: "0", currency: "USD" },
+      wallet: { amount: "85.00", currency: "USD" },
+    };
+    const { http } = rig(result);
+    const out = await new CardsResource(http).topUp("card_1", {
+      amount: "15.00",
+      idempotencyKey: "k",
+    });
+    expect(out.topup.status).toBe("pending");
+    expect(out.card.topups_pending).toBe("15.00");
   });
 });
 
