@@ -1432,6 +1432,58 @@ export type paths = {
         patch: operations["patch_configuration_key"];
         trace?: never;
     };
+    "/v1/admin/connectors/{slug}/deposit-pricing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a funding connector's method pricing
+         * @description One entry per method the operator priced. A method without an entry
+         *     works on the deployment-wide terms: `rates.spread_bps` off the credited
+         *     side and `funding.commission_bps` on confirmed deposits.
+         */
+        get: operations["list_deposit_pricing"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/connectors/{slug}/deposit-pricing/{method}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a funding method's pricing
+         * @description Writes the terms for one method of a funding connector: the fee and its
+         *     kind, a rate source of its own, the quote lifetime, the limits. From
+         *     then on quotes and deposits through that method follow the row; a
+         *     `markup` row puts the fee into the rate the user sees, a `commission`
+         *     row charges it as a line of its own. Deposits already made keep the
+         *     terms they were made under.
+         */
+        put: operations["put_deposit_pricing"];
+        post?: never;
+        /**
+         * Remove a funding method's pricing
+         * @description The method goes back to the deployment-wide terms. Deposits already
+         *     made keep the terms they were made under.
+         */
+        delete: operations["delete_deposit_pricing"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/connectors/{slug}/jobs": {
         parameters: {
             query?: never;
@@ -1597,6 +1649,37 @@ export type paths = {
          *     way the issuer's own report would; no answer leaves it waiting.
          */
         post: operations["recheck_card_load"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/deposits/{id}/refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a deposit's refunds
+         * @description Every refund of the deposit, newest first: the user's own and the ones
+         *     operators made. `requestor_type` says which.
+         */
+        get: operations["list_deposit_refunds"];
+        put?: never;
+        /**
+         * Refund a deposit for the user
+         * @description Returns part or all of a confirmed wallet top-up to the payer through the
+         *     funding connector, the way the user's own refund does: the refunded share
+         *     of what was credited comes off the wallet at the original rate, the
+         *     source amount goes back out. The connector may settle at once
+         *     (`succeeded`), later (`pending`, finished by its event) or refuse
+         *     (`failed`). A top-up that went onto a card can't be refunded here. The
+         *     `Idempotency-Key` header is required.
+         */
+        post: operations["refund_deposit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5382,7 +5465,7 @@ export type paths = {
          *     and is updated once the provider reports the outcome. The
          *     `Idempotency-Key` header is required.
          */
-        post: operations["refund_deposit"];
+        post: operations["me_refund_deposit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7998,7 +8081,7 @@ export type components = {
             metadata?: {
                 [key: string]: string;
             };
-            /** @description One of `card`, `crypto`, `bank_transfer`. */
+            /** @description One of `card`, `crypto`, `bank_transfer`, `sbp`. */
             method: components["schemas"]["DepositMethod"];
             /** @description A promo code for this top-up, to the wallet or to a card. Its discount comes off the commission; bonuses or a gift that come with the code arrive once the top-up is confirmed. A code that can't be used answers 400 `promo_code_*` with the reason. `POST /me/codes/validate` checks it first. */
             promo_code?: string | null;
@@ -8083,8 +8166,11 @@ export type components = {
              * @description Quote a top-up of this card instead of the wallet: the amount is credited in the card's currency. Pass the same `card_id` to `POST /me/deposits`.
              */
             card_id?: string | null;
+            /** @description The funding connector the deposit will go through (`funder_slug` of `POST /me/deposits`). With `method`, the quote is priced on that method's own terms: its fee, its rate source, its lifetime and its limits. Without it, on the deployment-wide terms. */
+            connector_slug?: string | null;
             /** @description ISO 4217 code of the currency paid; must differ from the currency credited. */
             currency: string;
+            method?: null | components["schemas"]["DepositMethod"];
             /** @description Quote into this currency instead of the wallet's: the currency of a card issued with the top-up (`issue_card`). Ignored when `card_id` is set. */
             target_currency?: string | null;
         };
@@ -8472,7 +8558,61 @@ export type components = {
          * @description How the user funds the deposit.
          * @enum {string}
          */
-        DepositMethod: "card" | "crypto" | "bank_transfer";
+        DepositMethod: "card" | "crypto" | "bank_transfer" | "sbp";
+        /** @description The terms to set for one method. Fields left out are cleared. */
+        DepositPricingBody: {
+            daily_limit_per_user?: string | null;
+            /**
+             * Format: int64
+             * @description 0 to 10000.
+             */
+            fee_bps: number;
+            /** @description `markup` or `commission`. */
+            fee_kind: string;
+            max_amount?: string | null;
+            min_amount?: string | null;
+            /**
+             * Format: int32
+             * @description 30 to 3600, or null for rates.quote_ttl_seconds.
+             */
+            quote_ttl_seconds?: number | null;
+            /** @description A rate source name, or null for rates.fx_provider. */
+            rate_provider?: string | null;
+            /** @description ISO 4217 code, or null. */
+            source_currency?: string | null;
+        };
+        /** @description What one way of paying through a funding connector costs and allows. */
+        DepositPricingView: {
+            connector_slug: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description What one user may deposit this way over 24 hours, confirmed and open deposits together; null or 0 for no limit. */
+            daily_limit_per_user?: string | null;
+            /**
+             * Format: int64
+             * @description The fee in basis points (2000 = 20 %).
+             */
+            fee_bps: number;
+            /** @description `markup`: the fee is in the rate the user sees. `commission`: the rate is the provider's and the fee is a line of its own. */
+            fee_kind: string;
+            /** @description Largest single deposit, in the source currency; null or 0 for no cap. */
+            max_amount?: string | null;
+            /** @description `card`, `crypto`, `bank_transfer` or `sbp`. */
+            method: string;
+            /** @description Smallest single deposit, in the source currency; null or 0 for no floor. */
+            min_amount?: string | null;
+            /**
+             * Format: int32
+             * @description How long a quote stays executable; null reads rates.quote_ttl_seconds.
+             */
+            quote_ttl_seconds?: number | null;
+            /** @description Rate source for this method (`cbr`, `manual`, a name from rates.custom); null reads rates.fx_provider. */
+            rate_provider?: string | null;
+            /** @description ISO 4217 code the user pays in through this method; null when it is the wallet's. */
+            source_currency?: string | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
         /**
          * @description Where a deposit's money goes.
          * @enum {string}
@@ -9135,6 +9275,8 @@ export type components = {
         FundingOptionView: {
             /** @description Whether a new card can be issued with a top-up through it (`issue_card` on `POST /me/deposits`). */
             issue_card: boolean;
+            /** @description What each method costs and allows: the fee and its kind, the quote lifetime, the limits. Draw the form from this. */
+            method_terms: components["schemas"]["MethodTermsView"][];
             /** @description Payment methods it takes: `card`, `crypto`, `bank_transfer`. */
             methods: components["schemas"]["DepositMethod"][];
             /** @description `wallet`: top-ups land on the wallet. `the connector`: on cards only. `mixed`: either. */
@@ -9753,6 +9895,30 @@ export type components = {
             /** Format: date-time */
             updated_at: string;
         };
+        /** @description What one way of paying through a funding connector costs and allows. */
+        MethodTermsView: {
+            /** @description What you may top up this way over 24 hours, in the source currency; null for no limit. */
+            daily_limit_per_user?: string | null;
+            /**
+             * Format: int64
+             * @description The fee in basis points.
+             */
+            fee_bps: number;
+            /** @description `spread`, `markup` or `commission`; see the quote's `fee_kind`. */
+            fee_kind: string;
+            /** @description Largest single top-up in the source currency; null for no cap. */
+            max_amount?: string | null;
+            method: components["schemas"]["DepositMethod"];
+            /** @description Smallest single top-up in the source currency; null for no floor. */
+            min_amount?: string | null;
+            /**
+             * Format: int64
+             * @description How long a quote through this method stays executable.
+             */
+            quote_ttl_seconds: number;
+            /** @description ISO 4217 code the user pays in this way; null when any currency the quote accepts. */
+            source_currency?: string | null;
+        };
         /**
          * @example {
          *       "source_currency": "RUB"
@@ -10087,9 +10253,23 @@ export type components = {
             /** @description Currency credited when the deposit was converted. */
             credited_currency?: string | null;
             currency: string;
+            /**
+             * Format: date-time
+             * @description When the deposit stops waiting for its payment; null for a deposit without a term.
+             */
+            expires_at?: string | null;
             failure_reason?: string | null;
             /** @description The funding connector's mode when the deposit was made: `wallet`, `the connector` or `mixed`. Decides what a failed card load does. */
             funder_mode?: string | null;
+            /** @description How the fee was taken: `spread` (off the credited amount), `markup` (in the rate the user saw) or `commission` (a line of its own). */
+            fx_fee_kind?: string | null;
+            /** @description Provider rate of a converted deposit: credited units per 1 unit paid, before the fee. Null for a deposit in the wallet currency. */
+            fx_rate?: string | null;
+            /**
+             * Format: int64
+             * @description The fee in basis points, read through `fx_fee_kind`.
+             */
+            fx_spread_bps?: number | null;
             /** Format: uuid */
             id: string;
             /** @description The money part of the price of a card issued with the top-up. */
@@ -10130,6 +10310,23 @@ export type components = {
             method: string;
             status: string;
         };
+        /**
+         * @description What the operator refunds, and why.
+         * @example {
+         *       "amount": "500.00",
+         *       "reason": "Duplicate payment, the user asked in chat"
+         *     }
+         */
+        OperatorRefundBody: {
+            /** @description Amount to return, decimal string in the deposit's currency. Leave it out to return the whole confirmed amount. */
+            amount?: string | null;
+            /** @description Provider-specific extras passed through to the funding connector. On test deployments with the mock funder, `mock_scenario` picks the outcome (`happy`, `pending`, `fail`). */
+            metadata?: {
+                [key: string]: string;
+            };
+            /** @description Why the money goes back. Required; kept on the refund and in the audit log. */
+            reason: string;
+        };
         OperatorRefundRow: {
             /** @example 10.00 */
             amount: string;
@@ -10144,7 +10341,7 @@ export type components = {
             reason: string;
             /** Format: uuid */
             requestor_id: string;
-            /** @description Who asked for the refund: the user's email or the merchant's legal name. Null if that account was deleted. */
+            /** @description Who asked for the refund: the user's or the operator's email, or the merchant's legal name. Null if that account was deleted. */
             requestor_name?: string | null;
             requestor_type: string;
             status: string;
@@ -11045,6 +11242,8 @@ export type components = {
          *     by passing `id` as `quote_id` to `POST /me/deposits` before `expires_at`.
          */
         QuoteView: {
+            /** @description The funding connector and method the quote was priced for, when the request named them. The deposit has to go through the same pair. */
+            connector_slug?: string | null;
             /**
              * @description Amount the wallet will be credited, net of spread, at the locked rate.
              * @example 57.97
@@ -11058,10 +11257,18 @@ export type components = {
              */
             expires_at: string;
             /**
+             * Format: int64
+             * @description The fee in basis points (2000 = 20 %).
+             */
+            fee_bps: number;
+            /** @description How the fee was taken: `spread` (off the credited amount), `markup` (in the rate shown: `rate` is the provider's, the user's rate is worse by the fee) or `commission` (the rate is the provider's; a commission is charged on the credited amount separately). */
+            fee_kind: string;
+            /**
              * Format: uuid
              * @description Quote id; pass it as `quote_id` when creating the deposit.
              */
             id: string;
+            method?: null | components["schemas"]["DepositMethod"];
             /** @description Name of the rate source. */
             provider: string;
             /**
@@ -11078,7 +11285,7 @@ export type components = {
             source_currency: string;
             /**
              * Format: int64
-             * @description Spread applied on top of the provider rate, in basis points.
+             * @description The fee in basis points; `fee_kind` says how it was taken. The same figure as `fee_bps`, kept under its old name.
              */
             spread_bps: number;
         };
@@ -11183,6 +11390,51 @@ export type components = {
         RefreshRequest: {
             /** @description The `remember_token` from the last sign-in or refresh. */
             remember_token: string;
+        };
+        /** @description A refund of a deposit. `target_type` is always `deposit` here. */
+        Refund: {
+            /**
+             * @description Refunded amount, decimal string.
+             * @example 100.00
+             */
+            amount: string;
+            /** @description Identifier of the connector that processed the refund. */
+            connector_slug: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description ISO 4217 code, same as the deposit. */
+            currency: string;
+            /**
+             * Format: uuid
+             * @description The deposit being refunded.
+             */
+            deposit_id?: string | null;
+            /** @description Why the refund failed, when status is `failed`. */
+            failure_reason?: string | null;
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description Not set for deposit refunds.
+             */
+            payment_id?: string | null;
+            /** @description Reference assigned by the provider, when available. */
+            provider_refund_reference?: string | null;
+            /** @description Reason given when the refund was requested. */
+            reason: string;
+            /**
+             * Format: uuid
+             * @description ID of the requestor.
+             */
+            requestor_id: string;
+            /** @description Who requested the refund, e.g. `user`. */
+            requestor_type: string;
+            /** @description `pending`, `succeeded` or `failed`. */
+            status: string;
+            /** @description Always `deposit` for deposit refunds. */
+            target_type: string;
+            /** Format: date-time */
+            updated_at: string;
         };
         /**
          * @example {
@@ -16028,6 +16280,129 @@ export interface operations {
             };
         };
     };
+    list_deposit_pricing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Funding connector slug */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositPricingView"][];
+                };
+            };
+            /** @description Missing connectors.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown connector slug */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    put_deposit_pricing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Funding connector slug */
+                slug: string;
+                /** @description card, crypto, bank_transfer or sbp */
+                method: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepositPricingBody"];
+            };
+        };
+        responses: {
+            /** @description The terms as stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositPricingView"];
+                };
+            };
+            /** @description Bad fee kind, fee, lifetime, currency, limit or rate source; or not a funding connector */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing connectors.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown connector slug */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_deposit_pricing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Funding connector slug */
+                slug: string;
+                /** @description card, crypto, bank_transfer or sbp */
+                method: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed, or there was nothing to remove */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing connectors.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown connector slug */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_jobs: {
         parameters: {
             query?: never;
@@ -16314,6 +16689,100 @@ export interface operations {
                 content?: never;
             };
             /** @description `not_settleable`: no card load waits for the issuer */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_deposit_refunds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deposit id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refund"][];
+                };
+            };
+            /** @description Missing deposits.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such deposit */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    refund_deposit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Required. The same key with the same body returns the original refund; the same key with a different body returns 409. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description Deposit id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OperatorRefundBody"];
+            };
+        };
+        responses: {
+            /** @description The refund; `status` is pending, succeeded or failed */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refund"];
+                };
+            };
+            /** @description No reason, no Idempotency-Key, the deposit is not confirmed or went to a card, or the amount is above what was confirmed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing deposits.refund permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such deposit */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Idempotency-Key reused with a different body */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -23778,7 +24247,7 @@ export interface operations {
             };
         };
     };
-    refund_deposit: {
+    me_refund_deposit: {
         parameters: {
             query?: never;
             header: {

@@ -23,11 +23,19 @@ import type { DepositTarget, FunderMode } from "./funding-options.js";
  * webhook stream for the `deposit.confirmed` / `deposit.failed` outcome.
  */
 
-/** Lifecycle of a deposit. `redirect_required` carries `redirect_url`. */
-export type DepositStatus = "pending" | "redirect_required" | "confirmed" | "failed";
+/**
+ * Lifecycle of a deposit. `redirect_required` carries `redirect_url`.
+ * `expired`: nobody paid before `expires_at`; the user starts over with a
+ * new quote. A payment that still arrives is credited at the stored rate
+ * and the deposit turns `confirmed` after all.
+ */
+export type DepositStatus = "pending" | "redirect_required" | "confirmed" | "failed" | "expired";
 
-/** Top-up rail. The chosen funder decides which it supports. */
-export type DepositMethod = "card" | "crypto" | "bank_transfer";
+/**
+ * Top-up rail. The chosen funder decides which it supports; `sbp` is
+ * Russia's instant payments through a payment page, paid in roubles.
+ */
+export type DepositMethod = "card" | "crypto" | "bank_transfer" | "sbp";
 
 /**
  * A deposit record as the Takeal API returns it. Mirrors the `deposits` table; the
@@ -50,7 +58,24 @@ export interface CreateQuoteInput {
    * card issued with the top-up (`issue_card`). Ignored with `card_id`.
    */
   target_currency?: string;
+  /**
+   * The funding connector the deposit will go through (`funder_slug` of
+   * `initiate()`). With `method`, the quote is priced on that method's own
+   * terms from `fundingOptions.list()`: its fee and kind, its rate source,
+   * its lifetime, its limits. Sent as `connector_slug`.
+   */
+  connectorSlug?: string;
+  /** The way the user pays. Pass the same method to `initiate()`. */
+  method?: DepositMethod;
 }
+
+/**
+ * How a method's fee reads. `spread`: taken off the credited amount at the
+ * deployment's rate. `markup`: in the rate the user sees, so show the rate
+ * and nothing else. `commission`: the rate is the provider's and the fee is
+ * a line of its own on the credited amount.
+ */
+export type FeeKind = "spread" | "markup" | "commission";
 
 /** How far a top-up meant for a card has got. */
 export type CardLoadStatus = "pending" | "succeeded" | "failed";
@@ -78,10 +103,22 @@ export interface FundingQuote {
   source_currency: string;
   credited_amount: string;
   credited_currency: string;
-  /** Provider rate before spread (credited units per 1 source unit). */
+  /**
+   * Provider rate before the fee, credited units per 1 source unit. The
+   * rate to show the user is `credited_amount / source_amount`, which has
+   * the fee in it; see the README for the rouble-per-dollar form.
+   */
   rate: string;
+  /** The fee in basis points; the same figure as `fee_bps`, under its old name. */
   spread_bps: number;
+  /** The fee in basis points (2000 = 20 %). */
+  fee_bps: number;
+  fee_kind: FeeKind;
   provider: string;
+  /** The pair the quote was priced for, when the request named one. */
+  connector_slug?: string;
+  method?: DepositMethod;
+  /** The rate is locked until then; the deposit made with it waits for its payment as long. */
   expires_at: string;
 }
 
@@ -108,6 +145,10 @@ export interface Deposit {
   /** Locked provider rate (credited units per 1 source unit). */
   fx_rate?: string | null;
   fx_spread_bps?: number | null;
+  /** How `fx_spread_bps` was taken; see `FeeKind`. */
+  fx_fee_kind?: FeeKind | null;
+  /** When the deposit stops waiting for its payment; `null` for one without a term. */
+  expires_at?: string | null;
   /** The wallet's local currency the deposit converted into. */
   credited_currency?: string | null;
   /** What the wallet was actually credited, net of spread. */
@@ -172,7 +213,7 @@ export interface InitiateDepositInput {
    * test deployments with the mock funder `mock_scenario`, which picks the
    * outcome: `happy` (confirmed at once, the default), `pending` (confirmed
    * about 15 s later), `redirect` (a hosted page where the user approves or
-   * declines) or `fail`.
+   * declines), `late` (paid after the term) or `fail`.
    */
   metadata?: Record<string, string>;
   /** Structured billing details — real PSPs require these for 3DS / compliance. */
@@ -267,7 +308,10 @@ export class DepositsResource {
    * API answers 400 `no_quote_needed`).
    */
   async quote(input: CreateQuoteInput): Promise<FundingQuote> {
-    return this.http.post<FundingQuote>("/me/deposits/quotes", { body: input });
+    const { connectorSlug, ...rest } = input;
+    const body: Record<string, unknown> = { ...rest };
+    if (connectorSlug !== undefined) body["connector_slug"] = connectorSlug;
+    return this.http.post<FundingQuote>("/me/deposits/quotes", { body });
   }
 
   async initiate(input: InitiateDepositInput): Promise<Deposit> {

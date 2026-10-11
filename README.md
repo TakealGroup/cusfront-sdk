@@ -220,7 +220,7 @@ some have no wallet at all. Ask the API instead of hard-coding it:
 ```ts
 const options = await client.fundingOptions.list();
 // [{ slug, mode: "wallet" | "spool" | "mixed", targets: ["wallet", "card"],
-//    methods: ["card", "crypto"], issue_card: true }]
+//    methods: ["card", "crypto"], issue_card: true, method_terms: [...] }]
 const direct = options.find((o) => o.targets.includes("card"));
 ```
 
@@ -242,6 +242,67 @@ const deposit = await client.deposits.initiate({
 Paying in another currency than the card's needs a quote in the card's
 currency first: `deposits.quote({ amount, currency, card_id })`, or
 `target_currency` for a card that doesn't exist yet.
+
+## Topping up by SBP
+
+A rouble top-up through Russia's instant payments goes like this: the user
+picks SBP, sees the rate, pays on the bank's page, comes back, and the wallet
+is bigger. The API prices each way of paying on its own terms, so read them
+before drawing the form.
+
+```ts
+// 1. The connector that takes SBP, and what it costs. `method_terms` has
+//    one entry per method: the currency to ask for, the fee and its kind,
+//    how long a quote lives, the floor, the cap and the day's limit.
+const options = await client.fundingOptions.list();
+const funder = options.find((o) => o.methods.includes("sbp"))!;
+const sbp = funder.method_terms.find((m) => m.method === "sbp")!;
+// sbp.source_currency → "RUB"; sbp.fee_kind → "markup"; sbp.fee_bps → 2000;
+// sbp.quote_ttl_seconds → 300; sbp.min_amount, sbp.max_amount, sbp.daily_limit_per_user
+
+// 2. The user types roubles. The quote locks the rate for quote_ttl_seconds.
+const quote = await client.deposits.quote({
+  amount: "1000",
+  currency: "RUB",
+  connectorSlug: funder.slug,
+  method: "sbp",
+});
+// quote.credited_amount → "10.41" USD at a bank rate of 80 ₽ and a 20 % markup.
+
+// 3. What to show. With `fee_kind === "markup"` the fee sits in the rate: show
+//    the rate and the amount credited, no fee line. The rate in the form
+//    people know, roubles per unit of the wallet currency:
+const perUnit = Number(quote.source_amount) / Number(quote.credited_amount); // 96.06 ₽ per $
+show(`${quote.credited_amount} ${quote.credited_currency} at ${perUnit.toFixed(2)} ₽/$, until ${quote.expires_at}`);
+// If the user types the wallet amount instead, work the roubles out on the
+// client from the same rate and quote that: roubles = wanted × perUnit,
+// rounded up to the kopeck, then `quote()` again with that amount.
+// With `fee_kind === "commission"` show the fee as its own line:
+// commission = credited × fee_bps / 10000.
+
+// 4. Pay. The deposit is a redirect: send the user to the bank's page.
+const deposit = await client.deposits.initiate({
+  amount: quote.source_amount,
+  currency: "RUB",
+  method: "sbp",
+  funder_slug: funder.slug,
+  quote_id: quote.id,
+  metadata: { return_url: `${location.origin}/wallet?deposit=` },
+  idempotencyKey: crypto.randomUUID(),
+});
+location.href = deposit.redirect_url!;
+
+// 5. Back from the bank: poll until the deposit settles, then redraw the
+//    balance. `expires_at` is when the deposit stops waiting for the payment.
+const final = await client.deposits.get(deposit.id);
+// final.status: "confirmed" → balance updated; "expired" → nobody paid in
+// time, offer a new quote; "failed" → the bank refused, final.failure_reason says why.
+```
+
+A deposit that expired and is paid after all is still credited, at the rate
+of its quote, and turns `confirmed`. The amount outside the method's floor or
+cap, or over the day's limit, is refused by `quote()` and `initiate()` with
+400 `deposit_limit` and a sentence for the user.
 
 The deposit comes back with `target: "card"` and a `card_load_status`. It is
 `pending` until the card provider has loaded the card, then `succeeded`. If

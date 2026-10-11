@@ -26,6 +26,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a table of the error codes the card screens meet, with `provider_unavailable`
   explained as "the action failed, the card itself keeps paying".
 
+- Deposits by SBP: the `sbp` method, `fundingOptions()` with `method_terms`
+  per method (currency, fee and its kind, quote lifetime, limits),
+  `deposits.quote({ amount, currency, connectorSlug, method })` priced on
+  the method's terms with `fee_kind` and `fee_bps` in the answer, the
+  deposit status `expired` and `expires_at` on the deposit. The README walks
+  through a rouble top-up and how to show the rate.
+
 ### Changed
 
 - Types regenerated from the platform API that carries the above.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { HttpClient, type FetchLike } from "../http.js";
 import { inMemoryStore } from "../token-store.js";
-import { DepositsResource, type Deposit, type Refund } from "./deposits.js";
+import { DepositsResource, type Deposit, type FundingQuote, type Refund } from "./deposits.js";
 import { CardsResource, type Card, type CardBalance, type CardProduct } from "./cards.js";
 import { BalanceResource, type Balance } from "./balance.js";
 import { BonusResource, type BonusPreview, type BonusWallet } from "./bonus.js";
@@ -665,6 +665,59 @@ describe("DepositsResource (straight onto a card)", () => {
   });
 });
 
+describe("DepositsResource (a method's own terms)", () => {
+  it("quote names the connector and method in snake_case and reads the fee kind back", async () => {
+    const quote: FundingQuote = {
+      id: "q2",
+      source_amount: "1000.00",
+      source_currency: "RUB",
+      credited_amount: "10.41",
+      credited_currency: "USD",
+      rate: "0.0125",
+      spread_bps: 2000,
+      fee_bps: 2000,
+      fee_kind: "markup",
+      provider: "cbr",
+      connector_slug: "indigo-mock",
+      method: "sbp",
+      expires_at: "2026-10-11T20:05:00Z",
+    };
+    const { captured, http } = rig(quote, 201);
+    const out = await new DepositsResource(http).quote({
+      amount: "1000.00",
+      currency: "RUB",
+      connectorSlug: "indigo-mock",
+      method: "sbp",
+    });
+    expect(out.fee_kind).toBe("markup");
+    expect(out.method).toBe("sbp");
+    expect(bodyOf(captured[0]!)).toEqual({
+      amount: "1000.00",
+      currency: "RUB",
+      connector_slug: "indigo-mock",
+      method: "sbp",
+    });
+    // The rate the user sees, roubles per dollar, has the fee in it.
+    const perUnit = Number(out.source_amount) / Number(out.credited_amount);
+    expect(perUnit.toFixed(2)).toBe("96.06");
+  });
+
+  it("reads an expired deposit", async () => {
+    const expired: Deposit = {
+      ...DEPOSIT,
+      status: "expired",
+      method: "sbp",
+      failure_reason: "not paid before the deposit expired",
+      expires_at: "2026-10-11T20:05:00Z",
+      fx_fee_kind: "markup",
+    };
+    const { http } = rig(expired);
+    const d = await new DepositsResource(http).get("dep_1");
+    expect(d.status).toBe("expired");
+    expect(d.expires_at).toBe("2026-10-11T20:05:00Z");
+  });
+});
+
 describe("FundingOptionsResource", () => {
   it("list GETs /me/funding-options", async () => {
     const options: FundingOption[] = [
@@ -672,8 +725,30 @@ describe("FundingOptionsResource", () => {
         slug: "indigo-a",
         mode: "mixed",
         targets: ["wallet", "card"],
-        methods: ["card", "crypto"],
+        methods: ["card", "sbp"],
         issue_card: true,
+        method_terms: [
+          {
+            method: "card",
+            source_currency: null,
+            fee_kind: "spread",
+            fee_bps: 200,
+            quote_ttl_seconds: 120,
+            min_amount: null,
+            max_amount: null,
+            daily_limit_per_user: null,
+          },
+          {
+            method: "sbp",
+            source_currency: "RUB",
+            fee_kind: "markup",
+            fee_bps: 2000,
+            quote_ttl_seconds: 300,
+            min_amount: "500",
+            max_amount: "100000",
+            daily_limit_per_user: "300000",
+          },
+        ],
       },
     ];
     const { captured, http } = rig(options);
@@ -681,6 +756,10 @@ describe("FundingOptionsResource", () => {
     expect(captured[0]!.url).toBe("https://api.test/v1/me/funding-options");
     expect(captured[0]!.init.method ?? "GET").toBe("GET");
     expect(out).toEqual(options);
+    const sbp = out[0]!.method_terms.find((m) => m.method === "sbp");
+    expect(sbp?.source_currency).toBe("RUB");
+    expect(sbp?.fee_kind).toBe("markup");
+    expect(sbp?.daily_limit_per_user).toBe("300000");
   });
 });
 

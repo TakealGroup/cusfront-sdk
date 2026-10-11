@@ -74,8 +74,14 @@ export type {
   FundingQuote,
   CardLoadStatus,
   IssueCardInput,
+  FeeKind,
 } from "./resources/deposits.js";
-export type { DepositTarget, FunderMode, FundingOption } from "./resources/funding-options.js";
+export type {
+  DepositTarget,
+  FunderMode,
+  FundingOption,
+  MethodTerms,
+} from "./resources/funding-options.js";
 export type {
   Card,
   CardType,
