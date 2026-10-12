@@ -4,7 +4,11 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.1] — 2026-10-12
+
+Needs platform (TKL) 0.6.4 or newer: `SUPPORTED_MEISTER` is `>=0.6.4, <0.7.0`.
+The card states, the SBP method and the priced quotes below exist from that
+version on.
 
 ### Added
 
@@ -36,6 +40,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Types regenerated from the platform API that carries the above.
+- `SUPPORTED_MEISTER` narrowed to `>=0.6.4, <0.7.0`; `client.ready()` warns
+  on an older deployment.
 
 ## [0.6.0] — 2026-10-04
 
