@@ -87,6 +87,11 @@
       "import": "./dist/resources/consents.js",
       "require": "./dist/resources/consents.cjs"
     },
+    "./receipts": {
+      "types": "./dist/resources/receipts.d.ts",
+      "import": "./dist/resources/receipts.js",
+      "require": "./dist/resources/receipts.cjs"
+    },
     "./attribution": {
       "types": "./dist/resources/attribution.d.ts",
       "import": "./dist/resources/attribution.js",

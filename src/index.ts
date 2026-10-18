@@ -33,6 +33,7 @@ import { DevicesResource } from "./resources/devices.js";
 import { AttributionResource } from "./resources/attribution.js";
 import { HistoryResource } from "./resources/history.js";
 import { ConsentsResource } from "./resources/consents.js";
+import { ReceiptsResource } from "./resources/receipts.js";
 import { FundingOptionsResource } from "./resources/funding-options.js";
 import {
   CLIENT_HEADER,
@@ -188,6 +189,12 @@ export type {
   ConsentsResource,
   CookieChoiceInput,
 } from "./resources/consents.js";
+export type {
+  Receipt,
+  ReceiptKind,
+  ReceiptsResource,
+  ListReceiptsParams,
+} from "./resources/receipts.js";
 export { anonymousKey, currentTouch } from "./resources/attribution.js";
 export type {
   TouchFields,
@@ -336,6 +343,8 @@ export interface CusfrontClient {
   readonly history: HistoryResource;
   /** What the user agreed to; give or withdraw the optional consents. */
   readonly consents: ConsentsResource;
+  /** A numbered receipt for every payment. */
+  readonly receipts: ReceiptsResource;
   /** Direct access to the token store (e.g. for an explicit sign-out
    *  on Capacitor's lifecycle "app pausing" event). */
   readonly tokens: TokenStore;
@@ -400,6 +409,7 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     attribution: new AttributionResource(http),
     history: new HistoryResource(http),
     consents: new ConsentsResource(http),
+    receipts: new ReceiptsResource(http),
   };
 }
 

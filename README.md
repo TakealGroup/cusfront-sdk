@@ -646,6 +646,18 @@ const user = await client.auth.confirmEmailChange({ challengeId: challenge_id, c
 
 `linkEmail` is only for the first address of an account made in the Mini App.
 
+### Receipts
+
+Every payment gets a numbered receipt within a minute: a wallet top-up, a
+card top-up and a card's issue price. It is mailed to the user and can be
+shown next to the payment.
+
+```ts
+const [receipt] = await client.receipts.list({ refId: deposit.id });
+// receipt.number "R-000123", paid_amount + paid_currency, method,
+// and for a top-up credited_amount + credited_currency and rate
+```
+
 ### Consents
 
 Send the boxes the user ticked with the sign-up and with a card order. The
@@ -1093,6 +1105,7 @@ Available now:
 - `@takeal/cusfront-sdk/me` — `MeResource` (link or unlink Telegram for the signed-in user).
 - `@takeal/cusfront-sdk/history` — `HistoryResource` (the user's money history).
 - `@takeal/cusfront-sdk/consents` — `ConsentsResource` (what the user agreed to).
+- `@takeal/cusfront-sdk/receipts` — `ReceiptsResource` (a numbered receipt for every payment).
 - `@takeal/cusfront-sdk/attribution` — `AttributionResource`, `anonymousKey`, `currentTouch` (where users come from).
 - `@takeal/cusfront-sdk/webhooks` — HMAC-SHA256 signature verifier (no network, isomorphic).
 - `@takeal/cusfront-sdk/react` — optional React hooks layer (`ClientProvider` + `useMe` / `useDeposits` / `useCards` / `useCardProducts` / `useBalance` / `useNotifications` / `useUnreadCount`). React is a `peerDependency`, never bundled.

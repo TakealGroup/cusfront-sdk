@@ -22,6 +22,7 @@ import { DevicesResource, devicePlatformOf, type Device } from "./devices.js";
 import { AttributionResource, anonymousKey, currentTouch } from "./attribution.js";
 import { HistoryResource } from "./history.js";
 import { ConsentsResource } from "./consents.js";
+import { ReceiptsResource } from "./receipts.js";
 import { FundingOptionsResource, type FundingOption } from "./funding-options.js";
 import { CodesResource, type CodeCheck } from "./codes.js";
 import { ReferralResource, type Referral } from "./referral.js";
@@ -2018,5 +2019,20 @@ describe("ConsentsResource", () => {
       consent_channel: "cabinet",
     });
     expect(bodyOf(card.captured[0]!)).not.toHaveProperty("consentChannel");
+  });
+});
+
+describe("ReceiptsResource", () => {
+  it("list GETs /me/receipts with the filters", async () => {
+    const { captured, http } = rig([]);
+    await new ReceiptsResource(http).list({ refId: "dep_1", limit: 5 });
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/receipts?ref_id=dep_1&limit=5");
+  });
+
+  it("get GETs one receipt", async () => {
+    const { captured, http } = rig({ id: "r1", number: "R-000001" });
+    const r = await new ReceiptsResource(http).get("r1");
+    expect(r.number).toBe("R-000001");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/receipts/r1");
   });
 });
