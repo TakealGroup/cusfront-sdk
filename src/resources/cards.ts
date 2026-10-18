@@ -1,3 +1,4 @@
+import type { ConsentChannel, ConsentKind } from "./consents.js";
 import type { HttpClient } from "../http.js";
 import type { CustomerInfo } from "../types/customer.js";
 
@@ -281,6 +282,15 @@ export interface CreateCardInput {
    */
   promoCode?: string;
   /**
+   * Consents the user gave with the order (`terms`, `personal_data`,
+   * `marketing`). Recorded with the card, or with the top-up inside
+   * `deposits.initiate({ issue_card })`, at the version of their documents
+   * in force now.
+   */
+  consents?: ConsentKind[];
+  /** Where they were given. Sent as `consent_channel`. */
+  consentChannel?: ConsentChannel;
+  /**
    * Required by the Takeal API on this write endpoint. Same key + body replays the
    * original card; same key + different body returns 409.
    */
@@ -302,6 +312,7 @@ export function cardRequestBody(
     useBonus,
     bonusAmount,
     promoCode,
+    consentChannel,
     initial_amount: _ignored,
     ...rest
   } = input;
@@ -312,6 +323,7 @@ export function cardRequestBody(
   if (useBonus !== undefined) body["use_bonus"] = useBonus;
   if (bonusAmount !== undefined) body["bonus_amount"] = bonusAmount;
   if (promoCode !== undefined) body["promo_code"] = promoCode;
+  if (consentChannel !== undefined) body["consent_channel"] = consentChannel;
   return body;
 }
 

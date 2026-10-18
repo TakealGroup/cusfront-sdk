@@ -633,6 +633,25 @@ const v2 = await client.documents.version("offer", 2);
 A version dated ahead stays out of `get()` until its day comes, so a new
 redaction can be prepared in advance.
 
+### Consents
+
+Send the boxes the user ticked with the sign-up and with a card order. The
+server records each one with the version of its documents in force at that
+moment, so the client never sends document versions.
+
+```ts
+await client.auth.register({ email, password, consents: ["terms", "personal_data", "marketing"] });
+await client.cards.create({ productId, currency: "USD", consents: ["terms"], idempotencyKey });
+
+const { consents } = await client.consents.get();   // where each one stands
+await client.consents.set("marketing", false);       // advertising off in every channel
+```
+
+`terms` covers the offer, the tariffs and the privacy policy. A deployment
+can refuse a sign-up without `terms` and `personal_data`
+(400 `consents_required`). Only `marketing` and `cookies_analytics` can be
+withdrawn later; the required ones go with the account.
+
 ### From `client.blog`
 
 `client.blog` still works for one release and is marked deprecated. Same
@@ -1051,6 +1070,7 @@ Available now:
 - `@takeal/cusfront-sdk/devices` — `DevicesResource` (Web Push, mobile push tokens, the Telegram Mini App marker).
 - `@takeal/cusfront-sdk/me` — `MeResource` (link or unlink Telegram for the signed-in user).
 - `@takeal/cusfront-sdk/history` — `HistoryResource` (the user's money history).
+- `@takeal/cusfront-sdk/consents` — `ConsentsResource` (what the user agreed to).
 - `@takeal/cusfront-sdk/attribution` — `AttributionResource`, `anonymousKey`, `currentTouch` (where users come from).
 - `@takeal/cusfront-sdk/webhooks` — HMAC-SHA256 signature verifier (no network, isomorphic).
 - `@takeal/cusfront-sdk/react` — optional React hooks layer (`ClientProvider` + `useMe` / `useDeposits` / `useCards` / `useCardProducts` / `useBalance` / `useNotifications` / `useUnreadCount`). React is a `peerDependency`, never bundled.

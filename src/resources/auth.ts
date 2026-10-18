@@ -1,3 +1,4 @@
+import type { ConsentChannel, ConsentKind } from "./consents.js";
 import type { HttpClient } from "../http.js";
 import type { TokenStore } from "../token-store.js";
 import { isApiError } from "../error.js";
@@ -63,6 +64,11 @@ export interface ExchangeTelegramInput {
    *  reads the `startapp` of the link the Mini App was opened with, when
    *  that is a code. The result comes back as `code_result`. */
   code?: string;
+  /** Consents for a new account, as in `register`. Sent as `consents`;
+   *  ignored for an account that already exists. */
+  consents?: ConsentKind[];
+  /** Sent as `consent_channel`; the server takes `miniapp` when omitted. */
+  consentChannel?: ConsentChannel;
 }
 
 /** `exchangeTelegram({ provision: false })` for a Telegram id nobody has
@@ -168,6 +174,12 @@ export interface RegisterInput {
    *  sign-up: the account is created and `code_result` says why the code
    *  was not applied, so the app can show it. */
   code?: string;
+  /** The boxes the user ticked: `terms` (offer, tariffs and privacy policy),
+   *  `personal_data`, `marketing`. A deployment can require the first two
+   *  (400 `consents_required` without them). */
+  consents?: ConsentKind[];
+  /** Where they were ticked. Read from the client header when omitted. */
+  consent_channel?: ConsentChannel;
 }
 
 /** A signed-in session without the login `stage` marker — what
@@ -306,7 +318,8 @@ export class AuthResource {
    *  `wallet_currency` must be one the deployment offers; omit it to take
    *  the deployment default (it can be switched later via `client.wallet`
    *  while the wallet is empty).
-   *  Errors: 400 `validation` / `currency_not_allowed`, 409 email taken. */
+   *  Errors: 400 `validation` / `currency_not_allowed` / `consents_required`
+   *  / `unknown_consent`, 409 email taken. */
   async register(input: RegisterInput): Promise<Session> {
     const resp = await this.http.post<Session>("/auth/register", {
       body: withRemember(input),
@@ -372,12 +385,16 @@ export class AuthResource {
       provision?: boolean;
       attribution?: SignupAttribution;
       code?: string;
+      consents?: ConsentKind[];
+      consent_channel?: ConsentChannel;
     } = {
       init_data: input.initData,
     };
     if (input.provision !== undefined) body.provision = input.provision;
     if (input.attribution !== undefined) body.attribution = input.attribution;
     if (input.code !== undefined) body.code = input.code;
+    if (input.consents !== undefined) body.consents = input.consents;
+    if (input.consentChannel !== undefined) body.consent_channel = input.consentChannel;
     let resp: JwtIssued;
     try {
       resp = await this.http.post<JwtIssued>("/auth/telegram/exchange", {

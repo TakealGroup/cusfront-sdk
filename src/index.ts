@@ -32,6 +32,7 @@ import { NotificationsResource } from "./resources/notifications.js";
 import { DevicesResource } from "./resources/devices.js";
 import { AttributionResource } from "./resources/attribution.js";
 import { HistoryResource } from "./resources/history.js";
+import { ConsentsResource } from "./resources/consents.js";
 import { FundingOptionsResource } from "./resources/funding-options.js";
 import {
   CLIENT_HEADER,
@@ -177,6 +178,14 @@ export type {
   HistoryPage,
   ListHistoryParams,
 } from "./resources/history.js";
+export type {
+  ConsentKind,
+  ConsentChannel,
+  ConsentDocument,
+  ConsentState,
+  Consents,
+  ConsentsResource,
+} from "./resources/consents.js";
 export { anonymousKey, currentTouch } from "./resources/attribution.js";
 export type {
   TouchFields,
@@ -323,6 +332,8 @@ export interface CusfrontClient {
   readonly attribution: AttributionResource;
   /** Everything that happened to the user's money in one list, or one card's part of it. */
   readonly history: HistoryResource;
+  /** What the user agreed to; give or withdraw the optional consents. */
+  readonly consents: ConsentsResource;
   /** Direct access to the token store (e.g. for an explicit sign-out
    *  on Capacitor's lifecycle "app pausing" event). */
   readonly tokens: TokenStore;
@@ -386,6 +397,7 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     devices: new DevicesResource(http, client),
     attribution: new AttributionResource(http),
     history: new HistoryResource(http),
+    consents: new ConsentsResource(http),
   };
 }
 

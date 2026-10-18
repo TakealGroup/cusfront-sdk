@@ -82,6 +82,11 @@
       "import": "./dist/resources/history.js",
       "require": "./dist/resources/history.cjs"
     },
+    "./consents": {
+      "types": "./dist/resources/consents.d.ts",
+      "import": "./dist/resources/consents.js",
+      "require": "./dist/resources/consents.cjs"
+    },
     "./attribution": {
       "types": "./dist/resources/attribution.d.ts",
       "import": "./dist/resources/attribution.js",

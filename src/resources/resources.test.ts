@@ -21,6 +21,7 @@ import {
 import { DevicesResource, devicePlatformOf, type Device } from "./devices.js";
 import { AttributionResource, anonymousKey, currentTouch } from "./attribution.js";
 import { HistoryResource } from "./history.js";
+import { ConsentsResource } from "./consents.js";
 import { FundingOptionsResource, type FundingOption } from "./funding-options.js";
 import { CodesResource, type CodeCheck } from "./codes.js";
 import { ReferralResource, type Referral } from "./referral.js";
@@ -1945,5 +1946,50 @@ describe("codes, referral, subscription", () => {
     expect(bodyOf(captured[0]!)).toMatchObject({ code: "SPRING" });
     await auth.exchangeTelegram({ initData: "x", code: "ALICE" });
     expect(bodyOf(captured[1]!)).toEqual({ init_data: "x", code: "ALICE" });
+  });
+});
+
+describe("ConsentsResource", () => {
+  it("get GETs /me/consents", async () => {
+    const { captured, http } = rig({ consents: [] });
+    await new ConsentsResource(http).get();
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/consents");
+    expect(captured[0]!.init.method ?? "GET").toBe("GET");
+  });
+
+  it("set POSTs the kind, the choice and the channel", async () => {
+    const { captured, http } = rig({ consents: [] });
+    await new ConsentsResource(http).set("marketing", false, "cabinet");
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/consents");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({ kind: "marketing", given: false, channel: "cabinet" });
+  });
+
+  it("register and card orders carry consents on the wire", async () => {
+    const reg = rig({ access_token: "t", token_type: "Bearer", expires_in: 1, user: {} });
+    await new AuthResource(reg.http, reg.tokens).register({
+      email: "a@example.invalid",
+      password: "x",
+      consents: ["terms", "personal_data"],
+      consent_channel: "site",
+    });
+    expect(bodyOf(reg.captured[0]!)).toMatchObject({
+      consents: ["terms", "personal_data"],
+      consent_channel: "site",
+    });
+
+    const card = rig({ id: "c1" });
+    await new CardsResource(card.http).create({
+      productId: "p1",
+      currency: "USD",
+      consents: ["terms"],
+      consentChannel: "cabinet",
+      idempotencyKey: "k1",
+    });
+    expect(bodyOf(card.captured[0]!)).toMatchObject({
+      consents: ["terms"],
+      consent_channel: "cabinet",
+    });
+    expect(bodyOf(card.captured[0]!)).not.toHaveProperty("consentChannel");
   });
 });
