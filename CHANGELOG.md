@@ -4,6 +4,34 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] — 2026-10-18
+
+Needs platform (TKL) 0.6.7 or newer: `SUPPORTED_MEISTER` is `>=0.6.7, <0.7.0`.
+Everything below talks to endpoints that exist from that version on.
+
+### Added
+
+- Consents: `auth.register` takes `consents` and `consent_channel`,
+  `auth.exchangeTelegram` takes `consents` and `consentChannel` for a new
+  account, and `cards.create` (with the `issue_card` block of
+  `deposits.initiate`) takes `consents` and `consentChannel`. The server
+  records each one with the version of its documents in force.
+- `client.consents`: `get()`, `set(kind, given)` for the optional consents,
+  and `setCookies({ analytics })` for the cookie banner, signed in or not.
+  Also as `@takeal/cusfront-sdk/consents`.
+- `client.receipts`: `list({ refId })` and `get(id)`, a numbered receipt for
+  every payment. Also as `@takeal/cusfront-sdk/receipts`.
+- `auth.requestEmailChange` and `auth.confirmEmailChange`: an email change
+  confirmed by a code sent to the new address.
+
+### Changed
+
+- `auth.linkEmail` is for the first address of an account made in the Mini
+  App only; an account with a real address gets 409
+  `email_change_needs_code` and changes it in two steps instead.
+- `SUPPORTED_MEISTER` narrowed to `>=0.6.7, <0.7.0`; `client.ready()` warns
+  on an older deployment.
+
 ## [0.6.1] — 2026-10-12
 
 Needs platform (TKL) 0.6.4 or newer: `SUPPORTED_MEISTER` is `>=0.6.4, <0.7.0`.
