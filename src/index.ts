@@ -167,6 +167,7 @@ export type {
   TelegramUnknown,
   ExchangeTelegramInput,
   LinkTelegramInput,
+  EmailChangeRequested,
 } from "./resources/auth.js";
 export type { MeResource } from "./resources/me.js";
 export type {

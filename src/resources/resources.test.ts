@@ -1965,6 +1965,22 @@ describe("ConsentsResource", () => {
     expect(bodyOf(captured[0]!)).toEqual({ kind: "marketing", given: false, channel: "cabinet" });
   });
 
+  it("email change goes in two steps", async () => {
+    const a = rig({ challenge_id: "ch1", destination_hint: "ne***@example.com", expires_at: "x" });
+    const r = await new AuthResource(a.http, a.tokens).requestEmailChange({
+      email: "new@example.com",
+    });
+    expect(r.challenge_id).toBe("ch1");
+    expect(a.captured[0]!.url).toBe("https://api.test/v1/me/email/change");
+    const b = rig({ id: "u1" });
+    await new AuthResource(b.http, b.tokens).confirmEmailChange({
+      challengeId: "ch1",
+      code: "042913",
+    });
+    expect(b.captured[0]!.url).toBe("https://api.test/v1/me/email/change/confirm");
+    expect(bodyOf(b.captured[0]!)).toEqual({ challenge_id: "ch1", code: "042913" });
+  });
+
   it("setCookies POSTs /consents/cookies with the anonymous key", async () => {
     const { captured, http } = rig({ recorded: true });
     const r = await new ConsentsResource(http).setCookies({

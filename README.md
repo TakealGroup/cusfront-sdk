@@ -633,6 +633,19 @@ const v2 = await client.documents.version("offer", 2);
 A version dated ahead stays out of `get()` until its day comes, so a new
 redaction can be prepared in advance.
 
+### Changing the email
+
+A new address proves it is the user's with a code sent there; nothing
+changes before the code comes back, and the old address gets a notice.
+
+```ts
+const { challenge_id, destination_hint } = await client.auth.requestEmailChange({ email });
+// "We sent a code to ne***@example.com"
+const user = await client.auth.confirmEmailChange({ challengeId: challenge_id, code });
+```
+
+`linkEmail` is only for the first address of an account made in the Mini App.
+
 ### Consents
 
 Send the boxes the user ticked with the sign-up and with a card order. The

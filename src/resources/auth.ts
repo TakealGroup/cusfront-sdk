@@ -182,6 +182,14 @@ export interface RegisterInput {
   consent_channel?: ConsentChannel;
 }
 
+/** What `requestEmailChange` returns: send `challenge_id` back with the code. */
+export interface EmailChangeRequested {
+  challenge_id: string;
+  /** Where the code went, partly hidden: `al***@example.com`. */
+  destination_hint: string;
+  expires_at: string;
+}
+
 /** A signed-in session without the login `stage` marker — what
  *  `register` returns. With a `code`, `code_result` is set. */
 export type Session = Omit<JwtIssued, "stage">;
@@ -431,11 +439,31 @@ export class AuthResource {
     return resp;
   }
 
-  /** Attach a real email to the current user (and clear `email_pending`).
-   *  Used after a Telegram exchange to satisfy the email requirement; also
-   *  works for a password user changing their address. 409 if taken. */
+  /** Attach the first real email to a Telegram-made account (and clear
+   *  `email_pending`). 409 if taken. An account that already has a real
+   *  address gets 409 `email_change_needs_code`: change it with
+   *  {@link requestEmailChange} and {@link confirmEmailChange}. */
   async linkEmail(input: { email: string }): Promise<User> {
     return this.http.post<User>("/me/email", { body: { email: input.email } });
+  }
+
+  /** Step one of an email change: a six-digit code goes to the new address
+   *  and works for 5 minutes. Nothing changes yet.
+   *  Errors: 400 `same_email`, 409 address taken, 429 `too_many_requests`
+   *  (five codes an hour). */
+  async requestEmailChange(input: { email: string }): Promise<EmailChangeRequested> {
+    return this.http.post<EmailChangeRequested>("/me/email/change", {
+      body: { email: input.email },
+    });
+  }
+
+  /** Step two: the code from the e-mail changes the address; the old one
+   *  gets a notice. Errors: 401 `invalid_code` (after five wrong codes a new
+   *  request is needed), 409 the address was taken meanwhile. */
+  async confirmEmailChange(input: { challengeId: string; code: string }): Promise<User> {
+    return this.http.post<User>("/me/email/change/confirm", {
+      body: { challenge_id: input.challengeId, code: input.code },
+    });
   }
 
   /** Current user — fails 401 when the stored JWT is expired or
