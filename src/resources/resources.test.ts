@@ -1965,6 +1965,17 @@ describe("ConsentsResource", () => {
     expect(bodyOf(captured[0]!)).toEqual({ kind: "marketing", given: false, channel: "cabinet" });
   });
 
+  it("setCookies POSTs /consents/cookies with the anonymous key", async () => {
+    const { captured, http } = rig({ recorded: true });
+    const r = await new ConsentsResource(http).setCookies({
+      analytics: false,
+      anonymousKey: "anon-12345678",
+    });
+    expect(r.recorded).toBe(true);
+    expect(captured[0]!.url).toBe("https://api.test/v1/consents/cookies");
+    expect(bodyOf(captured[0]!)).toEqual({ analytics: false, anonymous_key: "anon-12345678" });
+  });
+
   it("register and card orders carry consents on the wire", async () => {
     const reg = rig({ access_token: "t", token_type: "Bearer", expires_in: 1, user: {} });
     await new AuthResource(reg.http, reg.tokens).register({

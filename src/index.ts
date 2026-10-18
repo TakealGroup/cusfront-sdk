@@ -185,6 +185,7 @@ export type {
   ConsentState,
   Consents,
   ConsentsResource,
+  CookieChoiceInput,
 } from "./resources/consents.js";
 export { anonymousKey, currentTouch } from "./resources/attribution.js";
 export type {

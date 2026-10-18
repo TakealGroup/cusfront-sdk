@@ -647,6 +647,15 @@ const { consents } = await client.consents.get();   // where each one stands
 await client.consents.set("marketing", false);       // advertising off in every channel
 ```
 
+The cookie banner reports its choice the same way, signed in or not; before
+sign-in it is kept under the anonymous key and moves to the account at
+sign-up. Declining analytics deletes the visitor's recorded visits and
+analytics ids.
+
+```ts
+await client.consents.setCookies({ analytics: false });
+```
+
 `terms` covers the offer, the tariffs and the privacy policy. A deployment
 can refuse a sign-up without `terms` and `personal_data`
 (400 `consents_required`). Only `marketing` and `cookies_analytics` can be

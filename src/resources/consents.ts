@@ -1,4 +1,5 @@
 import type { HttpClient } from "../http.js";
+import { anonymousKey } from "./attribution.js";
 
 /**
  * Consents resource — `client.consents.*`: what the user agreed to.
@@ -51,6 +52,16 @@ export interface Consents {
   consents: ConsentState[];
 }
 
+export interface CookieChoiceInput {
+  /** `true`: analytics cookies allowed; `false`: declined. */
+  analytics: boolean;
+  /** The visitor's anonymous key. Defaults to the one `anonymousKey()`
+   *  keeps (the key visits are sent with); ignored for a signed-in user. */
+  anonymousKey?: string;
+  /** Where the choice was made. Read from the client header when omitted. */
+  channel?: ConsentChannel;
+}
+
 export class ConsentsResource {
   constructor(private readonly http: HttpClient) {}
 
@@ -72,5 +83,27 @@ export class ConsentsResource {
     const body: { kind: ConsentKind; given: boolean; channel?: ConsentChannel } = { kind, given };
     if (channel !== undefined) body.channel = channel;
     return this.http.post<Consents>("/me/consents", { body });
+  }
+
+  /**
+   * Record what the cookie banner or the cookie settings say about
+   * analytics. Works signed in or not: before sign-in the choice is kept
+   * under the anonymous key and moves to the account at sign-up (send the
+   * same key in `register({ attribution })`). Declining deletes the
+   * visitor's recorded visits and analytics ids and stops their conversions
+   * going to Metrica. Call it on every change, not on every page load; the
+   * same answer twice records nothing (`recorded: false`).
+   *
+   * Errors: 400 `invalid_anonymous_key` when not signed in and no key could
+   * be found.
+   */
+  async setCookies(input: CookieChoiceInput): Promise<{ recorded: boolean }> {
+    const body: { analytics: boolean; anonymous_key?: string; channel?: ConsentChannel } = {
+      analytics: input.analytics,
+    };
+    const key = input.anonymousKey ?? anonymousKey();
+    if (key !== undefined) body.anonymous_key = key;
+    if (input.channel !== undefined) body.channel = input.channel;
+    return this.http.post<{ recorded: boolean }>("/consents/cookies", { body });
   }
 }
