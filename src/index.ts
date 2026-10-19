@@ -111,6 +111,9 @@ export type {
   CardTransfer,
   TransferResult,
   IssuanceBonus,
+  CardOrderInput,
+  CardOrder,
+  CardOrderError,
 } from "./resources/cards.js";
 export type { Balance } from "./resources/balance.js";
 export type {

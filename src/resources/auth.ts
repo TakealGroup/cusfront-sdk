@@ -4,6 +4,12 @@ import type { TokenStore } from "../token-store.js";
 import { isApiError } from "../error.js";
 import type { SignupAttribution } from "./attribution.js";
 import type { CodeResult } from "./codes.js";
+import {
+  cardOrderBody,
+  type CardOrder,
+  type CardOrderError,
+  type CardOrderInput,
+} from "./cards.js";
 
 /**
  * Auth resource — `client.auth.*`.
@@ -180,6 +186,12 @@ export interface RegisterInput {
   consents?: ConsentKind[];
   /** Where they were ticked. Read from the client header when omitted. */
   consent_channel?: ConsentChannel;
+  /** Buy this card right after signing up, as `cards.order` would. The
+   *  sign-up's consents go with the order. The result then carries
+   *  `card_order` (send the user to its `deposit.redirect_url`) or, when the
+   *  order could not be placed, `card_order_error`; the account is created
+   *  either way. */
+  cardOrder?: Omit<CardOrderInput, "consents" | "consentChannel">;
 }
 
 /** What `requestEmailChange` returns: send `challenge_id` back with the code. */
@@ -191,8 +203,12 @@ export interface EmailChangeRequested {
 }
 
 /** A signed-in session without the login `stage` marker — what
- *  `register` returns. With a `code`, `code_result` is set. */
-export type Session = Omit<JwtIssued, "stage">;
+ *  `register` returns. With a `code`, `code_result` is set; with a
+ *  `cardOrder`, `card_order` or `card_order_error`. */
+export type Session = Omit<JwtIssued, "stage"> & {
+  card_order?: CardOrder;
+  card_order_error?: CardOrderError;
+};
 
 export interface TotpSetupComplete extends Session {
   /** Ten one-time `XXXX-XXXX` codes, returned only this once. */
@@ -329,8 +345,11 @@ export class AuthResource {
    *  Errors: 400 `validation` / `currency_not_allowed` / `consents_required`
    *  / `unknown_consent`, 409 email taken. */
   async register(input: RegisterInput): Promise<Session> {
+    const { cardOrder, ...rest } = input;
+    const body: Record<string, unknown> = withRemember(rest);
+    if (cardOrder !== undefined) body["card_order"] = cardOrderBody(cardOrder);
     const resp = await this.http.post<Session>("/auth/register", {
-      body: withRemember(input),
+      body,
       skipAuth: true,
     });
     await this.keep(resp);

@@ -116,7 +116,7 @@ describe("client.ready()", () => {
   it("returns the body of a degraded platform instead of throwing", async () => {
     const { client } = clientAnswering(503, {
       status: "degraded",
-      ops: { platform_version: "0.6.7" },
+      ops: { platform_version: "0.6.8" },
     });
     const r = await client.ready();
     expect(r).toMatchObject({ compatible: true, healthy: false, status: "degraded" });
@@ -131,7 +131,7 @@ describe("client.ready()", () => {
 describe("SUPPORTED_MEISTER", () => {
   it("is a range CI can read and the helper can parse", () => {
     expect(SUPPORTED_MEISTER).toMatch(/^[<>=]{1,2}\d+\.\d+\.\d+(, [<>=]{1,2}\d+\.\d+\.\d+)*$/);
-    expect(satisfies("0.6.6", SUPPORTED_MEISTER)).toBe(false);
-    expect(satisfies("0.6.7", SUPPORTED_MEISTER)).toBe(true);
+    expect(satisfies("0.6.7", SUPPORTED_MEISTER)).toBe(false);
+    expect(satisfies("0.6.8", SUPPORTED_MEISTER)).toBe(true);
   });
 });

@@ -265,6 +265,29 @@ describe("CardsResource", () => {
     });
   });
 
+  it("order POSTs /me/card-orders with the key and snake_case fields", async () => {
+    const { captured, http } = rig({ deposit: { id: "dep_1" }, amount: "1", currency: "RUB" });
+    await new CardsResource(http).order({
+      productId: "prod_1",
+      method: "sbp",
+      funderSlug: "indigo-npsystems",
+      extraLoad: "5.00",
+      consents: ["terms"],
+      consentChannel: "site",
+      idempotencyKey: "key-1",
+    });
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/card-orders");
+    expect(headersOf(captured[0]!)["Idempotency-Key"]).toBe("key-1");
+    expect(bodyOf(captured[0]!)).toEqual({
+      product_id: "prod_1",
+      method: "sbp",
+      funder_slug: "indigo-npsystems",
+      extra_load: "5.00",
+      consents: ["terms"],
+      consent_channel: "site",
+    });
+  });
+
   it("listProducts / getProduct GET /me/card-products[/{id}]", async () => {
     const { captured, http } = rig([PRODUCT]);
     const list = await new CardsResource(http).listProducts();
@@ -1142,6 +1165,38 @@ describe("AuthResource (register, totp setup, password)", () => {
     });
     expect(headersOf(captured[0]!)["Authorization"]).toBeUndefined();
     expect(await store.get()).toBe("jwt-new");
+  });
+
+  it("register with cardOrder sends card_order and hands back the order", async () => {
+    const order = {
+      deposit: { id: "dep_1", status: "redirect_required", redirect_url: "https://pay.test/1" },
+      amount: "2400.00",
+      currency: "RUB",
+      card_amount: "20.00",
+      card_currency: "USD",
+    };
+    const { captured, http } = rig({ ...SESSION, card_order: order });
+    const out = await new AuthResource(http, inMemoryStore()).register({
+      email: "bob@example.com",
+      password: "Correct-Horse-9",
+      consents: ["terms", "personal_data"],
+      cardOrder: {
+        productId: "prod_1",
+        method: "sbp",
+        metadata: { return_url: "https://wexel.test/cabinet" },
+      },
+    });
+    expect(out.card_order?.deposit.redirect_url).toBe("https://pay.test/1");
+    expect(bodyOf(captured[0]!)).toEqual({
+      email: "bob@example.com",
+      password: "Correct-Horse-9",
+      consents: ["terms", "personal_data"],
+      card_order: {
+        product_id: "prod_1",
+        method: "sbp",
+        metadata: { return_url: "https://wexel.test/cabinet" },
+      },
+    });
   });
 
   it("completeTotpSetup POSTs /auth/login/totp-setup and returns the backup codes", async () => {

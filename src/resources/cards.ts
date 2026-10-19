@@ -1,6 +1,7 @@
 import type { ConsentChannel, ConsentKind } from "./consents.js";
 import type { HttpClient } from "../http.js";
 import type { CustomerInfo } from "../types/customer.js";
+import type { Deposit, DepositMethod } from "./deposits.js";
 
 /**
  * Cards resource — `client.cards.*`.
@@ -327,6 +328,76 @@ export function cardRequestBody(
   return body;
 }
 
+/**
+ * A card bought in one step with {@link CardsResource.order}: the product and
+ * how the user pays. The platform works out the amount to pay in the
+ * payment's currency, locks the rate and opens the top-up that issues the
+ * card.
+ */
+export interface CardOrderInput {
+  /** A product id from {@link CardsResource.listProducts}. Sent as `product_id`. */
+  productId: string;
+  /** One of the product's designs; omit for its default. Sent as `design_id`. */
+  designId?: string;
+  /** A name for the card, 1 to 40 characters; defaults to the product name. */
+  name?: string;
+  /** How the user pays, e.g. `"sbp"`. */
+  method: DepositMethod;
+  /** The funding connector to pay through; omit to let the API pick one that takes `method`. Sent as `funder_slug`. */
+  funderSlug?: string;
+  /** ISO 4217 code of the payment; defaults to the currency the method is priced in. */
+  currency?: string;
+  /** Money to put on the card on top of its price, decimal string in the card's currency. Sent as `extra_load`. */
+  extraLoad?: string;
+  /** A promo code for the payment. Sent as `promo_code`. */
+  promoCode?: string;
+  /** Pay part of the price with bonuses; on by default. Sent as `use_bonus`. */
+  useBonus?: boolean;
+  /** Consents given with the order. */
+  consents?: ConsentKind[];
+  /** Where they were given. Sent as `consent_channel`. */
+  consentChannel?: ConsentChannel;
+  /** Passed to the payment provider; `return_url` is where the payment page sends the user back. */
+  metadata?: Record<string, string>;
+}
+
+/** What {@link CardsResource.order} returns: the top-up to pay and its price. */
+export interface CardOrder {
+  /** Send the user to `deposit.redirect_url` when `deposit.status` is `redirect_required`. The card is issued once the payment is confirmed. */
+  deposit: Deposit;
+  /** What the user pays, decimal string, in `currency`. */
+  amount: string;
+  currency: string;
+  /** What reaches the card: its price plus its starting balance, in `card_currency`. */
+  card_amount: string;
+  card_currency: string;
+}
+
+/** Why a card ordered with the sign-up was not placed. The account exists all the same. */
+export interface CardOrderError {
+  code: string;
+  message: string;
+}
+
+/** Build the API body of a card order. */
+export function cardOrderBody(input: CardOrderInput): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    product_id: input.productId,
+    method: input.method,
+  };
+  if (input.designId !== undefined) body["design_id"] = input.designId;
+  if (input.name !== undefined) body["name"] = input.name;
+  if (input.funderSlug !== undefined) body["funder_slug"] = input.funderSlug;
+  if (input.currency !== undefined) body["currency"] = input.currency;
+  if (input.extraLoad !== undefined) body["extra_load"] = input.extraLoad;
+  if (input.promoCode !== undefined) body["promo_code"] = input.promoCode;
+  if (input.useBonus !== undefined) body["use_bonus"] = input.useBonus;
+  if (input.consents !== undefined) body["consents"] = input.consents;
+  if (input.consentChannel !== undefined) body["consent_channel"] = input.consentChannel;
+  if (input.metadata !== undefined) body["metadata"] = input.metadata;
+  return body;
+}
+
 /** Remaining balance of a prepaid card. */
 export interface CardBalance {
   amount: string;
@@ -559,6 +630,23 @@ export class CardsResource {
     const { idempotencyKey, ...card } = input;
     return this.http.post<Card>("/me/cards", {
       body: cardRequestBody(card),
+      idempotencyKey,
+    });
+  }
+
+  /**
+   * Buy a card in one step: the API prices the product in the payment's
+   * currency, locks the rate and opens the top-up that issues the card.
+   * Send the user to `order.deposit.redirect_url`; the card shows as
+   * `pending_payment` until the payment is confirmed. The same
+   * `idempotencyKey` returns the same order.
+   * Errors: 400 `unknown_product` / `method_not_available` / a limit of the
+   * way of paying, 503 no funding connector or no exchange rate.
+   */
+  async order(input: CardOrderInput & { idempotencyKey: string }): Promise<CardOrder> {
+    const { idempotencyKey, ...order } = input;
+    return this.http.post<CardOrder>("/me/card-orders", {
+      body: cardOrderBody(order),
       idempotencyKey,
     });
   }

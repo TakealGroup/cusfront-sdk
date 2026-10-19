@@ -4,6 +4,21 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] — 2026-10-20
+
+Needs platform (TKL) 0.6.8 or newer: `SUPPORTED_MEISTER` is `>=0.6.8, <0.7.0`.
+
+### Added
+
+- `cards.order({ productId, method, … , idempotencyKey })`: a card bought in
+  one step. The API prices it in the payment's currency, locks the rate and
+  opens the top-up that issues the card; send the user to
+  `order.deposit.redirect_url`.
+- `auth.register` takes `cardOrder`: the card is ordered right after the
+  sign-up, with its consents. The session then carries `card_order`, or
+  `card_order_error` when the order could not be placed (the account exists
+  either way).
+
 ## [0.6.2] — 2026-10-18
 
 Needs platform (TKL) 0.6.7 or newer: `SUPPORTED_MEISTER` is `>=0.6.7, <0.7.0`.

@@ -243,6 +243,38 @@ Paying in another currency than the card's needs a quote in the card's
 currency first: `deposits.quote({ amount, currency, card_id })`, or
 `target_currency` for a card that doesn't exist yet.
 
+## Buying a card in one step
+
+When the user picks a card before they have an account (a "Get the card"
+button on the site), let the sign-up order it too. They see the payment page
+right after the form, with nothing to pick twice:
+
+```ts
+const session = await client.auth.register({
+  email,
+  password,
+  consents: ["terms", "personal_data"],
+  cardOrder: {
+    productId,                       // the card they clicked
+    method: "sbp",
+    metadata: { return_url: `${location.origin}/cabinet` },
+  },
+});
+if (session.card_order) {
+  location.href = session.card_order.deposit.redirect_url!;
+} else {
+  // session.card_order_error says why; the account exists, so open the
+  // ordinary card screen.
+}
+```
+
+The API prices the card in the payment's currency (`card_order.amount`, in
+roubles for SBP) with the rate locked, and opens the top-up that issues it.
+The consents ticked at the sign-up go with the order. A user who is already
+signed in gets the same with `client.cards.order({ productId, method,
+idempotencyKey })`. The card shows as `pending_payment` until the payment is
+confirmed and is issued after that.
+
 ## Topping up by SBP
 
 A rouble top-up through Russia's instant payments goes like this: the user
