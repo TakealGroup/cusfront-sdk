@@ -1199,6 +1199,102 @@ describe("AuthResource (register, totp setup, password)", () => {
     });
   });
 
+  it("requestEmailCode POSTs /auth/email-code unauthenticated", async () => {
+    const sent = {
+      challenge_id: "chl_1",
+      expires_at: "2026-10-21T10:10:00Z",
+      resend_at: "2026-10-21T10:01:00Z",
+    };
+    const { captured, http } = rig(sent);
+    const out = await new AuthResource(http, inMemoryStore()).requestEmailCode({
+      email: "bob@example.com",
+      locale: "ru",
+    });
+    expect(out).toEqual(sent);
+    expect(captured[0]!.url).toBe("https://api.test/v1/auth/email-code");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({ email: "bob@example.com", locale: "ru" });
+    expect(headersOf(captured[0]!)["Authorization"]).toBeUndefined();
+  });
+
+  it("verifyEmailCode sends the code with the card order and stores the session", async () => {
+    const order = {
+      deposit: { id: "dep_1", status: "redirect_required", redirect_url: "https://pay.test/1" },
+      amount: "2400.00",
+      currency: "RUB",
+      card_amount: "20.00",
+      card_currency: "USD",
+    };
+    const { captured, http } = rig({
+      stage: "jwt",
+      ...SESSION,
+      remember_token: "rem-1",
+      account_created: true,
+      card_order: order,
+    });
+    const store = inMemoryStore();
+    const remembered = inMemoryStore();
+    const out = await new AuthResource(http, store, remembered).verifyEmailCode({
+      challengeId: "chl_1",
+      code: "042913",
+      remember: true,
+      promoCode: "SPRING",
+      consents: ["terms", "personal_data"],
+      consentChannel: "site",
+      cardOrder: {
+        productId: "prod_1",
+        method: "sbp",
+        metadata: { return_url: "https://wexel.test/cabinet" },
+      },
+    });
+    expect(out.account_created).toBe(true);
+    expect(out.card_order?.deposit.redirect_url).toBe("https://pay.test/1");
+    expect(captured[0]!.url).toBe("https://api.test/v1/auth/email-code/verify");
+    expect(headersOf(captured[0]!)["Authorization"]).toBeUndefined();
+    expect(bodyOf(captured[0]!)).toEqual({
+      challenge_id: "chl_1",
+      code: "042913",
+      remember_me: true,
+      promo_code: "SPRING",
+      consents: ["terms", "personal_data"],
+      consent_channel: "site",
+      card_order: {
+        product_id: "prod_1",
+        method: "sbp",
+        metadata: { return_url: "https://wexel.test/cabinet" },
+      },
+    });
+    expect(await store.get()).toBe("jwt-new");
+    expect(await remembered.get()).toBe("rem-1");
+  });
+
+  it("verifyEmailCode hands back card_order_error and still signs in", async () => {
+    const { http } = rig({
+      stage: "jwt",
+      ...SESSION,
+      account_created: false,
+      card_order_error: { code: "method_not_available", message: "no funding connector" },
+    });
+    const store = inMemoryStore();
+    const out = await new AuthResource(http, store).verifyEmailCode({
+      challengeId: "chl_1",
+      code: "042913",
+      cardOrder: { productId: "prod_1", method: "sbp" },
+    });
+    expect(out.card_order).toBeUndefined();
+    expect(out.card_order_error?.code).toBe("method_not_available");
+    expect(await store.get()).toBe("jwt-new");
+  });
+
+  it("verifyEmailCode stores nothing on a wrong code", async () => {
+    const { http } = rig({ code: "invalid_code", message: "the code is wrong" }, 401);
+    const store = inMemoryStore();
+    await expect(
+      new AuthResource(http, store).verifyEmailCode({ challengeId: "chl_1", code: "000000" }),
+    ).rejects.toMatchObject({ status: 401, code: "invalid_code" });
+    expect(await store.get()).toBeNull();
+  });
+
   it("completeTotpSetup POSTs /auth/login/totp-setup and returns the backup codes", async () => {
     const { captured, http } = rig({ ...SESSION, backup_codes: ["ABCD-EFGH"] });
     const store = inMemoryStore();

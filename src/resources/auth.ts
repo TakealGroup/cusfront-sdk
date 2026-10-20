@@ -15,7 +15,8 @@ import {
  * Auth resource — `client.auth.*`.
  *
  * Covers the end-user-facing staged auth flow: password login
- * with optional TOTP/OTP step-up. The shape mirrors the responses
+ * with optional TOTP/OTP step-up, and signing in (or up) with a code sent
+ * to the e-mail, no password. The shape mirrors the responses
  * the Takeal API returns from `/auth/login`, `/auth/login/totp`,
  * `/auth/login/otp/verify`, `/auth/login/2fa/switch`, and `/auth/me`.
  *
@@ -194,6 +195,65 @@ export interface RegisterInput {
   cardOrder?: Omit<CardOrderInput, "consents" | "consentChannel">;
 }
 
+export interface RequestEmailCodeInput {
+  email: string;
+  /** Language of the e-mail when the address has no account yet (`ru`,
+   *  `en`, …). An account's own language wins; without either the server
+   *  reads the browser's. */
+  locale?: string;
+}
+
+/** What `requestEmailCode` returns. The same for an address with an account
+ *  and one without. */
+export interface EmailCodeSent {
+  /** Send it back with the code to `verifyEmailCode`. */
+  challenge_id: string;
+  /** When the code stops working, ISO-8601. */
+  expires_at: string;
+  /** When another code can be asked for, ISO-8601: keep "send again" off
+   *  until then. */
+  resend_at: string;
+}
+
+export interface VerifyEmailCodeInput {
+  /** From `requestEmailCode`. Sent as `challenge_id`. */
+  challengeId: string;
+  /** The six digits from the e-mail. */
+  code: string;
+  /** Keep this browser signed in, as in `login`. */
+  remember?: boolean;
+  /** Wallet currency for a new account; ignored for an existing one. Sent
+   *  as `wallet_currency`. */
+  walletCurrency?: string;
+  /** Where a new user came from, as in `register`. */
+  attribution?: SignupAttribution;
+  /** A promo or referral code for a new account, as `code` in `register`.
+   *  One that covers cards also lowers the price of `cardOrder`. Sent as
+   *  `promo_code`; the result comes back as `code_result`. */
+  promoCode?: string;
+  /** The boxes ticked on the form. A new account records them with its
+   *  sign-up and the card order with itself. A deployment can require
+   *  `terms` and `personal_data` for a new account: 400
+   *  `consents_required`, and the same code works again with them. */
+  consents?: ConsentKind[];
+  /** Where they were ticked. Sent as `consent_channel`. */
+  consentChannel?: ConsentChannel;
+  /** Buy this card right after signing in, as `cards.order` would, with
+   *  the consents above. The result carries `card_order` (send the user to
+   *  its `deposit.redirect_url`) or `card_order_error` when no payment was
+   *  opened; the sign-in stands either way. */
+  cardOrder?: Omit<CardOrderInput, "consents" | "consentChannel">;
+}
+
+/** What `verifyEmailCode` returns: a `stage: "jwt"` session, plus whether
+ *  the account was made just now and the card order. */
+export type EmailCodeSession = JwtIssued & {
+  /** `true` when the address had no account and got one with this code. */
+  account_created: boolean;
+  card_order?: CardOrder;
+  card_order_error?: CardOrderError;
+};
+
 /** What `requestEmailChange` returns: send `challenge_id` back with the code. */
 export interface EmailChangeRequested {
   challenge_id: string;
@@ -349,6 +409,47 @@ export class AuthResource {
     const body: Record<string, unknown> = withRemember(rest);
     if (cardOrder !== undefined) body["card_order"] = cardOrderBody(cardOrder);
     const resp = await this.http.post<Session>("/auth/register", {
+      body,
+      skipAuth: true,
+    });
+    await this.keep(resp);
+    return resp;
+  }
+
+  /** Step one of signing in without a password: a six-digit code goes to
+   *  the address. It works for an address with an account and for a new one
+   *  alike, and the answer doesn't say which. The code works for 10 minutes;
+   *  another can be asked for after `resend_at` and replaces it.
+   *  Errors: 400 `validation` (not an address), 429 `resend_too_soon` /
+   *  `too_many_requests` (the message says when to try again), 503
+   *  `delivery_failed`. */
+  async requestEmailCode(input: RequestEmailCodeInput): Promise<EmailCodeSent> {
+    const body: Record<string, unknown> = { email: input.email };
+    if (input.locale !== undefined) body["locale"] = input.locale;
+    return this.http.post<EmailCodeSent>("/auth/email-code", { body, skipAuth: true });
+  }
+
+  /** Step two: the code signs in to the account with that address, or
+   *  creates one (no password) when there is none; `account_created` says
+   *  which. The JWT is stored. With `cardOrder`, the card is ordered for
+   *  that account in the same call.
+   *  Errors: 401 `invalid_code` (wrong, expired or used; after five checks a
+   *  new code is needed), 400 `consents_required` for a new account, 403
+   *  `user_disabled` / `second_factor_required` (operator accounts sign in
+   *  with a password and their authenticator). */
+  async verifyEmailCode(input: VerifyEmailCodeInput): Promise<EmailCodeSession> {
+    const body: Record<string, unknown> = {
+      challenge_id: input.challengeId,
+      code: input.code,
+    };
+    if (input.remember) body["remember_me"] = true;
+    if (input.walletCurrency !== undefined) body["wallet_currency"] = input.walletCurrency;
+    if (input.attribution !== undefined) body["attribution"] = input.attribution;
+    if (input.promoCode !== undefined) body["promo_code"] = input.promoCode;
+    if (input.consents !== undefined) body["consents"] = input.consents;
+    if (input.consentChannel !== undefined) body["consent_channel"] = input.consentChannel;
+    if (input.cardOrder !== undefined) body["card_order"] = cardOrderBody(input.cardOrder);
+    const resp = await this.http.post<EmailCodeSession>("/auth/email-code/verify", {
       body,
       skipAuth: true,
     });

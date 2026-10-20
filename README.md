@@ -49,7 +49,8 @@ if (result.stage === "jwt") {
 }
 ```
 
-New users sign up with `register`, which also signs them in:
+New users sign up with `register`, which also signs them in (or with no
+password at all, by a code from the e-mail; see below):
 
 ```ts
 await client.auth.register({
@@ -243,16 +244,47 @@ Paying in another currency than the card's needs a quote in the card's
 currency first: `deposits.quote({ amount, currency, card_id })`, or
 `target_currency` for a card that doesn't exist yet.
 
+## Signing in with a code from the e-mail
+
+A user can sign in, or sign up, with nothing but their address: a six-digit
+code goes there, and the code signs them in. An address with no account gets
+one at that moment, with no password. The first call answers the same for
+both, so the form doesn't tell anyone whose addresses the platform has.
+
+```ts
+const { challenge_id, resend_at } = await client.auth.requestEmailCode({ email });
+// show the code field; keep "send again" off until resend_at
+
+const session = await client.auth.verifyEmailCode({
+  challengeId: challenge_id,
+  code,          // the six digits the user typed
+  remember: true,
+  consents: ["terms", "personal_data"],
+});
+session.account_created; // true when the address was new
+```
+
+The code works for 10 minutes and takes five tries; a new code replaces the
+old one. One address gets a code at most once a minute and five an hour, so
+handle 429 `resend_too_soon` and `too_many_requests` (the message says when
+to try again). A wrong code is 401 `invalid_code`. An account that already
+has a password signs in either way. Operator accounts can't use codes: they
+get 403 `second_factor_required` and sign in with the password and the
+authenticator.
+
 ## Buying a card in one step
 
 When the user picks a card before they have an account (a "Get the card"
-button on the site), let the sign-up order it too. They see the payment page
-right after the form, with nothing to pick twice:
+button on the site), let the sign-in order it too. They see the payment page
+right after the code, with nothing to pick twice and no password to make up:
 
 ```ts
-const session = await client.auth.register({
-  email,
-  password,
+const { challenge_id } = await client.auth.requestEmailCode({ email });
+// … the user types the code from the e-mail …
+const session = await client.auth.verifyEmailCode({
+  challengeId: challenge_id,
+  code,
+  promoCode,                         // the form's promo code, if any
   consents: ["terms", "personal_data"],
   cardOrder: {
     productId,                       // the card they clicked
@@ -263,14 +295,19 @@ const session = await client.auth.register({
 if (session.card_order) {
   location.href = session.card_order.deposit.redirect_url!;
 } else {
-  // session.card_order_error says why; the account exists, so open the
-  // ordinary card screen.
+  // session.card_order_error says why no payment was opened (the product
+  // is off sale, SBP is down, there's no rate). The user is signed in, so
+  // show the reason and open the ordinary card screen.
 }
 ```
 
+The same works for an address that already has an account: the card goes to
+that account. `auth.register({ email, password, cardOrder })` does it with a
+password instead.
+
 The API prices the card in the payment's currency (`card_order.amount`, in
 roubles for SBP) with the rate locked, and opens the top-up that issues it.
-The consents ticked at the sign-up go with the order. A user who is already
+The consents ticked on the form go with the order. A user who is already
 signed in gets the same with `client.cards.order({ productId, method,
 idempotencyKey })`. The card shows as `pending_payment` until the payment is
 confirmed and is issued after that.

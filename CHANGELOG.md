@@ -4,6 +4,21 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] — 2026-10-20
+
+Needs platform (TKL) 0.6.9 or newer: `SUPPORTED_MEISTER` is `>=0.6.9, <0.7.0`.
+
+### Added
+
+- `auth.requestEmailCode({ email })` and `auth.verifyEmailCode({ challengeId,
+  code, … })`: signing in with a six-digit code sent to the e-mail, no
+  password. An address with no account gets one when the code comes back
+  (`account_created: true`); an account that has a password can use either
+  way. `verifyEmailCode` takes `cardOrder`, `consents` and `promoCode`, so a
+  card bought from the site needs only the address and the code before the
+  payment page. The session carries `card_order`, or `card_order_error` when
+  no payment was opened.
+
 ## [0.6.3] — 2026-10-20
 
 Needs platform (TKL) 0.6.8 or newer: `SUPPORTED_MEISTER` is `>=0.6.8, <0.7.0`.

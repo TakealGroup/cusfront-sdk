@@ -172,6 +172,10 @@ export type {
   ExchangeTelegramInput,
   LinkTelegramInput,
   EmailChangeRequested,
+  RequestEmailCodeInput,
+  EmailCodeSent,
+  VerifyEmailCodeInput,
+  EmailCodeSession,
 } from "./resources/auth.js";
 export type { MeResource } from "./resources/me.js";
 export type {
