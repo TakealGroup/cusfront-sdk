@@ -453,6 +453,146 @@ export type paths = {
         patch: operations["update_campaign"];
         trace?: never;
     };
+    "/v1/admin/card-close-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Card close requests
+         * @description The holders' requests to close a card with money on it, the open ones by
+         *     default, the nearest deadline first: the basis, what goes back, how much
+         *     time is left, and whether the card looks broken.
+         */
+        get: operations["list_card_close_requests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/card-close-requests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A card close request
+         * @description Everything about one request: the basis and who set it, the amounts and
+         *     rates, every part of the refund with where its money came from, the
+         *     card's payments and what each can still give back, the card's term and
+         *     the facts that say whether it looks broken. The holder's payout details
+         *     in full only with the cards.close_requests.manage permission.
+         */
+        get: operations["get_card_close_request"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/card-close-requests/{id}/basis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set the basis of a close
+         * @description Only an operator says on what basis a card is closed; the holder's own
+         *     request (`user_request`, 9.2) is the default. A 9.3 basis refunds at the
+         *     card's average top-up rate, adds the issue fee's unexpired share (`b`)
+         *     or the issue and delivery fee (`d`), and sends what the platform owes on
+         *     top of the card's balance at once, without waiting for the issuer. A
+         *     basis changed after money went back pays the difference the same way;
+         *     what already went back is never taken back. Audited.
+         */
+        patch: operations["set_card_close_basis"];
+        trace?: never;
+    };
+    "/v1/admin/card-close-requests/{id}/identity-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark the holder's identity as checked
+         * @description For a request on the manual path whose holder gave payout details: the
+         *     details are theirs. The request moves to `manual_payout`, and the
+         *     transfer can be recorded. Audited.
+         */
+        post: operations["check_card_close_identity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/card-close-requests/{id}/manual-payouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a payout made by hand
+         * @description For a request whose money could not go back the way it came: the
+         *     operator transferred it to the details the holder gave, once their
+         *     identity was checked. Until this is recorded, the money stays owed to
+         *     the holder on the books and the request's deadline runs. A payout that
+         *     covers everything due finishes the request. The holder is told. Audited.
+         */
+        post: operations["record_card_close_payout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/card-close-requests/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a close request on now
+         * @description Sends whatever is due and not on its way yet, at once rather than at the
+         *     next pass of the watch: after the official rate or a connector was
+         *     unavailable, for instance. Changes nothing when nothing is due. Audited.
+         */
+        post: operations["retry_card_close_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/card-designs": {
         parameters: {
             query?: never;
@@ -3840,7 +3980,7 @@ export type paths = {
          * Change a product
          * @description The product card buyers read (name, tagline, description, benefits, tile
          *     picture, designs, properties), the price in the currency the buyer pays,
-         *     the fees for using the card, and whether it is on the storefront. Omitted fields keep their value; a
+         *     the fees for using the card, its validity term, and whether it is on the storefront. Omitted fields keep their value; a
          *     text field sent empty is cleared. A product needs a name before it can
          *     go on sale: the provider's own label never reaches a buyer. Saving
          *     clears the "new" mark. The order on the storefront and the issuance
@@ -5633,6 +5773,34 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/cards/{id}/close-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close a card and get its money back
+         * @description For a card that still holds money. The card is closed at its issuer
+         *     right away; once the issuer returns what was left on it, the money goes
+         *     back the way you paid for your top-ups, in the currency you paid in,
+         *     newest payment first. Bonuses still unspent on the card are not
+         *     refunded, and a debt you were told about is withheld first. When the
+         *     money can't go back that way, you'll be asked for a bank account or a
+         *     card in your own name. Asking again for the same card returns the same
+         *     request. A card with nothing on it is closed with
+         *     `POST /me/cards/{id}/terminate` instead.
+         */
+        post: operations["create_close_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/cards/{id}/freeze": {
         parameters: {
             query?: never;
@@ -5800,6 +5968,68 @@ export type paths = {
          *     frozen is a no-op.
          */
         post: operations["me_unfreeze_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/close-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My card close requests
+         * @description Every card you asked to close with a refund, newest first, with how far
+         *     each refund got.
+         */
+        get: operations["my_close_requests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/close-requests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A card close request of mine */
+        get: operations["my_close_request"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/close-requests/{id}/payout-details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give details for the refund
+         * @description When the money can't go back the way you paid (`payout_details_required`),
+         *     give a bank account or a card in your own name. We check it's you and
+         *     transfer the money there; the request moves to `identity_check`. You can
+         *     correct the details until the check is done. Only the last four digits
+         *     are ever shown back.
+         */
+        post: operations["submit_payout_details"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7131,6 +7361,105 @@ export type components = {
          * @enum {string}
          */
         AdjustSideBody: "provider" | "books";
+        /** @description One line of the queue. */
+        AdminCloseRequestItem: {
+            /** @description What the card held. */
+            balance: components["schemas"]["AmountView"];
+            basis: components["schemas"]["CloseBasis"];
+            basis_clause: string;
+            /** Format: uuid */
+            card_id: string;
+            card_last4?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            due_by: string;
+            /** Format: uuid */
+            id: string;
+            overdue: boolean;
+            possibly_broken: boolean;
+            refund_total?: null | components["schemas"]["AmountView"];
+            refunded: components["schemas"]["AmountView"];
+            remaining?: string | null;
+            status: components["schemas"]["CloseRequestStatus"];
+            /** Format: int64 */
+            time_left_seconds: number;
+            user_email?: string | null;
+            /** Format: uuid */
+            user_id: string;
+        };
+        AdminCloseRequestList: {
+            items: components["schemas"]["AdminCloseRequestItem"][];
+            /** Format: int64 */
+            total: number;
+        };
+        /** @description A close request as the operator sees it. */
+        AdminCloseRequestView: components["schemas"]["CloseRequestView"] & {
+            /** @description The card's top-ups on average, weighted by amount. */
+            average_rate?: string | null;
+            /** @description `user_request` (9.2, the official rate on the refund day), `card_failure` (9.3 a), `service_withdrawal` (9.3 b, plus the issue fee's unexpired share), `verified_service_failure` (9.3 c), `plastic_not_delivered` (9.3 d, plus the issue and delivery fee). */
+            basis: components["schemas"]["CloseBasis"];
+            /** @description The offer's clause, e.g. `9.3 a`. */
+            basis_clause: string;
+            basis_note?: string | null;
+            /** Format: date-time */
+            basis_set_at?: string | null;
+            basis_set_by_email?: string | null;
+            break_facts: components["schemas"]["BreakFacts"];
+            card: components["schemas"]["CardTermView"];
+            /** @description Declines on the card since its first failure, by whose fault the decline texts say: `user_fault`, `issuer_fault`, `platform_fault`, `unknown`. A hint only. */
+            decline_hint: {
+                [key: string]: number;
+            };
+            delivery_fee?: string | null;
+            /**
+             * Format: date-time
+             * @description The deadline that matters now: the platform part's ten days on a 9.3 basis while nothing went back, else the refund's.
+             */
+            due_by: string;
+            /**
+             * Format: date-time
+             * @description On a 9.3 basis: the platform's part (margin, fees) is due by then.
+             */
+            early_due_at?: string | null;
+            /** @description What the card held by the books when the holder asked. */
+            expected_amount: string;
+            /** @description What the basis adds, in the card's currency. */
+            extras_amount: string;
+            /** Format: date-time */
+            identity_checked_at?: string | null;
+            identity_checked_by_email?: string | null;
+            identity_note?: string | null;
+            /** @description Why the last step didn't go through, when it was a passing failure. */
+            last_error?: string | null;
+            /** @description What goes back from the card's own money, in the card's currency. */
+            net_amount?: string | null;
+            /** Format: date-time */
+            next_attempt_at?: string | null;
+            /** @description The official rate a 9.2 refund was fixed at and its day. */
+            official_rate?: string | null;
+            /** Format: date */
+            official_rate_on?: string | null;
+            overdue: boolean;
+            parts: components["schemas"]["RefundPartView"][];
+            payments: components["schemas"]["PaymentView"][];
+            payout_details_full?: null | components["schemas"]["PayoutDetailsFull"];
+            /** @description The card looks broken by the facts in `break_facts` (a hint for 9.3 a; the basis stays the operator's call). */
+            possibly_broken: boolean;
+            /** @description The holder's own words. */
+            reason: string;
+            /** @description Still to go back, in the payout currency; null until the total is known. */
+            remaining?: string | null;
+            returned_amount?: string | null;
+            /**
+             * Format: int64
+             * @description Seconds until `due_by`; negative once past it.
+             */
+            time_left_seconds: number;
+            user_email?: string | null;
+            /** Format: uuid */
+            user_id: string;
+        };
         AdminCreateCardBody: {
             /** @description Card BIN to issue on. Passed to the connector as `issuer_bin`. */
             bin?: string | null;
@@ -7490,6 +7819,14 @@ export type components = {
             routing_number?: string | null;
             swift_bic?: string | null;
         };
+        BasisBody: {
+            /** @description `user_request` (9.2), `card_failure` (9.3 a), `service_withdrawal` (9.3 b), `verified_service_failure` (9.3 c) or `plastic_not_delivered` (9.3 d). */
+            basis: components["schemas"]["CloseBasis"];
+            /** @description For `plastic_not_delivered`: the delivery fee the holder paid, in the card's currency, decimal string. */
+            delivery_fee?: string | null;
+            /** @description Why, for the audit log. At least 3 characters. */
+            note: string;
+        };
         /** @description One renderable node of a document body. `type` says which kind it is. */
         Block: {
             /** Format: int32 */
@@ -7666,6 +8003,38 @@ export type components = {
             secondary_color: string;
             /** @description Display name for the end user's balance, e.g. "Wallet" or "Acme Wallet". Display only; JSON field names never change. Default "Wallet". */
             wallet_label: string;
+        };
+        /**
+         * @description What says a card may have stopped working (9.3 "a"). The platform only
+         *     points the operator at it; the basis stays the operator's call.
+         */
+        BreakFacts: {
+            /**
+             * Format: int64
+             * @description Loads onto the card (top-ups, the issuer's reloads) that failed since.
+             */
+            failed_loads_since: number;
+            /**
+             * Format: date-time
+             * @description The card's first declined operation, if any.
+             */
+            first_failure_at?: string | null;
+            /**
+             * Format: int64
+             * @description Operations that went through on other cards of the same BIN within
+             *     hours of that failure.
+             */
+            same_bin_successes: number;
+            /**
+             * Format: int64
+             * @description Loads onto the card that went through since.
+             */
+            succeeded_loads_since: number;
+            /**
+             * Format: int64
+             * @description Operations that went through on the card after that.
+             */
+            successes_since: number;
         };
         BreakerView: {
             /**
@@ -8283,6 +8652,27 @@ export type components = {
             /** @description Fee per settled card payment as a share of its amount, in percent, decimal string, e.g. "1.5". */
             operation_percent: string;
         };
+        /** @description What the operator sees on top of the holder's view. */
+        CardTermView: {
+            /** @description The card's own status. */
+            card_status: string;
+            /** @description True when the card closed before its term ended. */
+            closed_early: boolean;
+            connector_slug: string;
+            /** Format: date-time */
+            issued_at: string;
+            program_code?: string | null;
+            /**
+             * Format: date-time
+             * @description When the term ends; null without a term.
+             */
+            term_ends_at?: string | null;
+            /**
+             * Format: int32
+             * @description The product's validity term in months; null when it has none.
+             */
+            validity_months?: number | null;
+        };
         /** @description One top-up attempt as stored in `card_topups`. */
         CardTopup: {
             /** @description What landed on the card, decimal string, in `currency`. */
@@ -8635,6 +9025,11 @@ export type components = {
             /** @description `true` when the dependency is not configured in this deployment and the check was skipped; `ok` stays `true` in that case. */
             skipped?: boolean;
         };
+        /**
+         * @description Why the card is closed, as the operator recorded it.
+         * @enum {string}
+         */
+        CloseBasis: "user_request" | "card_failure" | "service_withdrawal" | "verified_service_failure" | "plastic_not_delivered";
         CloseProceedsBody: {
             /**
              * @description What the issuer returned for the card, decimal string, positive.
@@ -8645,6 +9040,80 @@ export type components = {
             currency: string;
             /** @description Where you saw it (the issuer's statement, its support's answer). Kept in the audit log. */
             note: string;
+        };
+        /** @description One part of the refund, as the holder sees it. */
+        CloseRefundView: {
+            /**
+             * @description Decimal string, in `currency`.
+             * @example 5000.00
+             */
+            amount: string;
+            /**
+             * Format: date-time
+             * @description When it went through; null while pending.
+             */
+            completed_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            currency: string;
+            /** Format: uuid */
+            id: string;
+            /** @description `original_payment`: back to the details a top-up was paid with; `manual`: transferred to the details you gave. */
+            method: string;
+            /** @description `pending` (sent, the bank has not confirmed it yet) or `succeeded`. */
+            status: string;
+        };
+        CloseRequestBody: {
+            /** @description Why, in your own words. Optional. */
+            reason?: string | null;
+        };
+        /**
+         * @description Where a close request stands, as the holder sees it.
+         * @enum {string}
+         */
+        CloseRequestStatus: "accepted" | "awaiting_issuer" | "refunding" | "payout_details_required" | "identity_check" | "manual_payout" | "refunded";
+        /** @description A request to close a card with money on it, and how far its refund got. */
+        CloseRequestView: {
+            /** @description What the card held: what the issuer returned once it did, before that what the card showed. */
+            balance: components["schemas"]["AmountView"];
+            /** @description Bonuses still unspent on the card, which are not refunded, in the card's currency. Null until the issuer returned the balance. */
+            bonus_excluded?: string | null;
+            /** Format: uuid */
+            card_id: string;
+            card_last4?: string | null;
+            /**
+             * Format: date-time
+             * @description When the issuer took the close.
+             */
+            closed_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description The refund is due by then.
+             */
+            deadline_at: string;
+            /** @description The debt that was withheld from the balance, in the card's currency. Null until the issuer returned the balance. */
+            debt_withheld?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description What is sent and not confirmed yet. */
+            on_the_way: components["schemas"]["AmountView"];
+            payout_details?: null | components["schemas"]["PayoutDetailsShown"];
+            refund_total?: null | components["schemas"]["AmountView"];
+            /** @description What went back already. */
+            refunded: components["schemas"]["AmountView"];
+            /** Format: date-time */
+            refunded_at?: string | null;
+            /** @description The parts of the refund, oldest first. */
+            refunds: components["schemas"]["CloseRefundView"][];
+            /**
+             * Format: date-time
+             * @description When the issuer returned the balance.
+             */
+            returned_at?: string | null;
+            /** @description `accepted` (the card is being closed), `awaiting_issuer` (closed; the issuer has not returned the balance yet), `refunding` (the money is on its way back), `payout_details_required` (it can't go back the way it came: give an account or a card in your own name), `identity_check` (the details are being checked), `manual_payout` (checked; the transfer is being made), `refunded`. */
+            status: components["schemas"]["CloseRequestStatus"];
         };
         CodeDetail: components["schemas"]["CodeView"] & {
             /** @description The latest uses, newest first. */
@@ -10512,6 +10981,10 @@ export type components = {
             /** Format: int64 */
             total: number;
         };
+        IdentityBody: {
+            /** @description How the identity was checked (the document, the call), for the audit log. At least 3 characters. */
+            note: string;
+        };
         /** @description Metadata of an uploaded image. The bytes are served by the image endpoint. */
         ImageMeta: {
             /** @description Alt text. */
@@ -10930,6 +11403,17 @@ export type components = {
             /** @description Tera plain text; nothing is escaped. */
             text: string;
         };
+        ManualPayoutBody: {
+            /** @description What was transferred, in the request's payout currency, decimal string. Never more than is still due. */
+            amount: string;
+            /**
+             * Format: date
+             * @description The day the transfer was made, `YYYY-MM-DD`.
+             */
+            paid_on: string;
+            /** @description The transfer's reference: the payment order's number, the bank's reference. At least 3 characters. */
+            reference: string;
+        };
         MarkFailedBody: {
             /** @description Why the settlement failed, in plain words. Stored on the cycle and in the audit log. */
             reason: string;
@@ -11152,6 +11636,11 @@ export type components = {
             survey_answer?: string | null;
             /** @description `true` while the app should ask "how did you hear about us". Asked once: any answer, skipping included, turns it off. */
             survey_pending: boolean;
+        };
+        /** @description The holder's close requests. */
+        MyCloseRequests: {
+            /** @description Newest first. */
+            items: components["schemas"]["CloseRequestView"][];
         };
         MyConsents: {
             consents: components["schemas"]["ConsentState"][];
@@ -11895,6 +12384,11 @@ export type components = {
             tagline?: string | null;
             /** @description Picture for the tile: an `http(s)` URL, or empty to show the design instead. To upload a file use the image endpoint. */
             tile_image_url?: string | null;
+            /**
+             * Format: int32
+             * @description How long a card of this product is meant to serve, in months from 1 to 240; `null` for no stated term.
+             */
+            validity_months?: number | null;
             /** @description Put the product on the storefront (needs a name) or take it off. */
             visible_to_users?: boolean | null;
         };
@@ -11938,6 +12432,73 @@ export type components = {
             id: string;
             key: string;
             title: string;
+        };
+        /** @description A payment that topped up the card, and what it can still give back. */
+        PaymentView: {
+            connector_slug: string;
+            /** @description What it credited in the card's currency. */
+            credited?: string | null;
+            currency: string;
+            /** Format: uuid */
+            deposit_id: string;
+            /** @description What it can still give back. */
+            left: string;
+            method: string;
+            paid: string;
+            /** Format: date-time */
+            paid_at: string;
+            /** @description Refunded or being refunded from it, by anything. */
+            refunded: string;
+            /** @description Its provider refused a refund for this request: it is passed over. */
+            refused: boolean;
+        };
+        /**
+         * @description Where to send the money when it can't go back the way it came. Both kinds must be in your own name.
+         * @example {
+         *       "account_number": "40817810099910004312",
+         *       "bank_code": "044525225",
+         *       "bank_name": "Bank",
+         *       "holder_name": "Ivan Petrov",
+         *       "kind": "account"
+         *     }
+         */
+        PayoutDetailsBody: {
+            /** @description The account number. */
+            account_number: string;
+            /** @description The bank's code (BIC). */
+            bank_code: string;
+            /** @description The bank's name. Optional. */
+            bank_name?: string | null;
+            /** @description Your full name as the bank has it. */
+            holder_name: string;
+            /** @enum {string} */
+            kind: "account";
+        } | {
+            /** @description The card number. */
+            card_number: string;
+            /** @description Your full name as on the card. */
+            holder_name: string;
+            /** @enum {string} */
+            kind: "card";
+        };
+        /** @description The details the holder gave, in full, for the transfer. */
+        PayoutDetailsFull: {
+            account_number?: string | null;
+            bank_code?: string | null;
+            bank_name?: string | null;
+            card_number?: string | null;
+            holder_name: string;
+            /** @description `account` or `card`. */
+            kind: string;
+        };
+        /** @description The details given for a transfer by hand, as shown back. */
+        PayoutDetailsShown: {
+            /** Format: date-time */
+            given_at?: string | null;
+            /** @description `account` or `card`. */
+            kind: string;
+            /** @description The last four digits, e.g. `•••• 4312`. */
+            masked: string;
         };
         PayrollBody: {
             /** @description ISO 4217 code used for every run in the batch. */
@@ -12674,6 +13235,41 @@ export type components = {
             /** Format: date-time */
             updated_at: string;
         };
+        /** @description One part of the refund, with where its money came from. */
+        RefundPartView: {
+            amount: string;
+            /** @description From the card's own money, in the card's currency. */
+            card_part: string;
+            /** Format: date-time */
+            created_at: string;
+            currency: string;
+            /** Format: uuid */
+            deposit_id?: string | null;
+            failure_reason?: string | null;
+            /** @description From the issue fee's revenue, in the card's currency. */
+            fee_part: string;
+            /** Format: uuid */
+            id: string;
+            /** @description `provider` (a partial refund of a payment) or `manual` (a transfer made by hand). */
+            kind: string;
+            /** @description From the FX margin's revenue, in the card's currency. */
+            markup_part: string;
+            /** @description The official rate the card's money was valued at, payout currency per card currency unit. */
+            official_rate: string;
+            /** Format: date */
+            paid_on?: string | null;
+            recorded_by_email?: string | null;
+            /** @description For a manual payout: the transfer's reference and day, and who recorded it. */
+            reference?: string | null;
+            /** Format: uuid */
+            refund_id?: string | null;
+            /** @description The failure was not the provider's answer; the payment is tried again. */
+            retryable: boolean;
+            /** @description `pending`, `succeeded` or `failed`. */
+            status: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
         /**
          * @example {
          *       "credential": {
@@ -13247,6 +13843,11 @@ export type components = {
             tile_image_url?: string | null;
             /** Format: date-time */
             updated_at: string;
+            /**
+             * Format: int32
+             * @description How long a card of this product is meant to serve, in months. Null: no stated term. Says whether a card closed before its term, and the share of its issue fee a refund gives back for the time left.
+             */
+            validity_months?: number | null;
             /** @description The operator's switch: on the storefront or kept for operator and business issuance only. */
             visible_to_users: boolean;
         };
@@ -15224,6 +15825,288 @@ export interface operations {
                 content?: never;
             };
             /** @description No such code */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_card_close_requests: {
+        parameters: {
+            query?: {
+                /** @description One status, or `open` for every request not refunded yet (the default), or `all`. */
+                status?: string | null;
+                /** @description Only requests past their deadline. */
+                overdue?: boolean | null;
+                /** @description Only the cards that look broken. */
+                possibly_broken?: boolean | null;
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The requests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCloseRequestList"];
+                };
+            };
+            /** @description An unknown status */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the cards.close_requests.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_card_close_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCloseRequestView"];
+                };
+            };
+            /** @description Missing the cards.close_requests.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such request */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    set_card_close_basis: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BasisBody"];
+            };
+        };
+        responses: {
+            /** @description The request after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCloseRequestView"];
+                };
+            };
+            /** @description `validation`: no note, or a negative delivery fee */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the cards.close_requests.manage permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such request */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    check_card_close_identity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdentityBody"];
+            };
+        };
+        responses: {
+            /** @description The request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCloseRequestView"];
+                };
+            };
+            /** @description `validation`: no note */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the cards.close_requests.manage permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such request */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `not_waiting_for_identity`: the request isn't waiting for an identity check */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    record_card_close_payout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualPayoutBody"];
+            };
+        };
+        responses: {
+            /** @description The request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCloseRequestView"];
+                };
+            };
+            /** @description `validation`: an amount that isn't positive, no reference, a day in the future */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the cards.close_requests.manage permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such request */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `identity_not_checked`: the holder's identity isn't marked as checked; `more_than_due`: more than is still due; `nothing_due`: nothing is due yet */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `rate_unavailable`: the official rate can't be read right now */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    retry_card_close_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCloseRequestView"];
+                };
+            };
+            /** @description Missing the cards.close_requests.manage permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such request */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -25812,6 +26695,54 @@ export interface operations {
             };
         };
     };
+    create_close_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The card to close */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseRequestBody"];
+            };
+        };
+        responses: {
+            /** @description The request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CloseRequestView"];
+                };
+            };
+            /** @description No such card */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `card_locked`: only support can change this card; `first_purchase_required`: the card closes after its first purchase; `card_not_closable`: the card isn't open or frozen, or an organization issued it; `topup_in_progress`: a top-up is still on its way to the card; `card_closing`: the card is already being closed; `no_balance`: the card holds nothing, close it directly; `provider_refused`: the issuer declined to close the card, which stays as it was */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The card's issuer can't be reached; the card stays as it was */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     me_freeze_card: {
         parameters: {
             query?: never;
@@ -26003,7 +26934,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description `first_purchase_required`: the card closes after its first purchase; `card_locked`: only support can close this card; `move_balance_first`: the card still holds money and you have another open card in the same currency, move it there with `POST /me/cards/{id}/transfer` first; `contact_support_to_close`: the card still holds money and there is no other card to move it to, support closes it; `provider_refused`: the issuer declined, the card is unchanged */
+            /** @description `first_purchase_required`: the card closes after its first purchase; `card_locked`: only support can close this card; `move_balance_first`: the card still holds money and you have another open card in the same currency, move it there with `POST /me/cards/{id}/transfer` first; `contact_support_to_close`: the card still holds money and there is no other card to move it to: ask for a close with a refund instead (`POST /me/cards/{id}/close-request`), and what is left goes back the way you paid; `provider_refused`: the issuer declined, the card is unchanged */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -26252,6 +27183,104 @@ export interface operations {
             };
             /** @description Connector unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    my_close_requests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The requests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyCloseRequests"];
+                };
+            };
+        };
+    };
+    my_close_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CloseRequestView"];
+                };
+            };
+            /** @description No such request */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    submit_payout_details: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayoutDetailsBody"];
+            };
+        };
+        responses: {
+            /** @description The request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CloseRequestView"];
+                };
+            };
+            /** @description `validation`: a name, number or bank code that doesn't look right */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such request */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `details_not_needed`: the request doesn't wait for details */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
