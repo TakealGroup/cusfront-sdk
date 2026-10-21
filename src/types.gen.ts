@@ -776,6 +776,29 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/cards/{id}/close-proceeds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record what the issuer returned for a closed card
+         * @description For an issuer that closed the card without saying what it returned.
+         *     The amount goes where the card's close says: onto the card that
+         *     replaced it, or to the holder's balance. A card whose returned balance
+         *     is already recorded changes nothing. Audited.
+         */
+        post: operations["record_close_proceeds"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/cards/{id}/debit": {
         parameters: {
             query?: never;
@@ -855,10 +878,13 @@ export type paths = {
         /**
          * Put or lift a hold on a card
          * @description A held card reads as frozen to its holder, who can't unfreeze it, top it
-         *     up, reveal it, close it or move money to or from it. Nothing changes at
-         *     the provider, and the holder is not told about the hold. Putting a hold on
-         *     a held card updates the note; lifting a hold that isn't there does
-         *     nothing. Audited.
+         *     up, reveal it, close it or move money to or from it. The holder is not
+         *     told about the hold. An active card is also frozen at the issuer, and
+         *     unfrozen there when the hold is lifted; a card that was frozen before the
+         *     hold stays frozen after it. If the issuer can't be reached, the hold
+         *     still stands, the call is retried in the background and the operators
+         *     are told. Putting a hold on a held card updates the note; lifting a hold
+         *     that isn't there does nothing. Audited.
          */
         put: operations["set_moderation"];
         post?: never;
@@ -949,6 +975,33 @@ export type paths = {
          *     Safe to repeat. The full card number is never returned. Audited.
          */
         post: operations["refresh_card_from_connector"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards/{id}/reissue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reissue a card
+         * @description For a card that stopped working before its term through no fault of the
+         *     holder (the issuer closed its BIN, froze or closed the card, the card is
+         *     broken), at the holder's request. Issues a new card on the same program,
+         *     free of charge, and asks the issuer to close the old one. Whatever was
+         *     left on the old card moves to the new one once the issuer returns it;
+         *     until then the new card shows it in `in_transit`. Reissuing a card that
+         *     was already reissued returns that reissue. Audited, and the holder is
+         *     told.
+         */
+        post: operations["reissue_card"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2000,7 +2053,9 @@ export type paths = {
         /**
          * Change a version's date or note
          * @description Sets when a saved text takes effect, or what the note says. The text
-         *     itself never changes; save the document to get a new version.
+         *     itself never changes; save the document to get a new version. Only a
+         *     version that hasn't taken effect yet can be moved, and only to now or
+         *     later. The note can always be changed.
          */
         patch: operations["patch_version"];
         trace?: never;
@@ -4010,6 +4065,28 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/users/{id}/consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A user's consents
+         * @description Where each consent stands and the whole journal behind it: what was
+         *     given or withdrawn, when, where, from which IP and browser, and the
+         *     version of each document it referred to.
+         */
+        get: operations["user_consents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/users/{id}/devices": {
         parameters: {
             query?: never;
@@ -4166,6 +4243,52 @@ export type paths = {
          *     Needs the `users.write` permission.
          */
         post: operations["admin_terminate_sessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/signature-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A user's signature journal
+         * @description Every sign-up, sign-in, code sent and entered, and confirmed action, oldest
+         *     first, each with the offer version in force at that moment. `format=csv`
+         *     gives a file for a dispute.
+         */
+        get: operations["export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A user's statement
+         * @description Everything that happened to the user's money between `from` and `to`
+         *     (both days included, UTC), oldest first, as a CSV: top-ups with the amount
+         *     paid, the rate and what was credited, card operations, fees. The
+         *     `reward` columns show what the platform kept on each top-up; they appear
+         *     nowhere else. Audited.
+         */
+        get: operations["statement"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4336,6 +4459,64 @@ export type paths = {
          *     needed. Nothing about the device or the connection is kept.
          */
         post: operations["post_touch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/email-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a sign-in code to an e-mail
+         * @description Sends a six-digit code to the address. The code signs in to the account
+         *     with this address, or creates one if there is none yet: send it with
+         *     `POST /auth/email-code/verify`. The answer is the same either way.
+         *
+         *     The code works for 10 minutes. Another one can be asked for after a
+         *     minute, and it replaces the first. An address gets 5 codes an hour and 15
+         *     a day.
+         */
+        post: operations["request_code"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/email-code/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with the code from the e-mail
+         * @description Checks the code sent by `POST /auth/email-code` and signs in to the
+         *     account with that address. An address with no account gets a new end-user
+         *     account first, with no password; `account_created` says which happened.
+         *     The response is the `stage: "jwt"` envelope of `POST /auth/login`.
+         *
+         *     With `card_order`, the card is ordered for that account right away. The
+         *     response carries `card_order` (send the user to its deposit's
+         *     `redirect_url`) or `card_order_error` with the reason no payment was
+         *     opened.
+         *
+         *     A wrong code answers 401 `invalid_code`; after five checks the code stops
+         *     working and a new one is needed. Accounts with operator permissions can't
+         *     sign in this way: they use `POST /auth/login` with their second factor.
+         */
+        post: operations["verify_code"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4574,7 +4755,9 @@ export type paths = {
          *     carries the session token and the user. Operator roles are granted by an
          *     operator through `/admin/users`, not here. With a `code`, the response
          *     also carries `code_result`: whether the code was applied and what it
-         *     gave (bonuses, a gift subscription), or why not.
+         *     gave (bonuses, a gift subscription), or why not. With a `card_order`,
+         *     the card is ordered in the same call and the response carries
+         *     `card_order` (the deposit to pay) or `card_order_error`.
          */
         post: operations["register"];
         delete?: never;
@@ -4731,6 +4914,31 @@ export type paths = {
         get: operations["list_public_products"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consents/cookies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record the cookie choice
+         * @description What the cookie banner or the cookie settings say about analytics. A
+         *     signed-in user's choice is kept on the account; before sign-in it is
+         *     kept under the anonymous key and moves to the account at sign-up.
+         *     Declining analytics deletes the visitor's attribution data (visits,
+         *     Metrica and Google Analytics ids) and stops their conversions going to
+         *     Metrica. Strictly necessary cookies need no consent and are not sent.
+         */
+        post: operations["cookie_choice"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4934,9 +5142,11 @@ export type paths = {
          * Unsubscribe
          * @description The button on the unsubscribe page, and the one-click unsubscribe mail
          *     clients send (`List-Unsubscribe-Post`, RFC 8058). Broadcast email stops
-         *     and marketing by email is switched off in the user's settings. Sign-in
-         *     codes and card notifications are not affected. Pressing it twice is
-         *     harmless.
+         *     and marketing by email is switched off in the user's settings; with
+         *     `c=telegram` or `c=push` (the button under an advertisement in Telegram,
+         *     the action on a push) advertising in that channel is switched off
+         *     instead. The consents journal records it. Sign-in codes and card
+         *     notifications are not affected. Pressing it twice is harmless.
          */
         post: operations["unsubscribe"];
         delete?: never;
@@ -5059,6 +5269,31 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/card-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Buy a card in one step
+         * @description Works out what the product costs in the payment's currency, locks the
+         *     rate and opens the top-up that issues the card. Send the user to the
+         *     returned deposit's `redirect_url`; the card appears as `pending_payment`
+         *     and is issued once the payment is confirmed, or fails with it. The
+         *     `Idempotency-Key` header is required: the same key returns the same
+         *     order.
+         */
+        post: operations["create_card_order"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/card-products": {
         parameters: {
             query?: never;
@@ -5145,9 +5380,10 @@ export type paths = {
         head?: never;
         /**
          * Rename a card or change its design
-         * @description Only the name and the design can change, and the card is not reissued:
-         *     this is the picture you see, nothing else. Pick a design the card's
-         *     product offers or one this deployment offers on every product.
+         * @description Only the name and the design change: the card number and everything
+         *     else stay as they are. Pick a design the card's product offers or one
+         *     this deployment offers on every product. A card that stopped working
+         *     before its term is a different matter: support reissues it for free.
          */
         patch: operations["patch_card"];
         trace?: never;
@@ -5370,6 +5606,34 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your consents
+         * @description Where each consent stands: whether it is given, since when, and the
+         *     documents it refers to at the version you accepted.
+         */
+        get: operations["my_consents"];
+        put?: never;
+        /**
+         * Give or withdraw a consent
+         * @description Only the optional consents change here: `marketing` and
+         *     `cookies_analytics`. Withdrawing `marketing` turns advertising off in
+         *     every channel at once; giving it turns on advertising by e-mail. A
+         *     request that changes nothing records nothing.
+         */
+        post: operations["change_consent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/deposits": {
         parameters: {
             query?: never;
@@ -5383,25 +5647,6 @@ export type paths = {
          */
         get: operations["me_list_deposits"];
         put?: never;
-        /**
-         * Create a deposit
-         * @description Starts a top-up through a funding connector. When the connector confirms
-         *     right away the wallet is credited in the same call; otherwise the deposit
-         *     comes back `pending` or `redirect_required` and is confirmed later. With
-         *     `redirect_required`, send the user to `redirect_url`; the provider brings
-         *     them back to `metadata.return_url` once they are done, and the deposit
-         *     turns `confirmed` or `failed` on its own. Poll `GET /me/deposits/{id}`
-         *     for the final state. The `Idempotency-Key` header is required: the same
-         *     key with the same body returns the original deposit, the same key with a
-         *     different body returns 409.
-         *
-         *     With `card_id` or `issue_card` the money goes onto a card instead of the
-         *     wallet. The deposit then has `target: card` and a `card_load_status`:
-         *     `pending` until the card provider has loaded the card, then `succeeded`
-         *     or `failed`. When the load fails, depending on the funding connector the
-         *     money either goes to the wallet (`returned_to_wallet_at` is set and the
-         *     user is notified) or waits while support looks into it.
-         */
         post: operations["create_deposit"];
         delete?: never;
         options?: never;
@@ -5521,14 +5766,59 @@ export type paths = {
         get?: never;
         put?: never;
         /**
-         * Set your email address
+         * Set your first email address
          * @description Accounts created through the Telegram Mini App start with a placeholder
          *     address and `email_pending: true`; call this once the user has entered a
-         *     real one and the flag is cleared. Password accounts can use it to change
-         *     their email. An address already used by another account returns 409. The
-         *     address is not verified for ownership.
+         *     real one and the flag is cleared. An address already used by another
+         *     account returns 409. An account that already has a real address changes
+         *     it with a code sent to the new one: `POST /me/email/change`; here it
+         *     gets 409 `email_change_needs_code`.
          */
         post: operations["set_email"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/email/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask to change your email
+         * @description Sends a six-digit code to the new address; nothing changes until it
+         *     comes back through `POST /me/email/change/confirm`. The code works for 5
+         *     minutes. Five codes an hour at most.
+         */
+        post: operations["request_change"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/email/change/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm the email change
+         * @description The code from the e-mail changes the account's address; the old address
+         *     gets a notice. A wrong code answers 401 `invalid_code`; after five the
+         *     request is gone and a new code is needed.
+         */
+        post: operations["confirm_change"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5725,6 +6015,43 @@ export type paths = {
          *     when nothing is stored.
          */
         delete: operations["delete_push_subscription"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your receipts
+         * @description Newest first. With `ref_id`, the receipt of that one payment.
+         */
+        get: operations["list_receipts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/receipts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A receipt */
+        get: operations["get_receipt"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -7341,6 +7668,47 @@ export type components = {
             /** @description ISO 4217 code. */
             currency?: string | null;
         };
+        /** @description Where the balance of a closed card goes and how far it got. */
+        CardClosureView: {
+            /** Format: date-time */
+            created_at: string;
+            /** @description ISO 4217 code of both amounts. */
+            currency: string;
+            /** @description `wallet` (the holder's balance) or `card` (another card of the holder, `destination_card_id`). */
+            destination: string;
+            /**
+             * Format: uuid
+             * @description The card the balance goes to, for a `card` destination.
+             */
+            destination_card_id?: string | null;
+            /** @description Why the last step didn't go through, when it didn't. */
+            error?: string | null;
+            /**
+             * @description What the card held by the books when it was closed, decimal string.
+             * @example 40.00
+             */
+            expected_amount: string;
+            /**
+             * Format: int32
+             * @description How many times the balance was offered to the destination card.
+             */
+            load_attempts: number;
+            /** @description Why the card was closed, in the operator's words. */
+            reason: string;
+            /** @description True when the destination card was issued to replace this one. */
+            reissue: boolean;
+            /**
+             * @description What the issuer returned, decimal string; null until it does.
+             * @example 40.00
+             */
+            returned_amount?: string | null;
+            /** Format: date-time */
+            returned_at?: string | null;
+            /** Format: date-time */
+            settled_at?: string | null;
+            /** @description `awaiting` (the issuer has not returned the balance), `in_transit` (returned, waiting to go onto the destination card), `loading` (the destination card's issuer is loading it), `delivered`, or `on_wallet` (the destination card couldn't take it, so it went to the holder's balance). */
+            status: components["schemas"]["ProceedsStatus"];
+        };
         /**
          * @description A card with a live balance from its connector and the billing address it
          *     was issued with. The card's own fields are at the top level.
@@ -7349,10 +7717,31 @@ export type components = {
             billing_address?: null | components["schemas"]["Address"];
             books_balance?: null | components["schemas"]["CardBalance"];
             cardholder?: null | components["schemas"]["CardholderView"];
+            closure?: null | components["schemas"]["CardClosureView"];
             live_balance?: null | components["schemas"]["CardBalance"];
         };
-        /** @description An operator's hold on a card. While it stands, the holder sees the card as frozen and can't unfreeze, top up, reveal or close it, or move money to or from it. The card itself is not changed at the provider. */
+        /** @description The balance of a closed card on its way to the card that replaced it. */
+        CardInTransit: {
+            /**
+             * @description Decimal string. What the issuer returned once it did; before that, what the old card held.
+             * @example 40.00
+             */
+            amount: string;
+            /** @description ISO 4217 code, the card's. */
+            currency: string;
+            /**
+             * Format: uuid
+             * @description The closed card the money comes from.
+             */
+            from_card_id: string;
+            /** @description `issuer`: the old card's issuer hasn't returned the money yet. `loading`: it has, and the money is being put on this card. */
+            stage: string;
+        };
+        /** @description An operator's hold on a card. While it stands, the holder sees the card as frozen and can't unfreeze, top up, reveal or close it, or move money to or from it. An active card is frozen at the issuer as well. */
         CardModeration: {
+            /** @description The hold froze the card at the issuer and will unfreeze it when lifted. False when the card was already frozen, or the freeze hasn't gone through yet. */
+            frozen_at_issuer: boolean;
+            issuer_retry?: null | components["schemas"]["IssuerRetry"];
             /** @description Why the hold was put, for other operators. */
             note: string;
             /** Format: date-time */
@@ -7362,6 +7751,67 @@ export type components = {
              * @description The operator who put the hold; null when the platform put it.
              */
             set_by?: string | null;
+        };
+        /**
+         * @description A card to buy and how to pay for it.
+         * @example {
+         *       "consents": [
+         *         "terms",
+         *         "personal_data"
+         *       ],
+         *       "metadata": {
+         *         "return_url": "https://example.com/cabinet"
+         *       },
+         *       "method": "sbp",
+         *       "product_id": "6c1c0a3e-1b7e-4b0e-9d9e-2f0f6f9a1234"
+         *     }
+         */
+        CardOrderBody: {
+            /** @description Where the consents were given: `site`, `cabinet`, `miniapp` or `bot`. Read from the client header when omitted. */
+            consent_channel?: string | null;
+            /** @description Consents given with the order (`terms`, `personal_data`, `marketing`). With `POST /auth/register` and `POST /auth/email-code/verify` the consents of the request itself are used and these are ignored. */
+            consents?: string[];
+            /** @description ISO 4217 code of the payment. Defaults to the currency the method is priced in, or the card's currency when it has none. */
+            currency?: string | null;
+            /**
+             * Format: uuid
+             * @description One of the product's designs; omit for its default design.
+             */
+            design_id?: string | null;
+            /** @description Money to put on the card on top of its price, decimal string in the card's currency. Below the provider's minimum load the minimum is used. */
+            extra_load?: string | null;
+            /** @description The funding connector to pay through; omit to use the first one that issues cards with a top-up and takes `method`. */
+            funder_slug?: string | null;
+            /** @description Passed to the funding connector with the payment; `return_url` is where the payment page sends the user back. */
+            metadata?: {
+                [key: string]: string;
+            };
+            /** @description How the user pays: `card`, `crypto`, `bank_transfer` or `sbp`. */
+            method: components["schemas"]["DepositMethod"];
+            /** @description A name for the card, 1 to 40 characters; defaults to the product name. */
+            name?: string | null;
+            /**
+             * Format: uuid
+             * @description The card product, from `GET /card-products` or `GET /me/card-products`.
+             */
+            product_id: string;
+            /** @description A promo code for the payment. */
+            promo_code?: string | null;
+            /** @description Pay part of the card's price with bonuses. On by default whenever there are bonuses. */
+            use_bonus?: boolean | null;
+        };
+        /** @description The order placed: the deposit to pay and what it is priced at. */
+        CardOrderView: {
+            /** @description What the user pays, decimal string, in `currency`. */
+            amount: string;
+            /** @description What reaches the card, decimal string, in `card_currency`: the card's price plus its starting balance. */
+            card_amount: string;
+            /** @description ISO 4217 code of the card. */
+            card_currency: string;
+            /** @description ISO 4217 code of the payment. */
+            currency: string;
+            /** @description The top-up that issues the card. With `status: redirect_required`, send the user to `redirect_url`; the card is issued once the payment is confirmed. */
+            deposit: Record<string, never>;
         };
         /** @description A card the user can issue. */
         CardProductView: {
@@ -7625,8 +8075,19 @@ export type components = {
             close_blocked?: string | null;
             /** @description The design shown for this card: the one the holder picked, else the product's, else the deployment default. */
             design: components["schemas"]["DesignRef"];
+            in_transit?: null | components["schemas"]["CardInTransit"];
             moderation?: null | components["schemas"]["CardModeration"];
             product?: null | components["schemas"]["ProductRef"];
+            /**
+             * Format: uuid
+             * @description The card this one replaced, reissued because it stopped working. Null otherwise.
+             */
+            reissued_from_card_id?: string | null;
+            /**
+             * Format: uuid
+             * @description The card issued to replace this one. Null otherwise.
+             */
+            reissued_to_card_id?: string | null;
             /** @description Top-ups the issuer has held too long, summed, decimal string in the card's currency: the money waits until the issuer answers or an operator decides. Null when there are none. */
             topups_held?: string | null;
             /** @description Top-ups the issuer has accepted and not loaded onto the card yet, summed, decimal string in the card's currency. Null when there are none. */
@@ -7667,6 +8128,20 @@ export type components = {
             /** @description `generated` (made up by the platform), `provided` (sent with the issuance request) or `mixed`. */
             source: components["schemas"]["CardholderSource"];
         };
+        /**
+         * @example {
+         *       "given": false,
+         *       "kind": "marketing"
+         *     }
+         */
+        ChangeConsent: {
+            /** @description Where: `site`, `cabinet`, `miniapp` or `bot`. Read from the client header when omitted. */
+            channel?: string | null;
+            /** @description `true` gives the consent, `false` withdraws it. */
+            given: boolean;
+            /** @description `marketing` or `cookies_analytics`. */
+            kind: string;
+        };
         ChangePasswordBody: {
             /** @description The password currently on the account. */
             current_password: string;
@@ -7693,6 +8168,17 @@ export type components = {
              * @description Number of other sessions that were signed out.
              */
             revoked_sessions: number;
+        };
+        ChangeRequested: {
+            /**
+             * Format: uuid
+             * @description Send it back with the code.
+             */
+            challenge_id: string;
+            /** @description Where the code went, partly hidden. */
+            destination_hint: string;
+            /** Format: date-time */
+            expires_at: string;
         };
         Changelog: {
             /** @description Languages the changelog is available in. */
@@ -7788,9 +8274,37 @@ export type components = {
             /** @description `true` when the dependency is not configured in this deployment and the check was skipped; `ok` stays `true` in that case. */
             skipped?: boolean;
         };
+        CloseProceedsBody: {
+            /**
+             * @description What the issuer returned for the card, decimal string, positive.
+             * @example 40.00
+             */
+            amount: string;
+            /** @description ISO 4217 code; must be the card's. */
+            currency: string;
+            /** @description Where you saw it (the issuer's statement, its support's answer). Kept in the audit log. */
+            note: string;
+        };
         CodeDetail: components["schemas"]["CodeView"] & {
             /** @description The latest uses, newest first. */
             redemptions: components["schemas"]["RedemptionView"][];
+        };
+        CodeSent: {
+            /**
+             * Format: uuid
+             * @description Send it back with the code to `POST /auth/email-code/verify`.
+             */
+            challenge_id: string;
+            /**
+             * Format: date-time
+             * @description When the code stops working, UTC.
+             */
+            expires_at: string;
+            /**
+             * Format: date-time
+             * @description When another code can be asked for, UTC.
+             */
+            resend_at: string;
         };
         /** @description A code with its program's name. */
         CodeView: {
@@ -7858,6 +8372,18 @@ export type components = {
             variables: {
                 [key: string]: string;
             };
+        };
+        /**
+         * @example {
+         *       "challenge_id": "6f1c…",
+         *       "code": "042913"
+         *     }
+         */
+        ConfirmChangeBody: {
+            /** Format: uuid */
+            challenge_id: string;
+            /** @description The six digits from the e-mail. */
+            code: string;
         };
         ConnectorCounts: {
             /** @description Payment connectors (merchant acquiring). */
@@ -7984,12 +8510,22 @@ export type components = {
             funder_mode: string;
             /** @description URL the platform calls the connector on. */
             grpc_url: string;
+            /**
+             * Format: date-time
+             * @description When the connector last delivered an event that passed its signature check. Null if it never has.
+             */
+            last_event_at?: string | null;
             /** @description Redacted preview of the secret the platform presents when calling the connector. */
             outbound_auth_secret_preview: string;
             /** @description `funder`, `issuer`, `acquirer` or `settler`. */
             role: string;
             /** @description Redacted preview of the secret the connector uses to sign its webhooks. */
             signing_secret_preview: string;
+            /**
+             * Format: int32
+             * @description Minutes without an event from the connector after which operators are told once. Null when quiet time is not watched.
+             */
+            silence_alert_minutes?: number | null;
             /** @description Stable lowercase identifier of the connector. */
             slug: string;
             /** @description `active` or `disabled`. */
@@ -7999,6 +8535,74 @@ export type components = {
              * @description When the connector was last changed.
              */
             updated_at: string;
+        };
+        /** @description A document a consent referred to, at the version in force then. */
+        ConsentDocument: {
+            slug: string;
+            /** Format: int32 */
+            version: number;
+        };
+        /** @description One row of the journal. */
+        ConsentRecord: {
+            /** @description `given` or `withdrawn`. */
+            action: string;
+            /** @description `site`, `cabinet`, `miniapp`, `bot`, `hub` or `api`. */
+            channel: string;
+            /** @description `registration`, `card_order`, `settings`, `unsubscribe` or `cookie_banner`. */
+            context: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description The documents the consent referred to, each at the version in force when it was given. */
+            documents: components["schemas"]["ConsentDocument"][];
+            /** Format: int64 */
+            id: number;
+            ip?: string | null;
+            /** @description `terms`, `personal_data`, `marketing`, `cookies_analytics`. */
+            kind: string;
+            /**
+             * Format: uuid
+             * @description The card or deposit a consent given with an order belongs to.
+             */
+            ref_id?: string | null;
+            user_agent?: string | null;
+        };
+        /** @description Where a consent stands now. */
+        ConsentState: {
+            /** @description The documents it referred to when last given. */
+            documents: components["schemas"]["ConsentDocument"][];
+            /** @description Given and not withdrawn since. */
+            given: boolean;
+            /**
+             * Format: date-time
+             * @description When it was last given; null if never.
+             */
+            given_at?: string | null;
+            kind: string;
+            /** @description Can be withdrawn here. The required ones can't: closing the account withdraws them. */
+            optional: boolean;
+            /**
+             * Format: date-time
+             * @description When it was withdrawn after that; null while it stands.
+             */
+            withdrawn_at?: string | null;
+        };
+        /**
+         * @example {
+         *       "analytics": false,
+         *       "anonymous_key": "k3J9xQ2mL8"
+         *     }
+         */
+        CookieChoice: {
+            /** @description `true`: analytics cookies allowed. `false`: declined. */
+            analytics: boolean;
+            /** @description The visitor's anonymous key (`takeal_anon`). Required when not signed in; ignored for a signed-in user. */
+            anonymous_key?: string | null;
+            /** @description Where: `site`, `cabinet` or `miniapp`. Read from the client header when omitted. */
+            channel?: string | null;
+        };
+        CookieChoiceRecorded: {
+            /** @description Whether this changed the stored choice; the same answer twice records nothing. */
+            recorded: boolean;
         };
         /**
          * @example {
@@ -8010,6 +8614,10 @@ export type components = {
         CreateCardBody: {
             /** @description The most bonuses to use; leave it out to use as many as the price allows. `POST /me/bonus/preview` shows the numbers first. */
             bonus_amount?: string | null;
+            /** @description Where the consents were given: `site`, `cabinet`, `miniapp` or `bot`. Read from the client header when omitted. */
+            consent_channel?: string | null;
+            /** @description Consents given with the order (`terms`, `personal_data`, `marketing`), recorded with the version of their documents in force now and with this card or deposit. */
+            consents?: string[];
             /** @description ISO 4217 code the card is held in. Optional with `product_id`; the product names the currency, and a different code here returns 400 `product_mismatch`. May differ from the wallet currency, in which case the price is converted at issuance. */
             currency?: string | null;
             customer?: null | components["schemas"]["CustomerInfo"];
@@ -8220,8 +8828,13 @@ export type components = {
          */
         Credentials: {
             attribution?: null | components["schemas"]["SignupAttribution"];
+            card_order?: null | components["schemas"]["CardOrderBody"];
             /** @description A promo or referral code to sign up with. An unknown or expired code doesn't stop the sign-up: the account is created and `code_result` says why the code was not applied. Ignored on login. */
             code?: string | null;
+            /** @description Where the consents were given: `site`, `cabinet`, `miniapp` or `bot`. Read from the client header when omitted. */
+            consent_channel?: string | null;
+            /** @description Consents given with the sign-up: `terms` (the offer, the tariffs and the privacy policy), `personal_data`, `marketing`. Each is recorded with the version of its documents in force at that moment; `marketing` also turns on advertising by e-mail. A deployment can require `terms` and `personal_data` (400 `consents_required` without them). Ignored for an account that already exists. */
+            consents?: string[];
             /** @description Account email address. */
             email: string;
             /** @description Account password. */
@@ -8851,7 +9464,7 @@ export type components = {
             cover_image_id?: string | null;
             /**
              * Format: date-time
-             * @description When the new text takes effect. Only read when the text changes; now when omitted.
+             * @description When the new text takes effect: now or later, now when omitted. Only read when the text changes.
              */
             effective_from?: string | null;
             excerpt?: string | null;
@@ -9369,7 +9982,7 @@ export type components = {
             fx_rate?: string | null;
             /** @description Stable id of the entry, unique across kinds. */
             id: string;
-            /** @description `card_purchase`, `card_refund`, `card_issued`, `card_topup`, `card_transfer`, `wallet_deposit`, `card_deposit` (a top-up that went straight onto a card; `pending` until the card is loaded), `deposit_refund`, `fee`, `balance_adjustment` or `bonus`. More kinds will be added; show an unknown one with its `title`, `amount` and `status`. */
+            /** @description `card_purchase`, `card_refund`, `card_issued`, `card_topup`, `card_transfer`, `wallet_deposit`, `card_deposit` (a top-up that went straight onto a card; `pending` until the card is loaded), `deposit_refund`, `fee`, `balance_adjustment`, `bonus` or `closed_card_balance` (what was left on a closed card moving to the card that replaced it: `card` is the old card, `to_card` the new one; `pending` until the issuer returns the money and it is on the new card; if the new card can't take it, the money goes to the wallet and the title says so). More kinds will be added; show an unknown one with its `title`, `amount` and `status`. */
             kind: string;
             merchant?: null | components["schemas"]["Merchant"];
             /** Format: date-time */
@@ -9557,6 +10170,16 @@ export type components = {
              * @description The program the code works by: what the people invited get and what the referrer earns.
              */
             program_id: string;
+        };
+        /** @description The issuer call a hold queued and is still retrying, for the operator console. */
+        IssuerRetry: {
+            /** @description `freeze` or `unfreeze`. */
+            action: string;
+            /** Format: int32 */
+            attempts: number;
+            last_error?: string | null;
+            /** Format: date-time */
+            next_attempt_at: string;
         };
         IssuingMetrics: {
             /**
@@ -10007,6 +10630,9 @@ export type components = {
             survey_answer?: string | null;
             /** @description `true` while the app should ask "how did you hear about us". Asked once: any answer, skipping included, turns it off. */
             survey_pending: boolean;
+        };
+        MyConsents: {
+            consents: components["schemas"]["ConsentState"][];
         };
         /** @description A referrer's own view. */
         MyReferral: {
@@ -10645,6 +11271,11 @@ export type components = {
             funder_mode?: string | null;
             /** @description New URL to call the connector on. Must start with `http://` or `https://`. */
             grpc_url?: string | null;
+            /**
+             * Format: int32
+             * @description Minutes without an event from the connector after which operators are told, once until events come back. `0` stops watching.
+             */
+            silence_alert_minutes?: number | null;
             /** @description `active` or `disabled`. */
             status?: string | null;
         };
@@ -10884,6 +11515,11 @@ export type components = {
             due: string;
             purpose: components["schemas"]["BonusPurpose"];
         };
+        /**
+         * @description Where the returned balance of a closed card stands.
+         * @enum {string}
+         */
+        ProceedsStatus: "awaiting" | "in_transit" | "loading" | "delivered" | "on_wallet";
         /** @description What issuing a card on this product costs the user right now. */
         ProductPrice: {
             /** @description What the user pays, decimal string, after their subscription discount. */
@@ -11321,6 +11957,33 @@ export type components = {
             postgres: components["schemas"]["CheckResult"];
             redis: components["schemas"]["CheckResult"];
         };
+        /** @description A receipt as the user sees it. */
+        Receipt: {
+            /** Format: uuid */
+            card_id?: string | null;
+            card_last4?: string | null;
+            credited_amount?: string | null;
+            credited_currency?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description `wallet_deposit`, `card_topup` or `card_issue`. */
+            kind: string;
+            /** @description `card`, `sbp`, `crypto`, `bank_transfer` or `wallet`. */
+            method: string;
+            /** @description Shown as `R-000123`. */
+            number: string;
+            paid_amount: string;
+            /** Format: date-time */
+            paid_at: string;
+            paid_currency: string;
+            /** @description What one unit of `credited_currency` cost in `paid_currency`; set only when they differ. */
+            rate?: string | null;
+            /**
+             * Format: uuid
+             * @description The deposit, card top-up or card the payment was for.
+             */
+            ref_id: string;
+        };
         /** @description What became of an uploaded recipient list. */
         RecipientUpload: {
             /**
@@ -11479,6 +12142,22 @@ export type components = {
             /** @description VAPID public key to subscribe with, for Web Push; null when push is not set up. */
             vapid_public_key?: string | null;
         };
+        ReissueBody: {
+            /** @description Why the card is reissued: what broke and that the holder asked for it. Required; kept on the old card's close and in the audit log. */
+            reason: string;
+        };
+        ReissueResponse: {
+            /** @description Set when the issuer didn't close the old card: its own words. The old card stays as it is; reissuing again asks the issuer once more, and the balance still goes to the new card once the old one is closed. */
+            close_refused?: string | null;
+            /** @description Where the old card's balance goes and how far it got. */
+            closure: components["schemas"]["CardClosureView"];
+            /** @description The new card. */
+            new_card: components["schemas"]["CardView"];
+            /** @description The old card, closing or closed. */
+            old_card: components["schemas"]["CardView"];
+            /** @description True when the card had been reissued before and nothing new was issued. */
+            replayed: boolean;
+        };
         /**
          * @description Why a code can't be used.
          * @enum {string}
@@ -11526,6 +12205,27 @@ export type components = {
             short_text?: string | null;
             /** @description The title with the values filled in. */
             title: string;
+        };
+        /**
+         * @example {
+         *       "email": "new@example.com"
+         *     }
+         */
+        RequestChangeBody: {
+            /** @description The new address. The code goes there. */
+            email: string;
+        };
+        /**
+         * @example {
+         *       "email": "alice@example.com",
+         *       "locale": "ru"
+         *     }
+         */
+        RequestCodeBody: {
+            /** @description The address to sign in or sign up with. The code goes there. */
+            email: string;
+            /** @description Language of the e-mail for an address with no account yet: `en`, `ru`, …. An account's own language wins; without either, the browser's. */
+            locale?: string | null;
         };
         ResetTotpResult: {
             /** @description True when a two-factor enrolment was removed, false when the user had none. */
@@ -11808,6 +12508,28 @@ export type components = {
             currency_hint?: string | null;
             name?: string | null;
             status?: null | components["schemas"]["ShopStatus"];
+        };
+        /** @description A journal row as the operator reads it. */
+        SignatureRow: {
+            action?: string | null;
+            /** Format: uuid */
+            challenge_id?: string | null;
+            channel?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            destination?: string | null;
+            /** @description `sign_up`, `login`, `code_sent`, `code_entered` or `action`. */
+            event: string;
+            /** Format: int64 */
+            id: number;
+            ip?: string | null;
+            method?: string | null;
+            /** @description The offer in force at that moment. */
+            offer?: Record<string, never> | null;
+            ok?: boolean | null;
+            params: Record<string, never>;
+            purpose?: string | null;
+            user_agent?: string | null;
         };
         /** @description Where the new user came from, as the browser knows it. */
         SignupAttribution: {
@@ -12100,6 +12822,10 @@ export type components = {
             attribution?: null | components["schemas"]["SignupAttribution"];
             /** @description A promo or referral code for a new account. Without it, the `start_param` of the Mini App link is used when it is a code. A code sent for an account that already exists is not applied (`code_result.reason: already_registered`). */
             code?: string | null;
+            /** @description Where the consents were given: `site`, `cabinet`, `miniapp` or `bot`. Read from the client header when omitted. */
+            consent_channel?: string | null;
+            /** @description Consents given with the sign-up: `terms` (the offer, the tariffs and the privacy policy), `personal_data`, `marketing`. Each is recorded with the version of its documents in force at that moment; `marketing` also turns on advertising by e-mail. A deployment can require `terms` and `personal_data` (400 `consents_required` without them). Ignored for an account that already exists. */
+            consents?: string[];
             /** @description Raw `window.Telegram.WebApp.initData` string as handed to the Mini App by the Telegram client; verified server-side against the bot token. */
             init_data: string;
             /** @description Create an account for a Telegram id seen for the first time. Defaults to `true`. Send `false` to get `404 telegram_unknown` instead, so the app can offer "create an account" or "I already have one" (`POST /auth/telegram/link`). */
@@ -12608,6 +13334,7 @@ export type components = {
             failure_reason?: string | null;
             /** Format: uuid */
             id: string;
+            in_transit?: null | components["schemas"]["CardInTransit"];
             /** @description The starting balance the card was issued with, decimal string; null or 0 for a card issued empty. */
             initial_amount?: string | null;
             /** @description Last four digits of the card number. */
@@ -12617,6 +13344,16 @@ export type components = {
             product?: null | components["schemas"]["ProductRef"];
             /** @description Gift cards only, returned once on creation. */
             redemption_code?: string | null;
+            /**
+             * Format: uuid
+             * @description The card this one replaced: support reissued it for free because that card stopped working. Null otherwise.
+             */
+            reissued_from_card_id?: string | null;
+            /**
+             * Format: uuid
+             * @description The card support issued to replace this one. Null otherwise.
+             */
+            reissued_to_card_id?: string | null;
             status: components["schemas"]["CardStatus"];
             /** @description Who made the last status change: `holder`, `operator` or `provider`. A card the provider froze (`frozen` with `provider`) is unfrozen only by the provider's support, so there is no point offering to unfreeze it. Null when the status never changed. */
             status_source?: string | null;
@@ -12628,6 +13365,12 @@ export type components = {
             updated_at: string;
             /** Format: uuid */
             user_id: string;
+        };
+        UserConsents: {
+            /** @description Where each consent stands now. */
+            current: components["schemas"]["ConsentState"][];
+            /** @description Every row of the journal, newest first. */
+            journal: components["schemas"]["ConsentRecord"][];
         };
         UserDetail: {
             /**
@@ -12803,6 +13546,42 @@ export type components = {
             /** @description Whether the code can be used on this operation now. */
             valid: boolean;
         };
+        /**
+         * @example {
+         *       "card_order": {
+         *         "method": "sbp",
+         *         "product_id": "6c1c0a3e-1b7e-4b0e-9d9e-2f0f6f9a1234"
+         *       },
+         *       "challenge_id": "6f1c0a3e-1b7e-4b0e-9d9e-2f0f6f9a1234",
+         *       "code": "042913",
+         *       "consents": [
+         *         "terms",
+         *         "personal_data"
+         *       ],
+         *       "remember_me": true
+         *     }
+         */
+        VerifyCodeBody: {
+            attribution?: null | components["schemas"]["SignupAttribution"];
+            card_order?: null | components["schemas"]["CardOrderBody"];
+            /**
+             * Format: uuid
+             * @description From the `POST /auth/email-code` answer.
+             */
+            challenge_id: string;
+            /** @description The six digits from the e-mail. */
+            code: string;
+            /** @description Where the consents were given: `site`, `cabinet`, `miniapp` or `bot`. Read from the client header when omitted. */
+            consent_channel?: string | null;
+            /** @description Consents given on the form: `terms`, `personal_data`, `marketing`. A new account records them with its sign-up, and the card order with itself. A deployment can require `terms` and `personal_data` for a new account (400 `consents_required`; the code still works, send it again with them). */
+            consents?: string[];
+            /** @description A promo or referral code for a new account, as `code` in `POST /auth/register`; one that covers cards also lowers the price of the card ordered here. For an account that already exists it isn't applied (`code_result.reason: already_registered`). */
+            promo_code?: string | null;
+            /** @description Keep this browser signed in; see `POST /auth/refresh`. */
+            remember_me?: boolean;
+            /** @description Wallet currency for a new account, ISO 4217; must be one this deployment offers. Ignored for an account that already exists. */
+            wallet_currency?: string | null;
+        };
         /** @description A version without its text: the list a reader picks a past redaction from. */
         VersionSummary: {
             /** Format: date-time */
@@ -12820,7 +13599,10 @@ export type components = {
         };
         /** @description Fields to change on a saved version: its date and its note. */
         VersionUpdate: {
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description New date for a version that hasn't taken effect yet; now or later.
+             */
             effective_from?: string | null;
             note?: string | null;
         };
@@ -14597,6 +15379,59 @@ export interface operations {
             };
         };
     };
+    record_close_proceeds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description UUID of the closed card */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseProceedsBody"];
+            };
+        };
+        responses: {
+            /** @description Recorded; the money is on its way where the close says */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `validation`: the amount isn't positive, the currency isn't the card's, or no note */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the cards.reconcile permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such card */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `card_not_closed`: the card isn't closed or closing */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     debit_card: {
         parameters: {
             query?: never;
@@ -14999,6 +15834,71 @@ export interface operations {
                 content?: never;
             };
             /** @description Connector unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    reissue_card: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A repeat call with the same key issues no second card if the first call stopped halfway */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                /** @description UUID of the card to replace */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReissueBody"];
+            };
+        };
+        responses: {
+            /** @description The old card, the new one, and where the old card's balance goes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReissueResponse"];
+                };
+            };
+            /** @description `validation`: no reason given, or the card can't be reissued (never issued, issued by an organization, or its balance already goes elsewhere) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the cards.reissue permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such card */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The card is plastic: a new one is activated from the stock */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The card's issuer is unavailable */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -17517,6 +18417,13 @@ export interface operations {
                     "application/json": components["schemas"]["DocumentVersion"];
                 };
             };
+            /** @description The new date is in the past */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Edited by a level above yours */
             403: {
                 headers: {
@@ -17526,6 +18433,13 @@ export interface operations {
             };
             /** @description No such document or version */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The version is already in effect, so its date stays */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -21695,6 +22609,35 @@ export interface operations {
             };
         };
     };
+    user_consents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserConsents"];
+                };
+            };
+            /** @description Not allowed to read users */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     admin_list_devices: {
         parameters: {
             query?: never;
@@ -21983,6 +22926,83 @@ export interface operations {
                 };
             };
             /** @description Caller lacks the `users.write` permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    export: {
+        parameters: {
+            query?: {
+                /** @description `csv` for a file; JSON otherwise. */
+                format?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description User id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The journal; text/csv with format=csv */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignatureRow"][];
+                };
+            };
+            /** @description Not allowed to read users */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    statement: {
+        parameters: {
+            query: {
+                /** @description First day, `YYYY-MM-DD`, UTC. */
+                from: string;
+                /** @description Last day, included, `YYYY-MM-DD`, UTC. */
+                to: string;
+                /** @description `ru` or `en` for the descriptions. Default `ru`. */
+                lang?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description User id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The statement */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
+                };
+            };
+            /** @description Bad dates */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not allowed to read users */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -22292,6 +23312,96 @@ export interface operations {
             };
             /** @description The anonymous key is malformed */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    request_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestCodeBody"];
+            };
+        };
+        responses: {
+            /** @description Code sent */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeSent"];
+                };
+            };
+            /** @description Not an e-mail address (`validation`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A code was sent less than a minute ago (`resend_too_soon`), or too many were asked for (`too_many_requests`); the message says when to try again */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The code could not be sent (`delivery_failed`) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    verify_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyCodeBody"];
+            };
+        };
+        responses: {
+            /** @description Signed in; the session, plus `account_created` and `card_order` or `card_order_error` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation failed, or a new account without the consents the deployment requires (`consents_required`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wrong, expired or used code (`invalid_code`) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Account is disabled (`user_disabled`), or it has operator permissions (`second_factor_required`) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -22884,6 +23994,36 @@ export interface operations {
             };
         };
     };
+    cookie_choice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CookieChoice"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CookieChoiceRecorded"];
+                };
+            };
+            /** @description `invalid_anonymous_key`: not signed in and no valid anonymous key */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     documents_list_documents: {
         parameters: {
             query?: {
@@ -23149,6 +24289,8 @@ export interface operations {
             query?: {
                 /** @description The token from the email. */
                 t?: string | null;
+                /** @description Which advertising to stop: `email` (the default), `telegram` or `push`. */
+                c?: string | null;
             };
             header?: never;
             path?: never;
@@ -23181,6 +24323,8 @@ export interface operations {
             query?: {
                 /** @description The token from the email. */
                 t?: string | null;
+                /** @description Which advertising to stop: `email` (the default), `telegram` or `push`. */
+                c?: string | null;
             };
             header?: never;
             path?: never;
@@ -23342,6 +24486,54 @@ export interface operations {
             };
             /** @description Missing or invalid token */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_card_order: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Required. The same key returns the same order. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardOrderBody"];
+            };
+        };
+        responses: {
+            /** @description Order placed; pay the deposit */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardOrderView"];
+                };
+            };
+            /** @description Unknown product, a way of paying no funding connector takes for cards, or the amount outside the method's limits */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No funding connector or no exchange rate available */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -24093,6 +25285,55 @@ export interface operations {
             };
         };
     };
+    my_consents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyConsents"];
+                };
+            };
+        };
+    };
+    change_consent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeConsent"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyConsents"];
+                };
+            };
+            /** @description `unknown_consent`, or `consent_required`: a required consent can't be withdrawn here */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     me_list_deposits: {
         parameters: {
             query?: never;
@@ -24445,7 +25686,89 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Email already in use */
+            /** @description Email already in use, or `email_change_needs_code`: the account has a real address already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    request_change: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestChangeBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequested"];
+                };
+            };
+            /** @description Invalid email, or the same address the account already has (`same_email`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The address belongs to another account */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many codes asked for in the last hour (`too_many_requests`) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    confirm_change: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmChangeBody"];
+            };
+        };
+        responses: {
+            /** @description Email changed; returns the updated user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Wrong, expired or used code (`invalid_code`) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The address was taken by another account meanwhile */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -24806,6 +26129,58 @@ export interface operations {
         responses: {
             /** @description Subscription removed; also returned when none was stored */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_receipts: {
+        parameters: {
+            query?: {
+                /** @description Only the receipt of this deposit, card top-up or card. */
+                ref_id?: string | null;
+                /** @description At most this many, newest first. Default 50, at most 200. */
+                limit?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Receipt"][];
+                };
+            };
+        };
+    };
+    get_receipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Receipt"];
+                };
+            };
+            /** @description No such receipt of yours */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -26,6 +26,13 @@ export type HistoryKind =
   | "fee"
   | "balance_adjustment"
   | "bonus"
+  /**
+   * What was left on a closed card moving to the card that replaced it:
+   * `card` is the old card, `to_card` the new one. `pending` until the
+   * issuer returns the money and it is on the new card. If the new card
+   * could not take it, the money went to the wallet and `title` says so.
+   */
+  | "closed_card_balance"
   // Any kind added later still type-checks.
   | (string & {});
 
