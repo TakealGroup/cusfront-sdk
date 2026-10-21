@@ -170,6 +170,37 @@ export interface CardProduct {
    * details and no extra consent is asked.
    */
   holder_data_required: boolean;
+  /**
+   * What a card on this product costs to use, on top of the payments
+   * themselves. A fee the card can't cover is owed and paid from the next
+   * top-up (see `client.debt`). Every line is `"0"` when the product
+   * charges nothing for it.
+   */
+  tariff: CardTariff;
+}
+
+/**
+ * A card product's fees for using the card. Decimal strings: the fixed
+ * amounts are in `currency` (the card's), the shares in percent of the
+ * operation's amount.
+ */
+export interface CardTariff {
+  /** `null` for a product held in several currencies: the card's own then. */
+  currency: string | null;
+  /** Per settled card payment, fixed. */
+  operation_fixed: string;
+  /** Per settled card payment, percent of its amount. */
+  operation_percent: string;
+  /**
+   * Per payment declined through the user's own doing: not enough money,
+   * wrong card details, a frozen card, a subscription not cancelled with the
+   * merchant. A decline caused by the issuer or the platform costs nothing.
+   */
+  decline: string;
+  /** Per cash withdrawal, fixed; charged instead of the payment fee. */
+  cash_withdrawal_fixed: string;
+  /** Per cash withdrawal, percent of its amount. */
+  cash_withdrawal_percent: string;
 }
 
 /**
@@ -410,9 +441,15 @@ export interface CardOrder {
   /** What the user pays, decimal string, in `currency`. */
   amount: string;
   currency: string;
-  /** What reaches the card: its price plus its starting balance, in `card_currency`. */
+  /** What the payment brings: the card's price, its starting balance and `debt_withheld`, in `card_currency`. */
   card_amount: string;
   card_currency: string;
+  /**
+   * What the user owes in card fees, in `card_currency`: included in
+   * `card_amount` and paid from it first. `"0"` when nothing is owed. Show
+   * it before the payment. Older platforms leave it out.
+   */
+  debt_withheld?: string;
 }
 
 /** Why a card ordered with the sign-up was not placed. The account exists all the same. */
@@ -460,6 +497,13 @@ export interface TopUpTerms {
   min: CardBalance | null;
   /** Largest single top-up the product allows, or `null` for no cap. */
   max: CardBalance | null;
+  /**
+   * What the user owes in card fees, in the card's currency, or `null` when
+   * nothing is. A top-up from a wallet in the same currency pays it first
+   * and the card gets the rest: show it before the top-up. Older platforms
+   * leave it out.
+   */
+  debt?: CardBalance | null;
 }
 
 export interface TopUpInput {

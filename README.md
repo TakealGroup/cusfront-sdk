@@ -636,6 +636,36 @@ const top = await client.deposits.initiate({ amount: "25", currency: "USD", meth
 - In your copy, call bonuses a discount. Keep words like funds, withdraw or
   exchange away from them.
 
+## Card fees and debt
+
+A card product has a tariff (`product.tariff`): a fee per payment (fixed
+and percent), per decline that was the user's doing (not enough money, wrong
+details, a frozen card, a subscription not cancelled with the merchant), and
+per cash withdrawal. Show it on the product card. A fee comes off the card
+and is a line of its own in the history (`kind: "card_fee"`).
+
+What the card can't cover is owed by the user, and the next top-up of any of
+their cards or of the wallet pays it first. Always show that amount before
+the user pays:
+
+```ts
+const debt = await client.debt.get();           // { total: [{ amount, currency }], items }
+const owed = await client.debt.owedIn("USD");  // "0.8", or "0"
+
+const q = await client.deposits.quote({ amount: "1000", currency: "RUB", card_id });
+// q.debt_withheld "0.8" comes off q.credited_amount; the card gets the rest
+
+const order = await client.cards.order({ productId, method: "sbp", idempotencyKey });
+// order.debt_withheld is already in order.card_amount and order.amount
+
+const terms = await client.cards.topUpTerms(cardId);
+// terms.debt: { amount, currency } or null; a top-up from the wallet pays it first
+```
+
+A deposit carries `debt_quoted` (what it will withhold at most) and, once
+paid, `debt_withheld`. The user is notified when a debt arises and when it is
+paid; a payment against the debt shows in the history as `debt_payment`.
+
 ## Promo and referral codes
 
 A code goes with the operation it is for. At sign-up an unknown or expired

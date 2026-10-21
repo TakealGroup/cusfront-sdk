@@ -822,6 +822,28 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/cards/{id}/fees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fees charged on a card
+         * @description Every fee the card's tariff charged, newest first: what it was for, how
+         *     much came off the card, how much became the user's debt and what was
+         *     given back.
+         */
+        get: operations["admin_card_fees"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/cards/{id}/force-sync": {
         parameters: {
             query?: never;
@@ -1645,6 +1667,51 @@ export type paths = {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/decline-reasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List decline texts
+         * @description The texts card providers sent with declined payments, the most frequent
+         *     first, with whose fault each one is. Label the `unknown` ones: until a
+         *     text says `user_fault`, a decline with it costs the holder nothing.
+         */
+        get: operations["list_decline_reasons"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/decline-reasons/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Label a decline text
+         * @description Says whose fault a decline with this text is. It applies to declines
+         *     from now on: `user_fault` makes them cost the holder the decline fee of
+         *     their card's product; a decline already recorded is not charged after
+         *     the fact.
+         */
+        patch: operations["label_decline_reason"];
         trace?: never;
     };
     "/v1/admin/deposits": {
@@ -3773,7 +3840,7 @@ export type paths = {
          * Change a product
          * @description The product card buyers read (name, tagline, description, benefits, tile
          *     picture, designs, properties), the price in the currency the buyer pays,
-         *     and whether it is on the storefront. Omitted fields keep their value; a
+         *     the fees for using the card, and whether it is on the storefront. Omitted fields keep their value; a
          *     text field sent empty is cleared. A product needs a name before it can
          *     go on sale: the provider's own label never reaches a buyer. Saving
          *     clears the "new" mark. The order on the storefront and the issuance
@@ -4137,6 +4204,50 @@ export type paths = {
          *     end. Nothing is deleted, and the account can be switched back on. Audited.
          */
         post: operations["deactivate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/debt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A user's debt
+         * @description What the user owes in card fees their cards could not cover, every
+         *     amount that was owed and every payment against it.
+         */
+        get: operations["admin_user_debt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/debt/settle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay a user's debt from a card
+         * @description Takes money off one of the user's cards at the issuer and pays the debt
+         *     in the card's currency with it, oldest debt first. The user is told. The
+         *     same `idempotency_key` repeats nothing, so a request that timed out can
+         *     be sent again as it was.
+         */
+        post: operations["admin_settle_debt"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5632,6 +5743,9 @@ export type paths = {
          * @description Moves `amount` from the wallet onto the caller's own card. The wallet is
          *     debited first and the card's provider then loads the card; if the
          *     provider refuses, the money is back on the wallet and the call says so.
+         *     When the user owes card fees in the card's currency and the wallet is in
+         *     it too, that part of `amount` pays the debt first and the card gets the
+         *     rest (`debt` in the top-up terms says how much).
          *     The response carries the card and both balances, so no second request is
          *     needed. The `Idempotency-Key` header is required: the same key with the
          *     same amount returns the first outcome, the same key with a different
@@ -5749,6 +5863,28 @@ export type paths = {
          *     for a card (`card_id`), which is recorded every time.
          */
         post: operations["change_consent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/debt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your debt
+         * @description What you owe in card fees your card could not cover, per currency, and
+         *     what each amount is for. The next top-up of any of your cards or of your
+         *     account pays it first; the top-up screens show how much before you pay.
+         */
+        get: operations["my_debt"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -7029,6 +7165,15 @@ export type components = {
              */
             user_id: string;
         };
+        /** @description A user's debt, for operators. */
+        AdminDebtView: {
+            /** @description Every amount that was owed, newest first, paid ones included. */
+            items: components["schemas"]["DebtLine"][];
+            /** @description Every payment against the debt, newest first. */
+            payments: components["schemas"]["DebtPayment"][];
+            /** @description What is owed now, per currency. */
+            total: components["schemas"]["DebtAmount"][];
+        };
         AdminDocumentList: {
             documents: components["schemas"]["DocumentSummary"][];
             /** Format: int64 */
@@ -7872,6 +8017,42 @@ export type components = {
             closure?: null | components["schemas"]["CardClosureView"];
             live_balance?: null | components["schemas"]["CardBalance"];
         };
+        /** @description One fee charged on a card. */
+        CardFeeView: {
+            /** @description The fee, decimal string. */
+            amount: string;
+            /** @description What came off the card, decimal string. */
+            charged_amount: string;
+            /** Format: date-time */
+            created_at: string;
+            currency: string;
+            /** @description What became the user's debt, decimal string. */
+            debt_amount: string;
+            /** @description The decline text, for a decline fee. */
+            decline_reason?: string | null;
+            /** @description The issuer's last refusal or error, when there was one. */
+            failure_reason?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description `operation`, `decline` or `cash_withdrawal`. */
+            kind: string;
+            /** @description The merchant of the operation. */
+            merchant_name?: string | null;
+            /** @description The operation's amount, decimal string, never negative. */
+            operation_amount: string;
+            operation_currency: string;
+            /** @description What was given back, decimal string. */
+            returned_amount: string;
+            /** Format: date-time */
+            settled_at?: string | null;
+            /** @description `pending` (not taken yet), `settled` (taken off the card and/or owed), `returned` (given back: its operation was reversed) or `failed` (the issuer never gave a final answer). */
+            status: string;
+            /**
+             * Format: uuid
+             * @description The card operation the fee is for.
+             */
+            transaction_id: string;
+        };
         /** @description The balance of a closed card on its way to the card that replaced it. */
         CardInTransit: {
             /**
@@ -7956,12 +8137,14 @@ export type components = {
         CardOrderView: {
             /** @description What the user pays, decimal string, in `currency`. */
             amount: string;
-            /** @description What reaches the card, decimal string, in `card_currency`: the card's price plus its starting balance. */
+            /** @description What the payment brings, decimal string, in `card_currency`: the card's price, its starting balance and `debt_withheld`. */
             card_amount: string;
             /** @description ISO 4217 code of the card. */
             card_currency: string;
             /** @description ISO 4217 code of the payment. */
             currency: string;
+            /** @description What the user owes in card fees, decimal string, in `card_currency`: included in `card_amount` and paid from it first. Zero when nothing is owed. Show it before the payment. */
+            debt_withheld: string;
             /** @description The top-up that issues the card. With `status: redirect_required`, send the user to `redirect_url`; the card is issued once the payment is confirmed. */
             deposit: Record<string, never>;
         };
@@ -7995,6 +8178,8 @@ export type components = {
             starting_balance?: null | components["schemas"]["MoneyView"];
             /** @description One line under the name, or null. */
             tagline?: string | null;
+            /** @description What a card on this product costs to use: per payment, per decline that was the holder's doing, per cash withdrawal. A fee the card can't cover is owed and paid from the next top-up. */
+            tariff: components["schemas"]["CardTariffView"];
             /** @description Picture for the product tile, absolute URL, or null: show the design then. */
             tile_image_url?: string | null;
         };
@@ -8079,6 +8264,24 @@ export type components = {
              */
             user_id?: string | null;
             void_reason?: string | null;
+        };
+        /**
+         * @description What a card on a product costs to use, on top of the operations
+         *     themselves. Every line is zero when the product charges nothing for it.
+         */
+        CardTariffView: {
+            /** @description Fixed fee per cash withdrawal, decimal string. Charged instead of the payment fee. */
+            cash_withdrawal_fixed: string;
+            /** @description Fee per cash withdrawal as a share of its amount, in percent, decimal string. */
+            cash_withdrawal_percent: string;
+            /** @description Currency of the fixed amounts: the card's. Null for a product held in several currencies, where they are in the card's own currency. */
+            currency?: string | null;
+            /** @description Fee per payment declined through the holder's own doing (not enough money, wrong card details, a frozen card, a subscription that was not cancelled with the merchant), decimal string. A decline caused by the issuer or by us costs nothing. */
+            decline: string;
+            /** @description Fixed fee per settled card payment, decimal string, e.g. "0.3". */
+            operation_fixed: string;
+            /** @description Fee per settled card payment as a share of its amount, in percent, decimal string, e.g. "1.5". */
+            operation_percent: string;
         };
         /** @description One top-up attempt as stored in `card_topups`. */
         CardTopup: {
@@ -9315,12 +9518,129 @@ export type components = {
                 [key: string]: string;
             };
         };
+        /** @description An amount with its currency. */
+        DebtAmount: {
+            /** @description Decimal string, e.g. "1.50". */
+            amount: string;
+            /** @description ISO 4217 code. */
+            currency: string;
+        };
+        /** @description One amount owed. */
+        DebtLine: {
+            /** @description The amount owed when it arose, decimal string. */
+            amount: string;
+            /** @description What it is owed for: `card_fee`, a card fee the card could not cover. */
+            basis: string;
+            /**
+             * Format: uuid
+             * @description The card the fee was for.
+             */
+            card_id?: string | null;
+            /** @description Last four digits of that card. */
+            card_last4?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            currency: string;
+            /** @description `operation`, `decline` or `cash_withdrawal`: the fee behind it. */
+            fee_kind?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description The merchant of that operation, as the card network sent it. */
+            merchant_name?: string | null;
+            /** @description The operation's amount, decimal string, never negative. */
+            operation_amount?: string | null;
+            operation_currency?: string | null;
+            /** @description What is still owed of it, decimal string. */
+            outstanding: string;
+            /**
+             * Format: date-time
+             * @description When it was paid in full; null while something is owed.
+             */
+            settled_at?: string | null;
+            /**
+             * Format: uuid
+             * @description The card operation the fee was for.
+             */
+            transaction_id?: string | null;
+        };
+        /** @description A payment against the debt. */
+        DebtPayment: {
+            /** @description Decimal string. */
+            amount: string;
+            /** Format: uuid */
+            card_id?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            currency: string;
+            /** Format: uuid */
+            deposit_id?: string | null;
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: date-time
+             * @description Set when the money went back where it came from and the debt is owed again.
+             */
+            reversed_at?: string | null;
+            /** @description `deposit` (withheld from a top-up), `card_topup` (from a card top-up out of the wallet), `card` (taken off a card by support), `card_close` (from what a closed card gave back), `wallet` or `fee_return` (the fee itself was given back). */
+            source: string;
+        };
+        DeclineCounts: {
+            /** Format: int64 */
+            issuer_fault: number;
+            /** Format: int64 */
+            platform_fault: number;
+            /** Format: int64 */
+            unknown: number;
+            /** Format: int64 */
+            user_fault: number;
+        };
         /** @description Why a payment didn't go through. */
         DeclineReason: {
             /** @description `insufficient_funds`, `limit_exceeded`, `card_blocked`, `card_expired`, `wrong_details`, `merchant_not_allowed` or `other`. New codes may appear; treat an unknown one as `other`. */
             code: string;
             /** @description The reason in plain words, in the language asked for. */
             text: string;
+        };
+        /** @description One decline text. */
+        DeclineReasonView: {
+            /** @description `user_fault` (the holder's doing; the decline fee applies), `issuer_fault`, `platform_fault` or `unknown` (nobody has said yet; no fee). */
+            category: string;
+            /** @description The card connector that sent it; empty for a text shared by every connector. */
+            connector_slug: string;
+            /** Format: date-time */
+            first_seen_at: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            labelled_at?: string | null;
+            /**
+             * Format: uuid
+             * @description Who labelled it last, and when.
+             */
+            labelled_by?: string | null;
+            labelled_by_email?: string | null;
+            /** Format: date-time */
+            last_seen_at?: string | null;
+            /** @description The operator's note. */
+            note?: string | null;
+            /**
+             * Format: int64
+             * @description Declined payments that carried it.
+             */
+            seen_count: number;
+            /** @description The text as it first came. */
+            text: string;
+        };
+        /** @description Decline texts and how many of them are in each category. */
+        DeclineReasonsPage: {
+            /** @description How many texts there are in each category, whatever the filter. */
+            counts: components["schemas"]["DeclineCounts"];
+            items: components["schemas"]["DeclineReasonView"][];
+            /**
+             * Format: int64
+             * @description How many texts match the filter.
+             */
+            total: number;
         };
         DeliveriesReport: {
             channels: components["schemas"]["ChannelHealth"][];
@@ -10171,7 +10491,7 @@ export type components = {
             fx_rate?: string | null;
             /** @description Stable id of the entry, unique across kinds. */
             id: string;
-            /** @description `card_purchase`, `card_refund`, `card_issued`, `card_topup`, `card_transfer`, `wallet_deposit`, `card_deposit` (a top-up that went straight onto a card; `pending` until the card is loaded), `deposit_refund`, `fee`, `balance_adjustment`, `bonus` or `closed_card_balance` (what was left on a closed card moving to the card that replaced it: `card` is the old card, `to_card` the new one; `pending` until the issuer returns the money and it is on the new card; if the new card can't take it, the money goes to the wallet and the title says so). More kinds will be added; show an unknown one with its `title`, `amount` and `status`. */
+            /** @description `card_purchase`, `card_refund`, `card_issued`, `card_topup`, `card_transfer`, `wallet_deposit`, `card_deposit` (a top-up that went straight onto a card; `pending` until the card is loaded), `deposit_refund`, `fee`, `balance_adjustment`, `bonus`, `closed_card_balance` (what was left on a closed card moving to the card that replaced it: `card` is the old card, `to_card` the new one; `pending` until the issuer returns the money and it is on the new card; if the new card can't take it, the money goes to the wallet and the title says so), `card_fee` (a fee for using the card: a payment, a declined payment, a cash withdrawal) or `debt_payment` (money that paid card fees owed). More kinds will be added; show an unknown one with its `title`, `amount` and `status`. */
             kind: string;
             merchant?: null | components["schemas"]["Merchant"];
             /** Format: date-time */
@@ -10405,6 +10725,19 @@ export type components = {
              * @description Length of the window in days.
              */
             window_days: number;
+        };
+        /**
+         * @description Whose fault a decline text is.
+         * @example {
+         *       "category": "user_fault",
+         *       "note": "Not enough money on the card"
+         *     }
+         */
+        LabelDeclineBody: {
+            /** @description `user_fault`, `issuer_fault`, `platform_fault` or `unknown`. */
+            category: string;
+            /** @description A note for other operators, e.g. what the text means. Empty clears it; omit to keep it. */
+            note?: string | null;
         };
         /**
          * @description One of the two lanes.
@@ -10822,6 +11155,13 @@ export type components = {
         };
         MyConsents: {
             consents: components["schemas"]["ConsentState"][];
+        };
+        /** @description What the user owes. */
+        MyDebtView: {
+            /** @description The amounts still owed, newest first. */
+            items: components["schemas"]["DebtLine"][];
+            /** @description What is owed, per currency; empty when nothing is. */
+            total: components["schemas"]["DebtAmount"][];
         };
         /** @description A referrer's own view. */
         MyReferral: {
@@ -11491,6 +11831,28 @@ export type components = {
             /** @description Only `true` is accepted: the device stops receiving anything. The user re-enables it by turning notifications on again in the app. */
             disabled: boolean;
         };
+        /**
+         * @description Fees for using a card, in the card's currency. A line sent as "0" charges nothing.
+         * @example {
+         *       "cash_withdrawal_fixed": "2",
+         *       "cash_withdrawal_percent": "2",
+         *       "decline": "0.5",
+         *       "operation_fixed": "0.3",
+         *       "operation_percent": "1.5"
+         *     }
+         */
+        PatchFeesBody: {
+            /** @description Fixed fee per cash withdrawal, decimal string. Charged instead of the payment fee. */
+            cash_withdrawal_fixed?: string | null;
+            /** @description Fee per cash withdrawal as a share of its amount, in percent from 0 to 100, up to two decimal places. */
+            cash_withdrawal_percent?: string | null;
+            /** @description Fee per payment declined through the holder's own doing, decimal string. */
+            decline?: string | null;
+            /** @description Fixed fee per settled card payment, decimal string. */
+            operation_fixed?: string | null;
+            /** @description Fee per settled card payment as a share of its amount, in percent from 0 to 100, up to two decimal places. */
+            operation_percent?: string | null;
+        };
         PatchOrgBody: {
             /** @description New status: `active`, `suspended` or `closed`. */
             status: components["schemas"]["OrganizationStatus"];
@@ -11522,6 +11884,7 @@ export type components = {
             features?: Record<string, never> | null;
             /** @description Your note on the price, e.g. the provider's tariff name. Never shown to buyers. */
             fee_label?: string | null;
+            fees?: null | components["schemas"]["PatchFeesBody"];
             /** @description Name buyers see, up to 60 characters. Required before the product can go on sale. */
             name?: string | null;
             /** @description Currency the buyer pays in, ISO 4217; `null` or empty means the card's own currency. */
@@ -12095,6 +12458,11 @@ export type components = {
             /** @description ISO 4217 code of the currency credited: the wallet's, or the card's. */
             credited_currency: string;
             /**
+             * @description What the user owes in card fees, in `credited_currency`, that this top-up pays first: it is withheld from `credited_amount` and the rest is credited. Zero when nothing is owed. Show it before the payment.
+             * @example 1.50
+             */
+            debt_withheld: string;
+            /**
              * Format: date-time
              * @description When the quote stops being valid, UTC.
              */
@@ -12666,6 +13034,30 @@ export type components = {
             /** @description Current value. Redacted for `secret` settings. Null when the setting is neither set nor has a default. */
             value?: string | null;
         };
+        /**
+         * @description Pay a user's debt from one of their cards.
+         * @example {
+         *       "card_id": "6c1c0a3e-1b7e-4b0e-9d9e-2f0f6f9a1234",
+         *       "idempotency_key": "0b6f6f2e-3c1a-4e8e-9d55-1f3a2b4c5d6e",
+         *       "note": "Paid at the user's request"
+         *     }
+         */
+        SettleDebtBody: {
+            /** @description How much to take, decimal string; omit to pay all that is owed. Never more than is owed or than the card holds. */
+            amount?: string | null;
+            /**
+             * Format: uuid
+             * @description The user's card to take the money from. The debt in the card's currency is paid.
+             */
+            card_id: string;
+            /**
+             * Format: uuid
+             * @description A fresh UUID per payment. Sending the same one again repeats nothing: use it to retry.
+             */
+            idempotency_key: string;
+            /** @description Why, for the audit log. At least 3 characters. */
+            note: string;
+        };
         /** @description An operator's note on a load they settle by hand. */
         SettleNoteBody: {
             /** @description Why. Kept on the deposit and in the audit log. */
@@ -12821,6 +13213,8 @@ export type components = {
             features: Record<string, never>;
             /** @description Operator's note on the price, e.g. the provider's tariff name. Never shown to buyers. */
             fee_label?: string | null;
+            /** @description What a card on this product costs to use: per payment, per decline that was the holder's doing, per cash withdrawal. Buyers see the same in the catalog. */
+            fees: components["schemas"]["CardTariffView"];
             /**
              * Format: uuid
              * @description Product id: what buyers see and send back as `product_id`.
@@ -13228,6 +13622,7 @@ export type components = {
             available: boolean;
             /** @description Currency top-ups are made in: the card's. */
             currency: string;
+            debt?: null | components["schemas"]["BalanceResponse"];
             max?: null | components["schemas"]["BalanceResponse"];
             min?: null | components["schemas"]["BalanceResponse"];
             /** @description Why not, in plain words, when `available` is false. */
@@ -15709,6 +16104,35 @@ export interface operations {
             };
         };
     };
+    admin_card_fees: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Card UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardFeeView"][];
+                };
+            };
+            /** @description Missing the cards.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     force_sync_card: {
         parameters: {
             query?: never;
@@ -17688,6 +18112,97 @@ export interface operations {
                 content?: never;
             };
             /** @description Unknown connector slug */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_decline_reasons: {
+        parameters: {
+            query?: {
+                /** @description Only this category: `user_fault`, `issuer_fault`, `platform_fault` or `unknown`. */
+                category?: string;
+                /** @description Only texts from this card connector; empty for the shared ones. */
+                connector_slug?: string;
+                /** @description Part of the text, any case. */
+                q?: string;
+                /** @description Page size, 1 to 500, default 100. */
+                limit?: number;
+                /** @description Rows to skip, default 0. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeclineReasonsPage"];
+                };
+            };
+            /** @description Unknown category */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the cards.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    label_decline_reason: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Decline text id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabelDeclineBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeclineReasonView"];
+                };
+            };
+            /** @description Unknown category, or a note with control characters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the cards.declines.label permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such decline text */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -22939,6 +23454,97 @@ export interface operations {
             };
         };
     };
+    admin_user_debt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDebtView"];
+                };
+            };
+            /** @description Missing the users.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_settle_debt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettleDebtBody"];
+            };
+        };
+        responses: {
+            /** @description The user's debt after the payment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDebtView"];
+                };
+            };
+            /** @description A note that is too short, or an amount that is not positive */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the users.debt.settle permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The card is not this user's */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `no_debt`: nothing is owed in the card's currency. `card_empty`: the card holds nothing. `issuer_refused`: the issuer would not let the money be taken. `issuer_pending`: the issuer has not moved the money yet; send the same request again in a minute */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The card's issuer has no way to take money off a card */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     admin_list_devices: {
         parameters: {
             query?: never;
@@ -25740,6 +26346,32 @@ export interface operations {
             };
             /** @description `card_id` is not one of your cards */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    my_debt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyDebtView"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

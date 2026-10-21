@@ -33,6 +33,10 @@ export type HistoryKind =
    * could not take it, the money went to the wallet and `title` says so.
    */
   | "closed_card_balance"
+  /** A fee for using the card: a payment, a declined payment, a cash withdrawal. */
+  | "card_fee"
+  /** Money that paid card fees owed. */
+  | "debt_payment"
   // Any kind added later still type-checks.
   | (string & {});
 

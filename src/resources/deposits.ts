@@ -132,6 +132,13 @@ export interface FundingQuote {
   method?: DepositMethod;
   /** The rate is locked until then; the deposit made with it waits for its payment as long. */
   expires_at: string;
+  /**
+   * What the user owes in card fees, in `credited_currency`, that this
+   * top-up pays first: it comes off `credited_amount` and the rest is
+   * credited. `"0"` when nothing is owed. Show it before the payment. Older
+   * platforms leave it out.
+   */
+  debt_withheld?: string;
 }
 
 export interface Deposit {
@@ -202,6 +209,17 @@ export interface Deposit {
    * wallet instead (funding connectors in `mixed` mode). The user is told.
    */
   returned_to_wallet_at?: string | null;
+  /**
+   * The user's debt in card fees shown before the payment, in the credited
+   * currency: the most this top-up pays towards it before the rest is
+   * credited. Absent when nothing was owed.
+   */
+  debt_quoted?: string | null;
+  /**
+   * What the top-up did pay towards the debt. For a top-up onto a card,
+   * `card_amount` is already net of it.
+   */
+  debt_withheld?: string | null;
   created_at: string;
   updated_at: string;
 }

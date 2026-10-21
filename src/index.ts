@@ -17,6 +17,7 @@ import { DepositsResource } from "./resources/deposits.js";
 import { CardsResource } from "./resources/cards.js";
 import { BalanceResource } from "./resources/balance.js";
 import { BonusResource } from "./resources/bonus.js";
+import { DebtResource } from "./resources/debt.js";
 import { CodesResource } from "./resources/codes.js";
 import { ReferralResource } from "./resources/referral.js";
 import { SubscriptionResource } from "./resources/subscription.js";
@@ -115,7 +116,9 @@ export type {
   CardOrderInput,
   CardOrder,
   CardOrderError,
+  CardTariff,
 } from "./resources/cards.js";
+export type { Debt, DebtAmount, DebtLine, CardFeeKind } from "./resources/debt.js";
 export type { Balance } from "./resources/balance.js";
 export type {
   BonusLot,
@@ -318,6 +321,8 @@ export interface CusfrontClient {
   readonly balance: BalanceResource;
   /** Bonuses: a discount on the platform's services. Balance, credits, history and a price preview. */
   readonly bonus: BonusResource;
+  /** Card fees the user's cards could not cover: paid first from the next top-up. */
+  readonly debt: DebtResource;
   /** Promo and referral codes: check what a code would do before using it. */
   readonly codes: CodesResource;
   /** For referrers: the referral code, the link to share, invited friends and rewards. */
@@ -403,6 +408,7 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     cards: new CardsResource(http),
     balance: new BalanceResource(http),
     bonus: new BonusResource(http),
+    debt: new DebtResource(http),
     codes: new CodesResource(http),
     referral: new ReferralResource(http),
     subscription: new SubscriptionResource(http),
