@@ -161,6 +161,15 @@ export interface CardProduct {
   starting_balance: CardBalance | null;
   /** True for the product the deployment issues when none is chosen. */
   is_default: boolean;
+  /**
+   * Issuing this card sends the user's real personal details to the card
+   * issuer. Show the consent screen before the order and send
+   * `holder_data_transfer` in its `consents` (or give it once with
+   * `client.consents.allowHolderData()`); without it the order fails with
+   * 409 `holder_data_consent_required`. `false`: the issuer gets no real
+   * details and no extra consent is asked.
+   */
+  holder_data_required: boolean;
 }
 
 /**
@@ -284,9 +293,10 @@ export interface CreateCardInput {
   promoCode?: string;
   /**
    * Consents the user gave with the order (`terms`, `personal_data`,
-   * `marketing`). Recorded with the card, or with the top-up inside
-   * `deposits.initiate({ issue_card })`, at the version of their documents
-   * in force now.
+   * `marketing`, `holder_data_transfer`). Recorded with the card, or with the
+   * top-up inside `deposits.initiate({ issue_card })`, at the version of
+   * their documents in force now. A product with `holder_data_required`
+   * needs `holder_data_transfer` here unless it was given before.
    */
   consents?: ConsentKind[];
   /** Where they were given. Sent as `consent_channel`. */
@@ -353,7 +363,10 @@ export interface CardOrderInput {
   promoCode?: string;
   /** Pay part of the price with bonuses; on by default. Sent as `use_bonus`. */
   useBonus?: boolean;
-  /** Consents given with the order. */
+  /**
+   * Consents given with the order. A product with `holder_data_required`
+   * needs `holder_data_transfer` here unless it was given before.
+   */
   consents?: ConsentKind[];
   /** Where they were given. Sent as `consent_channel`. */
   consentChannel?: ConsentChannel;
@@ -625,6 +638,8 @@ export class CardsResource {
    * `Card`. On a ledger failure after provider creation, the Takeal API rolls the row
    * to `failed` (never an orphaned active card); inspect `status` /
    * `failure_reason` on the result.
+   * Errors: 409 `holder_data_consent_required` when the product has
+   * `holder_data_required` and the user has not agreed to it.
    */
   async create(input: CreateCardInput): Promise<Card> {
     const { idempotencyKey, ...card } = input;
@@ -641,7 +656,9 @@ export class CardsResource {
    * `pending_payment` until the payment is confirmed. The same
    * `idempotencyKey` returns the same order.
    * Errors: 400 `unknown_product` / `method_not_available` / a limit of the
-   * way of paying, 503 no funding connector or no exchange rate.
+   * way of paying, 409 `holder_data_consent_required` (the product has
+   * `holder_data_required` and the user has not agreed to it), 503 no
+   * funding connector or no exchange rate.
    */
   async order(input: CardOrderInput & { idempotencyKey: string }): Promise<CardOrder> {
     const { idempotencyKey, ...order } = input;

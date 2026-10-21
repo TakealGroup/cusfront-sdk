@@ -752,8 +752,36 @@ await client.consents.setCookies({ analytics: false });
 
 `terms` covers the offer, the tariffs and the privacy policy. A deployment
 can refuse a sign-up without `terms` and `personal_data`
-(400 `consents_required`). Only `marketing` and `cookies_analytics` can be
-withdrawn later; the required ones go with the account.
+(400 `consents_required`). Only `marketing`, `cookies_analytics`,
+`holder_data_transfer` and `dispute_documents_transfer` can be withdrawn
+later; the required ones go with the account.
+
+#### What reaches the card issuer
+
+By default the card issuer gets no real details of the user. A product with
+`holder_data_required: true` is different: its cards go out with the user's
+real details, so the cabinet shows a consent screen before the order and
+sends `holder_data_transfer` with it. Without the consent the order fails
+with 409 `holder_data_consent_required`. Once given, the consent stands for
+later cards until the user withdraws it.
+
+```ts
+import { HOLDER_DATA_CONSENT, type ConsentKind } from "@takeal/cusfront-sdk";
+
+const consents: ConsentKind[] = ["terms"];
+if (product.holder_data_required) {
+  if (!(await askHolderDataConsent())) return; // your consent screen
+  consents.push(HOLDER_DATA_CONSENT);
+}
+await client.cards.order({ productId: product.id, method: "sbp", consents, idempotencyKey });
+```
+
+The user's documents go to the issuer in a dispute only after a consent of
+its own, given for the disputed card:
+
+```ts
+await client.consents.allowDisputeDocuments({ cardId: card.id });
+```
 
 ### From `client.blog`
 
@@ -1349,6 +1377,7 @@ Codes worth a wording of their own on the card screens:
 | `provider_declined` (502) | The issuer refused the move. Nothing was moved. | The issuer would not do it; the wallet is untouched. |
 | `provider_refused` (409) | The issuer did not take the PIN. | Try another PIN or later. |
 | `card_locked` (409) | Support holds the card, or the issuer froze it. | Only support can change this card. |
+| `holder_data_consent_required` (409) | The card goes out with the user's real details and they have not agreed to that. | Show the consent screen, then order again with `holder_data_transfer`. |
 | `not_supported` (501) | This issuer cannot do that (take money back off a card, reveal, PIN). | Hide the control. |
 | `insufficient_funds` (402) | The wallet holds less than that. | Top up the wallet first. |
 

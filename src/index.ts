@@ -191,11 +191,13 @@ export type {
   ConsentKind,
   ConsentChannel,
   ConsentDocument,
+  ConsentOptions,
   ConsentState,
   Consents,
   ConsentsResource,
   CookieChoiceInput,
 } from "./resources/consents.js";
+export { HOLDER_DATA_CONSENT, DISPUTE_DOCUMENTS_CONSENT } from "./resources/consents.js";
 export type {
   Receipt,
   ReceiptKind,

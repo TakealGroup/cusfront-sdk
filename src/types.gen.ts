@@ -7379,6 +7379,8 @@ export type components = {
             designs: components["schemas"]["DesignRef"][];
             /** @description Properties the operator entered, e.g. `{"scheme": "mastercard", "apple_pay": true, "reloadable": false, "min_load": "10", "max_load": "5000"}`. May be empty. */
             features: Record<string, never>;
+            /** @description Issuing this card sends the holder's real personal details to the card issuer. Show the consent screen first and send `holder_data_transfer` among the order's `consents`, or give it through `POST /me/consents`; without it the order answers 409 `holder_data_consent_required`. False: the issuer gets no real details. */
+            holder_data_required: boolean;
             /**
              * Format: uuid
              * @description Product id. Pass it as `product_id` when creating a card.
@@ -9477,6 +9479,8 @@ export type components = {
             cardholder_country?: string | null;
             /** @description State or region of a made-up holder's address, e.g. `CA` or `US-CA`. `null` or empty: any state of the country. */
             cardholder_state?: string | null;
+            /** @description The program sends the holder's real details to the issuer: issue its cards only to holders who consented to that. */
+            holder_data_required?: boolean | null;
             /**
              * Format: int32
              * @description Order in which this connector's programs are tried when the buyer does not choose. Lower first.
@@ -9519,6 +9523,8 @@ export type components = {
             connector_active: boolean;
             /** @description Slug of the card connector the program belongs to. */
             connector_slug: string;
+            /** @description The holder's real details go to the issuer with every card on this program. A card is then issued only to a holder who consented to that (`holder_data_transfer`); the catalog tells the cabinet to ask. Off by default: the issuer gets no real details. */
+            holder_data_required: boolean;
             last_failure?: null | components["schemas"]["IssueFailure"];
             /** @description Smallest starting balance the provider requires on a new card, decimal string; null when a card may start empty. The platform funds it, so price it in. */
             min_initial_amount?: string | null;

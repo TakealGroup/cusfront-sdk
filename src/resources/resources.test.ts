@@ -21,7 +21,7 @@ import {
 import { DevicesResource, devicePlatformOf, type Device } from "./devices.js";
 import { AttributionResource, anonymousKey, currentTouch } from "./attribution.js";
 import { HistoryResource } from "./history.js";
-import { ConsentsResource } from "./consents.js";
+import { ConsentsResource, DISPUTE_DOCUMENTS_CONSENT, HOLDER_DATA_CONSENT } from "./consents.js";
 import { ReceiptsResource } from "./receipts.js";
 import { FundingOptionsResource, type FundingOption } from "./funding-options.js";
 import { CodesResource, type CodeCheck } from "./codes.js";
@@ -191,6 +191,7 @@ const PRODUCT: CardProduct = {
     discount_bps: 1000,
   },
   is_default: true,
+  holder_data_required: false,
 };
 
 describe("CardsResource", () => {
@@ -2115,6 +2116,66 @@ describe("ConsentsResource", () => {
     expect(captured[0]!.url).toBe("https://api.test/v1/me/consents");
     expect(captured[0]!.init.method).toBe("POST");
     expect(bodyOf(captured[0]!)).toEqual({ kind: "marketing", given: false, channel: "cabinet" });
+  });
+
+  it("set takes a card for the issuer consents", async () => {
+    const { captured, http } = rig({ consents: [] });
+    const consents = new ConsentsResource(http);
+    await consents.set("marketing", true, { channel: "site" });
+    expect(bodyOf(captured[0]!)).toEqual({ kind: "marketing", given: true, channel: "site" });
+    await consents.allowDisputeDocuments({ cardId: "c1", channel: "cabinet" });
+    expect(bodyOf(captured[1]!)).toEqual({
+      kind: "dispute_documents_transfer",
+      given: true,
+      channel: "cabinet",
+      card_id: "c1",
+    });
+    await consents.allowHolderData();
+    expect(bodyOf(captured[2]!)).toEqual({ kind: "holder_data_transfer", given: true });
+    expect(captured.every((c) => c.url === "https://api.test/v1/me/consents")).toBe(true);
+  });
+
+  it("stands reads the current state of one kind", async () => {
+    const state = (kind: string, given: boolean) => ({
+      kind,
+      given,
+      given_at: given ? "2026-10-21T00:00:00Z" : null,
+      withdrawn_at: null,
+      documents: [],
+      optional: true,
+    });
+    const { http } = rig({
+      consents: [state("holder_data_transfer", true), state("dispute_documents_transfer", false)],
+    });
+    const consents = new ConsentsResource(http);
+    expect(await consents.stands(HOLDER_DATA_CONSENT)).toBe(true);
+    expect(await consents.stands(DISPUTE_DOCUMENTS_CONSENT)).toBe(false);
+  });
+
+  it("a card order carries the holder data consent", async () => {
+    const { captured, http } = rig({ deposit: DEPOSIT });
+    await new CardsResource(http).order({
+      productId: "p1",
+      method: "sbp",
+      consents: ["terms", HOLDER_DATA_CONSENT],
+      idempotencyKey: "k1",
+    });
+    expect(bodyOf(captured[0]!)).toMatchObject({
+      product_id: "p1",
+      consents: ["terms", "holder_data_transfer"],
+    });
+  });
+
+  it("the holder data refusal keeps its code", async () => {
+    const { http } = rig(
+      { code: "holder_data_consent_required", message: "Agree to that to get the card." },
+      409,
+    );
+    const err = await new CardsResource(http)
+      .create({ productId: "p1", currency: "USD", idempotencyKey: "k2" })
+      .catch((e: unknown) => e);
+    expect(isApiError(err) && err.status).toBe(409);
+    expect(isApiError(err) && err.code).toBe("holder_data_consent_required");
   });
 
   it("email change goes in two steps", async () => {
