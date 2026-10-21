@@ -6,6 +6,7 @@ import { CardsResource, type Card, type CardBalance, type CardProduct } from "./
 import { BalanceResource, type Balance } from "./balance.js";
 import { BonusResource, type BonusPreview, type BonusWallet } from "./bonus.js";
 import { DebtResource, type Debt } from "./debt.js";
+import { CloseRequestsResource, type CloseRequest } from "./close-requests.js";
 import { BrandingResource, type Branding } from "./branding.js";
 import { BlogResource } from "./blog.js";
 import { DocumentsResource } from "./documents.js";
@@ -625,6 +626,94 @@ describe("DebtResource", () => {
     expect(await new DebtResource(http).owedIn("usd")).toBe("0.8");
     const { http: other } = rig(debt);
     expect(await new DebtResource(other).owedIn("EUR")).toBe("0");
+  });
+});
+
+describe("CloseRequestsResource", () => {
+  const req: CloseRequest = {
+    id: "req_1",
+    card_id: "card_1",
+    card_last4: "4242",
+    status: "refunding",
+    balance: { amount: "246", currency: "USD" },
+    bonus_excluded: "6",
+    debt_withheld: "2.5",
+    refund_total: { amount: "19296.87", currency: "RUB" },
+    refunded: { amount: "5000", currency: "RUB" },
+    on_the_way: { amount: "14296.87", currency: "RUB" },
+    refunds: [
+      {
+        id: "part_1",
+        amount: "5000",
+        currency: "RUB",
+        status: "succeeded",
+        method: "original_payment",
+        created_at: "2026-10-21T00:00:00Z",
+        completed_at: "2026-10-21T00:00:01Z",
+      },
+    ],
+    payout_details: null,
+    deadline_at: "2026-11-04T00:00:00Z",
+    created_at: "2026-10-21T00:00:00Z",
+    closed_at: "2026-10-21T00:00:00Z",
+    returned_at: "2026-10-21T00:00:00Z",
+    refunded_at: null,
+  };
+
+  it("request POSTs /me/cards/{id}/close-request with the reason", async () => {
+    const { captured, http } = rig(req);
+    expect(await new CloseRequestsResource(http).request("card_1", { reason: "moving" })).toEqual(
+      req,
+    );
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/cards/card_1/close-request");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({ reason: "moving" });
+  });
+
+  it("request sends a body even without a reason", async () => {
+    const { captured, http } = rig(req);
+    await new CloseRequestsResource(http).request("card_1");
+    expect(bodyOf(captured[0]!)).toEqual({});
+  });
+
+  it("list GETs /me/close-requests and returns the items", async () => {
+    const { captured, http } = rig({ items: [req] });
+    expect(await new CloseRequestsResource(http).list()).toEqual([req]);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/close-requests");
+    expect(captured[0]!.init.method).toBe("GET");
+  });
+
+  it("forCard finds the card's request or says null", async () => {
+    const { http } = rig({ items: [req] });
+    expect(await new CloseRequestsResource(http).forCard("card_1")).toEqual(req);
+    const { http: other } = rig({ items: [req] });
+    expect(await new CloseRequestsResource(other).forCard("card_2")).toBeNull();
+  });
+
+  it("get GETs /me/close-requests/{id}", async () => {
+    const { captured, http } = rig(req);
+    expect(await new CloseRequestsResource(http).get("req 1")).toEqual(req);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/close-requests/req%201");
+  });
+
+  it("submitPayoutDetails POSTs the details as given", async () => {
+    const shown = {
+      ...req,
+      status: "identity_check",
+      payout_details: { kind: "card", masked: "•••• 4242", given_at: "2026-10-22T00:00:00Z" },
+    } satisfies CloseRequest;
+    const { captured, http } = rig(shown);
+    const details = {
+      kind: "card" as const,
+      holder_name: "Ivan Petrov",
+      card_number: "4242 4242 4242 4242",
+    };
+    expect(await new CloseRequestsResource(http).submitPayoutDetails("req_1", details)).toEqual(
+      shown,
+    );
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/close-requests/req_1/payout-details");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual(details);
   });
 });
 

@@ -52,6 +52,11 @@
       "import": "./dist/resources/debt.js",
       "require": "./dist/resources/debt.cjs"
     },
+    "./close-requests": {
+      "types": "./dist/resources/close-requests.d.ts",
+      "import": "./dist/resources/close-requests.js",
+      "require": "./dist/resources/close-requests.cjs"
+    },
     "./codes": {
       "types": "./dist/resources/codes.d.ts",
       "import": "./dist/resources/codes.js",

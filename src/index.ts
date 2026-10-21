@@ -18,6 +18,7 @@ import { CardsResource } from "./resources/cards.js";
 import { BalanceResource } from "./resources/balance.js";
 import { BonusResource } from "./resources/bonus.js";
 import { DebtResource } from "./resources/debt.js";
+import { CloseRequestsResource } from "./resources/close-requests.js";
 import { CodesResource } from "./resources/codes.js";
 import { ReferralResource } from "./resources/referral.js";
 import { SubscriptionResource } from "./resources/subscription.js";
@@ -119,6 +120,15 @@ export type {
   CardTariff,
 } from "./resources/cards.js";
 export type { Debt, DebtAmount, DebtLine, CardFeeKind } from "./resources/debt.js";
+export type {
+  CloseAmount,
+  CloseRefund,
+  CloseRequest,
+  CloseRequestError,
+  CloseRequestStatus,
+  PayoutDetailsInput,
+  PayoutDetailsShown,
+} from "./resources/close-requests.js";
 export type { Balance } from "./resources/balance.js";
 export type {
   BonusLot,
@@ -323,6 +333,8 @@ export interface CusfrontClient {
   readonly bonus: BonusResource;
   /** Card fees the user's cards could not cover: paid first from the next top-up. */
   readonly debt: DebtResource;
+  /** Close a card that still holds money: the rest goes back the way it was paid. */
+  readonly closeRequests: CloseRequestsResource;
   /** Promo and referral codes: check what a code would do before using it. */
   readonly codes: CodesResource;
   /** For referrers: the referral code, the link to share, invited friends and rewards. */
@@ -409,6 +421,7 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     balance: new BalanceResource(http),
     bonus: new BonusResource(http),
     debt: new DebtResource(http),
+    closeRequests: new CloseRequestsResource(http),
     codes: new CodesResource(http),
     referral: new ReferralResource(http),
     subscription: new SubscriptionResource(http),

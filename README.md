@@ -666,6 +666,52 @@ A deposit carries `debt_quoted` (what it will withhold at most) and, once
 paid, `debt_withheld`. The user is notified when a debt arises and when it is
 paid; a payment against the debt shows in the history as `debt_payment`.
 
+## Closing a card with money on it
+
+`cards.terminate()` refuses a card that still holds money (409
+`move_balance_first` or `contact_support_to_close`). Offer a close with a
+refund instead: the card is closed at its issuer right away, and once the
+issuer returns what was left on it, the money goes back to the payments the
+card was topped up with, in the currency they were paid in, newest payment
+first. Unspent bonuses are not refunded, and a debt the user was told about
+is withheld first.
+
+```ts
+const req = await client.closeRequests.request(cardId); // asking again returns the same request
+// req.status: "accepted" → "awaiting_issuer" → "refunding" → "refunded"
+// req.balance { amount, currency }: what the card held
+// req.bonus_excluded, req.debt_withheld: kept back, in the card's currency
+// req.refund_total { amount, currency }: what goes back in all, once known
+// req.refunded, req.on_the_way, req.refunds[]: what went back so far
+// req.deadline_at: when the refund is due by
+
+const mine = await client.closeRequests.list();       // newest first
+const one = await client.closeRequests.forCard(cardId); // or null
+```
+
+Show amounts only; the API never gives the exchange rate, and the UI should
+not work one out either.
+
+When the money can't go back the way it came, the request turns
+`payout_details_required` and the user is notified. Ask for a bank account
+or a card in their own name:
+
+```ts
+await client.closeRequests.submitPayoutDetails(req.id, {
+  kind: "account",
+  holder_name: "Ivan Petrov",
+  account_number: "40817810099910004312",
+  bank_code: "044525225",
+});
+// or { kind: "card", holder_name, card_number }
+// → "identity_check" (details can still be corrected) → "manual_payout" → "refunded"
+```
+
+Only the last four digits come back (`payout_details.masked`). 409 codes of
+`request()`: `card_locked`, `first_purchase_required`, `card_not_closable`,
+`topup_in_progress`, `card_closing`, `no_balance` (the card holds nothing:
+`cards.terminate()` it), `provider_refused`.
+
 ## Promo and referral codes
 
 A code goes with the operation it is for. At sign-up an unknown or expired
@@ -1241,6 +1287,7 @@ Available now:
 - `@takeal/cusfront-sdk/cards` — `CardsResource` (cards backed by the wallet balance).
 - `@takeal/cusfront-sdk/balance` — `BalanceResource` (per-currency wallet balance).
 - `@takeal/cusfront-sdk/bonus` — `BonusResource` (bonuses and a price preview; see [Bonuses](#bonuses)).
+- `@takeal/cusfront-sdk/close-requests` — `CloseRequestsResource` (close a card with money on it; see [Closing a card with money on it](#closing-a-card-with-money-on-it)).
 - `@takeal/cusfront-sdk/documents` — `DocumentsResource` (blog posts, the knowledge base, legal pages; see [Documents](#documents)).
 - `@takeal/cusfront-sdk/blog` — `BlogResource` (deprecated: the blog is a category of Documents now).
 - `@takeal/cusfront-sdk/subscriptions` — `SubscriptionsResource` (announcement channels; deprecated, see [Preferences](#preferences)).

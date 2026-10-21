@@ -908,7 +908,10 @@ export class CardsResource {
   /**
    * Terminate the caller's own card. **One-way** — a terminated card cannot be
    * reactivated. The optional `reason` is audited. Idempotent on an
-   * already-terminated card.
+   * already-terminated card. A card that still holds money is refused (409
+   * `move_balance_first` or `contact_support_to_close`): close it with
+   * `client.closeRequests.request(id)` instead, and the money goes back the
+   * way it was paid.
    */
   async terminate(id: string, reason?: string): Promise<Card> {
     return this.http.post<Card>(`/me/cards/${encodeURIComponent(id)}/terminate`, {
