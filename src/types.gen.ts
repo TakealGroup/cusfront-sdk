@@ -1729,8 +1729,16 @@ export type paths = {
          *     of what was credited comes off the wallet at the original rate, the
          *     source amount goes back out. The connector may settle at once
          *     (`succeeded`), later (`pending`, finished by its event) or refuse
-         *     (`failed`). A top-up that went onto a card can't be refunded here. The
-         *     `Idempotency-Key` header is required.
+         *     (`failed`). The `Idempotency-Key` header is required.
+         *
+         *     A top-up paid straight to a card goes back only while the card never got
+         *     it (`card_refund` on the deposit is set), and only as a whole: leave
+         *     `amount` out. Everything the payer paid goes back, the commission and
+         *     the exchange fee included, except the price of a card the payment issued
+         *     that works and stays. A card it issued that never worked is closed and
+         *     the bonuses held for its price go back; bonuses credited for the top-up
+         *     are taken back. The money waits on the card's transit account until the
+         *     connector confirms; if it refuses, the load is `stalled` again.
          */
         post: operations["refund_deposit"];
         delete?: never;
@@ -1777,8 +1785,9 @@ export type paths = {
          * Return a waiting card load to the wallet
          * @description The issuer has had the load for too long and the operator gives up
          *     waiting: the money goes from the card's transit account to the holder's
-         *     wallet, and the holder is told. On a deployment without a wallet the
-         *     holder cannot see that balance; prefer writing the load off or waiting.
+         *     wallet, and the holder is told. Refused (`no_wallet`) where the holder
+         *     has no wallet, that is when no active funding connector tops one up:
+         *     send the payment back instead.
          */
         post: operations["return_card_load"];
         delete?: never;
@@ -3805,12 +3814,17 @@ export type paths = {
         get?: never;
         /**
          * Change how a program issues
-         * @description The issuance cascade priority, the program status, and the country and
-         *     state a made-up cardholder is placed in. These decide which program
+         * @description The issuance cascade priority, the program status, the country and
+         *     state a made-up cardholder is placed in, and whether the program sends
+         *     the holder's real details to the issuer. These decide which program
          *     mints a card and what the provider is told about its holder, so they
          *     need the connector permission rather than the storefront one, and they
          *     never move a tile on the storefront. The cardholder policy itself comes
          *     from the provider and cannot be changed here.
+         *
+         *     With `holder_data_required` on, a card on the program is issued only to
+         *     a holder who consented to their details going to the issuer; every
+         *     issuance without that consent is refused, the operator's included.
          */
         put: operations["put_issuance"];
         post?: never;
@@ -3931,6 +3945,27 @@ export type paths = {
         get: operations["get_user"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reactivate a user
+         * @description Switches a deactivated account back on, so the user can sign in again.
+         *     An account whose data was erased stays closed. Audited.
+         */
+        post: operations["activate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4087,6 +4122,27 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/users/{id}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deactivate a user
+         * @description Switches the account off: the user can't sign in, and their open sessions
+         *     end. Nothing is deleted, and the account can be switched back on. Audited.
+         */
+        post: operations["deactivate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/users/{id}/devices": {
         parameters: {
             query?: never;
@@ -4123,6 +4179,61 @@ export type paths = {
          *     computer. Needs the `users.write` permission. Audited.
          */
         patch: operations["admin_patch_device"];
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/erase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Erase a user's data
+         * @description Answers a user's request to delete their data. What the platform is not
+         *     obliged to keep is deleted now: where they came from, mailings, the
+         *     inbox, notification settings and devices, sessions, one-time codes, the
+         *     second factor, the Telegram link, the phone and other profile details.
+         *     Every consent still standing is withdrawn. Money records, the signature
+         *     and consent journals and the security log stay, blocked until their terms
+         *     end; the response says what stays and until when. The account is closed
+         *     for good: it can't be switched back on, and its address is free for a new
+         *     account. Cards must be closed, the wallet empty and no payment still
+         *     going through. There is no undo. Audited.
+         */
+        post: operations["erase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export a user's data
+         * @description Everything the platform holds about the user, as one JSON file: profile,
+         *     consents, sign-ins and the signature journal, sessions, the security log,
+         *     wallet, deposits, cards without their numbers, card top-ups, transfers
+         *     and operations, receipts, codes, notifications, where they came from and
+         *     the mailings they got. Use it to answer a user's request for their data.
+         *     Each list holds at most 50,000 rows; a list that was cut short is named
+         *     in `truncated`. Audited.
+         */
+        get: operations["export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/admin/users/{id}/notification-preferences": {
@@ -4262,7 +4373,7 @@ export type paths = {
          *     first, each with the offer version in force at that moment. `format=csv`
          *     gives a file for a dispute.
          */
-        get: operations["export"];
+        get: operations["admin_export"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5622,10 +5733,20 @@ export type paths = {
         put?: never;
         /**
          * Give or withdraw a consent
-         * @description Only the optional consents change here: `marketing` and
-         *     `cookies_analytics`. Withdrawing `marketing` turns advertising off in
-         *     every channel at once; giving it turns on advertising by e-mail. A
-         *     request that changes nothing records nothing.
+         * @description Only the optional consents change here: `marketing`,
+         *     `cookies_analytics`, `holder_data_transfer` and
+         *     `dispute_documents_transfer`. Withdrawing `marketing` turns advertising
+         *     off in every channel at once; giving it turns on advertising by e-mail.
+         *
+         *     `holder_data_transfer` lets your real personal details go to the card
+         *     issuer: a card whose product has `holder_data_required` is issued only
+         *     while it stands. It can also be sent with the card order itself.
+         *     Withdrawing it leaves the cards you have alone and stops new ones of
+         *     that kind. `dispute_documents_transfer` lets your documents go to the
+         *     card issuer when a payment is disputed; nothing is sent without it.
+         *
+         *     A request that changes nothing records nothing, except a consent given
+         *     for a card (`card_id`), which is recorded every time.
          */
         post: operations["change_consent"];
         delete?: never;
@@ -6784,6 +6905,22 @@ export type components = {
              */
             user_id?: string | null;
         };
+        ActiveResult: {
+            /** @description False when the account already was in that state and nothing changed. */
+            changed: boolean;
+            /** @description The account's state after the call. */
+            is_active: boolean;
+            /**
+             * Format: int64
+             * @description Sessions ended by a deactivation.
+             */
+            sessions_ended: number;
+            /**
+             * Format: uuid
+             * @description User UUID.
+             */
+            user_id: string;
+        };
         /**
          * @description Postal address. ISO 3166 codes are recommended for `state` and `country`
          *     but not enforced.
@@ -7244,6 +7381,21 @@ export type components = {
         } | {
             /** @enum {string} */
             type: "divider";
+        };
+        /** @description One kind of data kept after an erasure. */
+        BlockedData: {
+            /** @description `financial`, `signature_journal`, `consents` or `security_log`. */
+            category: string;
+            /**
+             * Format: int64
+             * @description Rows kept when the data was erased.
+             */
+            rows: number;
+            /**
+             * Format: date-time
+             * @description Until when it is kept. Null when the deployment keeps it for good.
+             */
+            until?: string | null;
         };
         /**
          * @example {
@@ -7769,7 +7921,7 @@ export type components = {
         CardOrderBody: {
             /** @description Where the consents were given: `site`, `cabinet`, `miniapp` or `bot`. Read from the client header when omitted. */
             consent_channel?: string | null;
-            /** @description Consents given with the order (`terms`, `personal_data`, `marketing`). With `POST /auth/register` and `POST /auth/email-code/verify` the consents of the request itself are used and these are ignored. */
+            /** @description Consents given with the order (`terms`, `personal_data`, `marketing`, `holder_data_transfer`). A product with `holder_data_required` is ordered only with `holder_data_transfer` here or given before; otherwise 409 `holder_data_consent_required`. With `POST /auth/register` and `POST /auth/email-code/verify` the consents of the request itself are used and these are ignored. */
             consents?: string[];
             /** @description ISO 4217 code of the payment. Defaults to the currency the method is priced in, or the card's currency when it has none. */
             currency?: string | null;
@@ -8130,16 +8282,22 @@ export type components = {
         };
         /**
          * @example {
-         *       "given": false,
-         *       "kind": "marketing"
+         *       "card_id": "0b7a4f9e-58c1-4a43-9d0e-6d1f2f3a4b5c",
+         *       "given": true,
+         *       "kind": "dispute_documents_transfer"
          *     }
          */
         ChangeConsent: {
+            /**
+             * Format: uuid
+             * @description One of your cards, for `holder_data_transfer` and `dispute_documents_transfer` only: the card the consent is given for, such as the card a dispute is about. Kept with the consent.
+             */
+            card_id?: string | null;
             /** @description Where: `site`, `cabinet`, `miniapp` or `bot`. Read from the client header when omitted. */
             channel?: string | null;
             /** @description `true` gives the consent, `false` withdraws it. */
             given: boolean;
-            /** @description `marketing` or `cookies_analytics`. */
+            /** @description `marketing`, `cookies_analytics`, `holder_data_transfer` or `dispute_documents_transfer`. */
             kind: string;
         };
         ChangePasswordBody: {
@@ -8557,11 +8715,11 @@ export type components = {
             /** Format: int64 */
             id: number;
             ip?: string | null;
-            /** @description `terms`, `personal_data`, `marketing`, `cookies_analytics`. */
+            /** @description `terms`, `personal_data`, `marketing`, `cookies_analytics`, `holder_data_transfer` or `dispute_documents_transfer`. */
             kind: string;
             /**
              * Format: uuid
-             * @description The card or deposit a consent given with an order belongs to.
+             * @description The card or deposit a consent given with an order belongs to, or the card a consent given in settings names.
              */
             ref_id?: string | null;
             user_agent?: string | null;
@@ -8616,7 +8774,7 @@ export type components = {
             bonus_amount?: string | null;
             /** @description Where the consents were given: `site`, `cabinet`, `miniapp` or `bot`. Read from the client header when omitted. */
             consent_channel?: string | null;
-            /** @description Consents given with the order (`terms`, `personal_data`, `marketing`), recorded with the version of their documents in force now and with this card or deposit. */
+            /** @description Consents given with the order (`terms`, `personal_data`, `marketing`, `holder_data_transfer`), recorded with the version of their documents in force now and with this card or deposit. A product with `holder_data_required` is issued only with `holder_data_transfer` here or already given; otherwise 409 `holder_data_consent_required`. */
             consents?: string[];
             /** @description ISO 4217 code the card is held in. Optional with `product_id`; the product names the currency, and a different code here returns 400 `product_mismatch`. May differ from the wallet currency, in which case the price is converted at issuance. */
             currency?: string | null;
@@ -8833,7 +8991,7 @@ export type components = {
             code?: string | null;
             /** @description Where the consents were given: `site`, `cabinet`, `miniapp` or `bot`. Read from the client header when omitted. */
             consent_channel?: string | null;
-            /** @description Consents given with the sign-up: `terms` (the offer, the tariffs and the privacy policy), `personal_data`, `marketing`. Each is recorded with the version of its documents in force at that moment; `marketing` also turns on advertising by e-mail. A deployment can require `terms` and `personal_data` (400 `consents_required` without them). Ignored for an account that already exists. */
+            /** @description Consents given with the sign-up: `terms` (the offer, the tariffs and the privacy policy), `personal_data`, `marketing`, and `holder_data_transfer` when the card in `card_order` sends the holder's real details to the issuer (`holder_data_required` in the catalog). Each is recorded with the version of its documents in force at that moment; `marketing` also turns on advertising by e-mail. A deployment can require `terms` and `personal_data` (400 `consents_required` without them). Ignored for an account that already exists. */
             consents?: string[];
             /** @description Account email address. */
             email: string;
@@ -9641,6 +9799,37 @@ export type components = {
             endpoint: components["schemas"]["WebhookEndpoint"];
             /** @description Plaintext secret used to sign deliveries. Shown only once, at creation or rotation. */
             signing_secret: string;
+        };
+        EraseBody: {
+            /**
+             * @description The user's address, typed by the operator as a confirmation. Must
+             *     match the account's address, ignoring case.
+             */
+            confirm_email: string;
+            /**
+             * @description How the request came in (date, channel, reference). Kept with the
+             *     erasure record.
+             */
+            note?: string | null;
+        };
+        /** @description What an erasure did and what it left. */
+        Erasure: {
+            /**
+             * @description What is kept and until when. Nothing in it may be used except to
+             *     answer a legal claim or an authority.
+             */
+            blocked: components["schemas"]["BlockedData"][];
+            /**
+             * Format: date-time
+             * @description When the data was erased.
+             */
+            erased_at: string;
+            /** @description The operator who erased it, by their address at that moment. */
+            erased_by: string;
+            /** @description How the request came in, as the operator wrote it. */
+            note?: string | null;
+            /** @description Rows deleted, by kind. */
+            removed: Record<string, never>;
         };
         /** @description An announcement of a document that didn't go out. */
         FailedAnnouncement: {
@@ -10846,6 +11035,8 @@ export type components = {
             bonus_value?: string | null;
             /** @description Whether an operator may retry the card load now. */
             can_retry: boolean;
+            /** @description Whether the money of a waiting load may go to the holder's wallet. False where the holder has no wallet: no active funding connector tops one up. */
+            can_return_to_wallet: boolean;
             /** @description Whether the load waits for the issuer's answer: an operator may check again, return the money or write it off. */
             can_settle: boolean;
             /** @description What went towards the card, in its currency, bonuses included. */
@@ -10865,7 +11056,7 @@ export type components = {
             card_load_attempts: number;
             /** @description What the card provider answered when the load failed. */
             card_load_error?: string | null;
-            /** @description `pending`, `waiting` (the issuer accepted the load and has not done it), `stalled` (the issuer has had it too long; an operator decides), `succeeded` or `failed`; null for wallet top-ups. */
+            /** @description `pending`, `waiting` (the issuer accepted the load and has not done it), `stalled` (the issuer has had it too long; an operator decides), `succeeded`, `failed`, `refunding` (the payment is on its way back to the payer) or `refunded` (it went back); null for wallet top-ups. */
             card_load_status?: string | null;
             /**
              * Format: date-time
@@ -10874,6 +11065,14 @@ export type components = {
             card_load_written_off_at?: string | null;
             /** Format: date-time */
             card_loaded_at?: string | null;
+            /** @description How the payment of a top-up the card never got can go back to the payer: `whole`, `top_up` (all but the price of the card it issued, which works and stays) or `choose` (the card it issued is active but its details never showed: the operator says whether it works). Null when it can't be sent back. */
+            card_refund?: string | null;
+            /** @description What goes back when the card's price stays, in the deposit's currency. */
+            card_refund_top_up?: string | null;
+            /** @description What goes back with the whole payment, in the deposit's currency. */
+            card_refund_whole?: string | null;
+            /** @description The card's status, for a top-up onto a card. */
+            card_status?: string | null;
             confirmed_amount?: string | null;
             /** Format: date-time */
             confirmed_at?: string | null;
@@ -10952,6 +11151,8 @@ export type components = {
         OperatorRefundBody: {
             /** @description Amount to return, decimal string in the deposit's currency. Leave it out to return the whole confirmed amount. */
             amount?: string | null;
+            /** @description A top-up onto a card whose `card_refund` is `choose` only: `true` when the card it issued never worked (it is closed and its price goes back too), `false` or left out when it works (it stays, and so does its price). Ignored otherwise. */
+            close_card?: boolean | null;
             /** @description Provider-specific extras passed through to the funding connector. On test deployments with the mock funder, `mock_scenario` picks the outcome (`happy`, `pending`, `fail`). */
             metadata?: {
                 [key: string]: string;
@@ -12312,7 +12513,7 @@ export type components = {
             referee_user_id?: string | null;
             /** Format: uuid */
             referrer_user_id: string;
-            /** @description `pending` until the bonuses are on the account, then `credited`. */
+            /** @description `pending` until the bonuses are on the account, then `credited`; `revoked` when the invited person's top-up was sent back and the reward with it. */
             status: string;
             /** @description Bonuses, decimal string. */
             units: string;
@@ -12824,7 +13025,7 @@ export type components = {
             code?: string | null;
             /** @description Where the consents were given: `site`, `cabinet`, `miniapp` or `bot`. Read from the client header when omitted. */
             consent_channel?: string | null;
-            /** @description Consents given with the sign-up: `terms` (the offer, the tariffs and the privacy policy), `personal_data`, `marketing`. Each is recorded with the version of its documents in force at that moment; `marketing` also turns on advertising by e-mail. A deployment can require `terms` and `personal_data` (400 `consents_required` without them). Ignored for an account that already exists. */
+            /** @description Consents given with the sign-up: `terms` (the offer, the tariffs and the privacy policy), `personal_data`, `marketing`, `holder_data_transfer` (the holder's real details may go to the card issuer). Each is recorded with the version of its documents in force at that moment; `marketing` also turns on advertising by e-mail. A deployment can require `terms` and `personal_data` (400 `consents_required` without them). Ignored for an account that already exists. */
             consents?: string[];
             /** @description Raw `window.Telegram.WebApp.initData` string as handed to the Mini App by the Telegram client; verified server-side against the bot token. */
             init_data: string;
@@ -13397,6 +13598,7 @@ export type components = {
             email: string;
             /** @description True while the account still holds the placeholder address it was created with from Telegram, before the user added a real email. */
             email_pending: boolean;
+            erasure?: null | components["schemas"]["Erasure"];
             /** @description True when the user can log in with a password. */
             has_password: boolean;
             /**
@@ -13441,6 +13643,12 @@ export type components = {
             email: string;
             /** @description True while the account still holds the placeholder address it was created with from Telegram. */
             email_pending: boolean;
+            /**
+             * Format: date-time
+             * @description When the user's data was erased on their request; null otherwise. Such
+             *     an account is closed for good and its records are blocked.
+             */
+            erased_at?: string | null;
             /** @description True when the user can log in with a password. */
             has_password: boolean;
             /**
@@ -13573,7 +13781,7 @@ export type components = {
             code: string;
             /** @description Where the consents were given: `site`, `cabinet`, `miniapp` or `bot`. Read from the client header when omitted. */
             consent_channel?: string | null;
-            /** @description Consents given on the form: `terms`, `personal_data`, `marketing`. A new account records them with its sign-up, and the card order with itself. A deployment can require `terms` and `personal_data` for a new account (400 `consents_required`; the code still works, send it again with them). */
+            /** @description Consents given on the form: `terms`, `personal_data`, `marketing`, and `holder_data_transfer` when the card in `card_order` has `holder_data_required`. A new account records them with its sign-up, and the card order with itself. A deployment can require `terms` and `personal_data` for a new account (400 `consents_required`; the code still works, send it again with them). */
             consents?: string[];
             /** @description A promo or referral code for a new account, as `code` in `POST /auth/register`; one that covers cards also lowers the price of the card ordered here. For an account that already exists it isn't applied (`code_result.reason: already_registered`). */
             promo_code?: string | null;
@@ -15239,6 +15447,13 @@ export interface operations {
             };
             /** @description Missing the cards.lifecycle permission */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `holder_data_consent_required`: the program sends the holder's real details to the issuer and the user hasn't consented to that */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -17492,7 +17707,7 @@ export interface operations {
                 status?: string | null;
                 /** @description Where the money goes: `wallet` or `card`. */
                 target?: string | null;
-                /** @description Top-ups onto a card only: `pending`, `succeeded` or `failed`. */
+                /** @description Top-ups onto a card only: `pending`, `waiting`, `stalled`, `succeeded`, `failed`, `refunding` or `refunded`. */
                 card_load_status?: string | null;
                 user_id?: string | null;
                 /** @description Top-ups onto this card. */
@@ -17667,7 +17882,7 @@ export interface operations {
                     "application/json": components["schemas"]["Refund"];
                 };
             };
-            /** @description No reason, no Idempotency-Key, the deposit is not confirmed or went to a card, or the amount is above what was confirmed */
+            /** @description No reason, no Idempotency-Key, the deposit is not confirmed, the amount is above what was confirmed, or a top-up onto a card that the card already got or that is sent back in part */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -17780,7 +17995,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description `not_settleable`: no card load waits for the issuer */
+            /** @description `not_settleable`: no card load waits for the issuer; `no_wallet`: the holder has no wallet to return it to */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -22300,7 +22515,7 @@ export interface operations {
     admin_list_users: {
         parameters: {
             query?: {
-                /** @description Case-insensitive substring to match against the email. Omit for no filter. */
+                /** @description Case-insensitive substring to match against the email. An erased account is also found by the address it had. Omit for no filter. */
                 q?: string | null;
                 /** @description Maximum number of rows to return. Default 100, max 500. */
                 limit?: number | null;
@@ -22360,6 +22575,49 @@ export interface operations {
             };
             /** @description No such user */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    activate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveResult"];
+                };
+            };
+            /** @description Missing the users.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The account was erased (`user_erased`) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -22638,6 +22896,49 @@ export interface operations {
             };
         };
     };
+    deactivate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveResult"];
+                };
+            };
+            /** @description Missing the users.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Your own account (`own_account`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     admin_list_devices: {
         parameters: {
             query?: never;
@@ -22714,6 +23015,97 @@ export interface operations {
                 content?: never;
             };
             /** @description No such device */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    erase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EraseBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erasure"];
+                };
+            };
+            /** @description The confirmation address doesn't match (`confirm_mismatch`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the users.erase permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already erased (`already_erased`), or something must be settled first (`erase_blocked`, the message says what) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    export: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file, as an attachment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing the users.export permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -22904,6 +23296,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The user's data was erased (`user_erased`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     admin_terminate_sessions: {
@@ -22934,7 +23333,7 @@ export interface operations {
             };
         };
     };
-    export: {
+    admin_export: {
         parameters: {
             query?: {
                 /** @description `csv` for a file; JSON otherwise. */
@@ -24532,6 +24931,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description `holder_data_consent_required`: the product sends the holder's real details to the card issuer and the `holder_data_transfer` consent was neither sent nor given before */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description No funding connector or no exchange rate available */
             503: {
                 headers: {
@@ -24663,7 +25069,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Idempotency-Key reused with a different body, or `cardholder_verification_required`: the product only issues to a verified person and no verified details were given */
+            /** @description Idempotency-Key reused with a different body; `cardholder_verification_required`: the product only issues to a verified person and no verified details were given; `holder_data_consent_required`: the product sends the holder's real details to the issuer and the `holder_data_transfer` consent was neither sent nor given before */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -25325,8 +25731,15 @@ export interface operations {
                     "application/json": components["schemas"]["MyConsents"];
                 };
             };
-            /** @description `unknown_consent`, or `consent_required`: a required consent can't be withdrawn here */
+            /** @description `unknown_consent`; `consent_required`: a required consent can't be withdrawn here; `card_not_allowed`: `card_id` sent with a consent that doesn't take one */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `card_id` is not one of your cards */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -26880,6 +27293,13 @@ export interface operations {
             };
             /** @description Prepay balance is insufficient */
             402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `holder_data_consent_required`: the card goes out with the holder's real details and the holder hasn't consented to that in their account */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
