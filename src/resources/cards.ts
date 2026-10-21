@@ -202,6 +202,19 @@ export interface Card {
    * support to settle it; say so instead of offering a retry.
    */
   topups_held: string | null;
+  /**
+   * The card this one replaced: support reissued it for free because that
+   * card stopped working before its term. `null` otherwise.
+   */
+  reissued_from_card_id?: string | null;
+  /** The card support issued to replace this one, or `null`. */
+  reissued_to_card_id?: string | null;
+  /**
+   * What was left on the card this one replaced, on its way here. Show it as
+   * money in transit next to the balance, not as part of it. `null` when
+   * nothing is on its way.
+   */
+  in_transit?: CardInTransit | null;
   /** The name the user gave the card, or `null`. */
   name: string | null;
   /** The artwork the card is shown with. Always present. */
@@ -212,6 +225,22 @@ export interface Card {
   updated_at: string;
   /** Only on the result of `create`, when bonuses paid part of the price. */
   bonus?: IssuanceBonus;
+}
+
+/**
+ * The balance of a closed card on its way to the card that replaced it. It
+ * waits for the old card's issuer to return the money (`stage: "issuer"`),
+ * then it is loaded onto this card (`stage: "loading"`); once it is there,
+ * `in_transit` is `null` and the card's balance has it. The move is in the
+ * history as a `closed_card_balance` entry.
+ */
+export interface CardInTransit {
+  /** Decimal string in `currency`. What the issuer returned once it did; before that, what the old card held. */
+  amount: string;
+  currency: string;
+  /** The closed card the money comes from. */
+  from_card_id: string;
+  stage: "issuer" | "loading" | (string & {});
 }
 
 /** How bonuses changed a new card's price ("was / now"). Decimal strings in `currency`. */

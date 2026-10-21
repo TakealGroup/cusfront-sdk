@@ -523,6 +523,34 @@ describe("CardsResource", () => {
     expect(canUnfreeze({ ...frozen, status_source: "holder" })).toBe(true);
   });
 
+  it("reads a reissued card with the old card's balance on its way", async () => {
+    const old: Card = {
+      ...CARD,
+      status: "terminating",
+      status_source: "operator",
+      reissued_to_card_id: "card_2",
+    };
+    const fresh: Card = {
+      ...CARD,
+      id: "card_2",
+      last4: "1001",
+      reissued_from_card_id: "card_1",
+      in_transit: { amount: "40", currency: "USD", from_card_id: "card_1", stage: "issuer" },
+    };
+    const { http } = rig([old, fresh]);
+    const cards = await new CardsResource(http).list();
+    expect(cards[0]!.reissued_to_card_id).toBe("card_2");
+    expect(cards[1]!.reissued_from_card_id).toBe("card_1");
+    expect(cards[1]!.in_transit).toEqual({
+      amount: "40",
+      currency: "USD",
+      from_card_id: "card_1",
+      stage: "issuer",
+    });
+    // Cards from before the reissue carry none of it.
+    expect(CARD.in_transit ?? null).toBeNull();
+  });
+
   it("topUp returns a pending top-up when the issuer has not loaded the card yet", async () => {
     const result = {
       topup: {

@@ -111,6 +111,7 @@ export type {
   CardTransfer,
   TransferResult,
   IssuanceBonus,
+  CardInTransit,
   CardOrderInput,
   CardOrder,
   CardOrderError,

@@ -148,7 +148,8 @@ switch (card.status) {
     }
     break;
   case "terminating":
-    // Closing. The balance comes back to the wallet when the issuer is done.
+    // Closing. The balance comes back when the issuer is done: to the wallet,
+    // or to the new card when the card was reissued (`reissued_to_card_id`).
     break;
 }
 
@@ -166,7 +167,26 @@ if (card.topups_held) {
 if (card.card_form === "physical") {
   // Plastic: the numbers are on the card, and it takes a PIN (see below).
 }
+if (card.in_transit) {
+  // A reissued card: what was left on the old one is on its way here.
+  // stage "issuer": the old card's issuer hasn't returned it yet;
+  // stage "loading": it has, and the money is being put on this card.
+  // Show it next to the balance, not in it.
+}
+if (card.reissued_to_card_id) {
+  // This card was replaced; link to the new one.
+}
 ```
+
+A card that stopped working before its term (the issuer closed its BIN, froze
+or closed the card, the card broke) is reissued for free by support. The user
+gets a new card on the same product with `reissued_from_card_id` pointing at the
+old one, and the old card gets `reissued_to_card_id`. The old card's balance
+follows once its issuer returns it: until then the new card carries it in
+`in_transit`, and the history has a `closed_card_balance` entry, `pending` until
+the money is on the new card. The user is told at each step (`card_reissued`,
+`card_reissue_delivered`; `card_reissue_on_wallet` when the new card could not
+take the money and it went to the wallet instead).
 
 `status_source` is `holder`, `operator` or `provider`, or `null` for a card
 whose status never changed. Trying to unfreeze a card the issuer froze answers
