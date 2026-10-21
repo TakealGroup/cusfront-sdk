@@ -4,6 +4,39 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.5] — 2026-10-21
+
+Needs platform (TKL) 0.6.11 or newer: `SUPPORTED_MEISTER` is `>=0.6.11, <0.7.0`.
+
+### Added
+
+- `closeRequests`: close a card that still has money on it
+  (`request(cardId)`), follow the refund (`list()`, `get(id)`, `forCard(cardId)`)
+  through its statuses, and give an account or a card in the holder's own name
+  when the money can't go back the way it was paid (`submitPayoutDetails`).
+- `debt.get()` and `debt.owedIn(currency)`: what the person owes for card fees. Quotes, card orders and the card
+  top-up terms show the part of a payment that goes to the debt
+  (`debt_withheld`, `debt`).
+- The card catalogue carries each product's `tariff` (fees per payment, per
+  declined payment and per cash withdrawal) and `holder_data_required`.
+- `consents.allowHolderData()`, `consents.allowDisputeDocuments({ cardId })`
+  and `consents.stands(kind)`, with the `HOLDER_DATA_CONSENT` and
+  `DISPUTE_DOCUMENTS_CONSENT` constants. A product with
+  `holder_data_required` issues a card only with that consent; send it with
+  the order (`consents: ["holder_data_transfer"]`) or give it beforehand.
+- Cards show `in_transit` (a closed card's balance on its way to the card that
+  replaced it), `reissued_from_card_id` and `reissued_to_card_id`.
+- History kinds `closed_card_balance`, `card_fee` and `debt_payment`.
+
+### Changed
+
+- `CardLoadStatus` has every status the platform sends: `waiting`, `stalled`,
+  `refunding` and `refunded` besides `pending`, `succeeded` and `failed`. A
+  top-up the card never got goes back to where it was paid from.
+- `consents.set()` takes `{ channel, cardId }` as its third argument; a bare
+  channel string still works.
+- `types.gen.ts` is regenerated from the platform's spec.
+
 ## [0.6.4] — 2026-10-20
 
 Needs platform (TKL) 0.6.9 or newer: `SUPPORTED_MEISTER` is `>=0.6.9, <0.7.0`.

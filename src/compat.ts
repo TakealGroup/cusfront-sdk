@@ -5,7 +5,7 @@ import type { HttpClient } from "./http.js";
  * Which platform versions this SDK works with, as a semver range:
  * comparators separated by ", ". Keep this the only definition.
  */
-export const SUPPORTED_MEISTER = ">=0.6.9, <0.7.0";
+export const SUPPORTED_MEISTER = ">=0.6.11, <0.7.0";
 
 /** What `client.ready()` returns. */
 export interface ReadyInfo {
