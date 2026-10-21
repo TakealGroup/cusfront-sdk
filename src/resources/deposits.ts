@@ -77,8 +77,20 @@ export interface CreateQuoteInput {
  */
 export type FeeKind = "spread" | "markup" | "commission";
 
-/** How far a top-up meant for a card has got. */
-export type CardLoadStatus = "pending" | "succeeded" | "failed";
+/**
+ * How far a top-up meant for a card has got. `waiting`: the card's provider
+ * took the load and hasn't done it yet. `stalled`: it has taken longer than
+ * the platform waits. `refunding` / `refunded`: the card never got the money,
+ * and the payment is going back, or has gone back, to where it was paid from.
+ */
+export type CardLoadStatus =
+  | "pending"
+  | "waiting"
+  | "stalled"
+  | "succeeded"
+  | "failed"
+  | "refunding"
+  | "refunded";
 
 /**
  * A card to issue with the top-up: the fields of `cards.create` without
@@ -287,6 +299,7 @@ export interface Refund {
   status: string;
   provider_refund_reference?: string;
   failure_reason?: string;
+  /** `user`, `operator`, or `system` when the platform refunded by itself. */
   requestor_type: string;
   requestor_id: string;
   created_at: string;
