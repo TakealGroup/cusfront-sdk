@@ -26,6 +26,10 @@ export type HistoryKind =
   | "fee"
   | "balance_adjustment"
   | "bonus"
+  /** A fee for using the card: a payment, a declined payment, a cash withdrawal. */
+  | "card_fee"
+  /** Money that paid card fees owed. */
+  | "debt_payment"
   // Any kind added later still type-checks.
   | (string & {});
 

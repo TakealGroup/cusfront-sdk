@@ -17,6 +17,7 @@ export default defineConfig({
     "resources/cards": "src/resources/cards.ts",
     "resources/balance": "src/resources/balance.ts",
     "resources/bonus": "src/resources/bonus.ts",
+    "resources/debt": "src/resources/debt.ts",
     "resources/codes": "src/resources/codes.ts",
     "resources/referral": "src/resources/referral.ts",
     "resources/subscription": "src/resources/subscription.ts",

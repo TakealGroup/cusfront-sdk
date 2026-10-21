@@ -47,6 +47,11 @@
       "import": "./dist/resources/bonus.js",
       "require": "./dist/resources/bonus.cjs"
     },
+    "./debt": {
+      "types": "./dist/resources/debt.d.ts",
+      "import": "./dist/resources/debt.js",
+      "require": "./dist/resources/debt.cjs"
+    },
     "./codes": {
       "types": "./dist/resources/codes.d.ts",
       "import": "./dist/resources/codes.js",

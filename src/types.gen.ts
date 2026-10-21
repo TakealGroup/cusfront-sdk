@@ -5034,6 +5034,28 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/debt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your debt
+         * @description What you owe in card fees your card could not cover, per currency, and
+         *     what each amount is for. The next top-up of any of your cards or of your
+         *     account pays it first; the top-up screens show how much before you pay.
+         */
+        get: operations["my_debt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/bonus/preview": {
         parameters: {
             query?: never;
@@ -7393,6 +7415,8 @@ export type components = {
             starting_balance?: null | components["schemas"]["MoneyView"];
             /** @description One line under the name, or null. */
             tagline?: string | null;
+            /** @description What a card on this product costs to use: per payment, per decline that was the holder's doing, per cash withdrawal. A fee the card can't cover is owed and paid from the next top-up. */
+            tariff: components["schemas"]["CardTariffView"];
             /** @description Picture for the product tile, absolute URL, or null: show the design then. */
             tile_image_url?: string | null;
         };
@@ -7542,6 +7566,22 @@ export type components = {
             to_card_id: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        /** @description What a card on a product costs to use, on top of the operations
+         *     themselves. Every line is zero when the product charges nothing for it. */
+        CardTariffView: {
+            /** @description Fee per cash withdrawal as a share of its amount, in percent, decimal string. */
+            cash_withdrawal_percent: string;
+            /** @description Fixed fee per cash withdrawal, decimal string. Charged instead of the payment fee. */
+            cash_withdrawal_fixed: string;
+            /** @description Currency of the fixed amounts: the card's. Null for a product held in several currencies, where they are in the card's own currency. */
+            currency?: string | null;
+            /** @description Fee per payment declined through the holder's own doing (not enough money, wrong card details, a frozen card, a subscription that was not cancelled with the merchant), decimal string. A decline caused by the issuer or by us costs nothing. */
+            decline: string;
+            /** @description Fixed fee per settled card payment, decimal string, e.g. "0.3". */
+            operation_fixed: string;
+            /** @description Fee per settled card payment as a share of its amount, in percent, decimal string, e.g. "1.5". */
+            operation_percent: string;
         };
         CardTxnRow: {
             /**
@@ -9369,7 +9409,7 @@ export type components = {
             fx_rate?: string | null;
             /** @description Stable id of the entry, unique across kinds. */
             id: string;
-            /** @description `card_purchase`, `card_refund`, `card_issued`, `card_topup`, `card_transfer`, `wallet_deposit`, `card_deposit` (a top-up that went straight onto a card; `pending` until the card is loaded), `deposit_refund`, `fee`, `balance_adjustment` or `bonus`. More kinds will be added; show an unknown one with its `title`, `amount` and `status`. */
+            /** @description `card_purchase`, `card_refund`, `card_issued`, `card_topup`, `card_transfer`, `wallet_deposit`, `card_deposit` (a top-up that went straight onto a card; `pending` until the card is loaded), `deposit_refund`, `fee`, `balance_adjustment`, `bonus`, `card_fee` (a fee for using the card: a payment, a declined payment, a cash withdrawal) or `debt_payment` (money that paid card fees owed). More kinds will be added; show an unknown one with its `title`, `amount` and `status`. */
             kind: string;
             merchant?: null | components["schemas"]["Merchant"];
             /** Format: date-time */
@@ -9988,6 +10028,58 @@ export type components = {
             moderation?: null | components["schemas"]["CardModeration"];
         };
         /** @description An amount with its currency, as decimal string and ISO 4217 code. */
+        /** @description An amount with its currency. */
+        DebtAmount: {
+            /** @description Decimal string, e.g. "1.50". */
+            amount: string;
+            /** @description ISO 4217 code. */
+            currency: string;
+        };
+        /** @description One amount owed. */
+        DebtLine: {
+            /** @description The amount owed when it arose, decimal string. */
+            amount: string;
+            /** @description What it is owed for: `card_fee`, a card fee the card could not cover. */
+            basis: string;
+            /**
+             * Format: uuid
+             * @description The card the fee was for.
+             */
+            card_id?: string | null;
+            /** @description Last four digits of that card. */
+            card_last4?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            currency: string;
+            /** @description `operation`, `decline` or `cash_withdrawal`: the fee behind it. */
+            fee_kind?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description The merchant of that operation, as the card network sent it. */
+            merchant_name?: string | null;
+            /** @description The operation's amount, decimal string, never negative. */
+            operation_amount?: string | null;
+            operation_currency?: string | null;
+            /** @description What is still owed of it, decimal string. */
+            outstanding: string;
+            /**
+             * Format: date-time
+             * @description When it was paid in full; null while something is owed.
+             */
+            settled_at?: string | null;
+            /**
+             * Format: uuid
+             * @description The card operation the fee was for.
+             */
+            transaction_id?: string | null;
+        };
+        /** @description What the user owes. */
+        MyDebtView: {
+            /** @description The amounts still owed, newest first. */
+            items: components["schemas"]["DebtLine"][];
+            /** @description What is owed, per currency; empty when nothing is. */
+            total: components["schemas"]["DebtAmount"][];
+        };
         MoneyView: {
             amount: string;
             currency: string;
@@ -11251,6 +11343,11 @@ export type components = {
             /** @description The funding connector and method the quote was priced for, when the request named them. The deposit has to go through the same pair. */
             connector_slug?: string | null;
             /**
+             * @description What the user owes in card fees, in `credited_currency`, that this top-up pays first: it is withheld from `credited_amount` and the rest is credited. Zero when nothing is owed. Show it before the payment.
+             * @example 1.50
+             */
+            debt_withheld: string;
+            /**
              * @description Amount the wallet will be credited, net of spread, at the locked rate.
              * @example 57.97
              */
@@ -12301,6 +12398,7 @@ export type components = {
             available: boolean;
             /** @description Currency top-ups are made in: the card's. */
             currency: string;
+            debt?: null | components["schemas"]["BalanceResponse"];
             max?: null | components["schemas"]["BalanceResponse"];
             min?: null | components["schemas"]["BalanceResponse"];
             /** @description Why not, in plain words, when `available` is false. */
@@ -23283,6 +23381,32 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["BalanceResponse"];
                 };
+            };
+        };
+    };
+    my_debt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyDebtView"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

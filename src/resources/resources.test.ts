@@ -5,6 +5,7 @@ import { DepositsResource, type Deposit, type FundingQuote, type Refund } from "
 import { CardsResource, type Card, type CardBalance, type CardProduct } from "./cards.js";
 import { BalanceResource, type Balance } from "./balance.js";
 import { BonusResource, type BonusPreview, type BonusWallet } from "./bonus.js";
+import { DebtResource, type Debt } from "./debt.js";
 import { BrandingResource, type Branding } from "./branding.js";
 import { BlogResource } from "./blog.js";
 import { DocumentsResource } from "./documents.js";
@@ -192,6 +193,14 @@ const PRODUCT: CardProduct = {
   },
   is_default: true,
   holder_data_required: false,
+  tariff: {
+    currency: "USD",
+    operation_fixed: "0.3",
+    operation_percent: "1",
+    decline: "0.5",
+    cash_withdrawal_fixed: "2",
+    cash_withdrawal_percent: "2",
+  },
 };
 
 describe("CardsResource", () => {
@@ -318,6 +327,7 @@ describe("CardsResource", () => {
       wallet_available: { amount: "91", currency: "USD" },
       min: { amount: "10", currency: "USD" },
       max: null,
+      debt: { amount: "0.8", currency: "USD" },
     };
     const { captured, http } = rig(terms);
     expect(await new CardsResource(http).topUpTerms("card_1")).toEqual(terms);
@@ -549,6 +559,44 @@ describe("CardsResource", () => {
     });
     expect(out.topup.status).toBe("pending");
     expect(out.card.topups_pending).toBe("15.00");
+  });
+});
+
+describe("DebtResource", () => {
+  const debt: Debt = {
+    total: [{ amount: "0.8", currency: "USD" }],
+    items: [
+      {
+        id: "debt_1",
+        basis: "card_fee",
+        fee_kind: "decline",
+        amount: "0.5",
+        outstanding: "0.5",
+        currency: "USD",
+        card_id: "card_1",
+        card_last4: "4242",
+        transaction_id: "txn_1",
+        merchant_name: "Coffee Shop",
+        operation_amount: "25",
+        operation_currency: "USD",
+        created_at: "2026-10-21T00:00:00Z",
+        settled_at: null,
+      },
+    ],
+  };
+
+  it("get GETs /me/debt", async () => {
+    const { captured, http } = rig(debt);
+    expect(await new DebtResource(http).get()).toEqual(debt);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/debt");
+    expect(captured[0]!.init.method).toBe("GET");
+  });
+
+  it("owedIn reads one currency and says 0 for the others", async () => {
+    const { http } = rig(debt);
+    expect(await new DebtResource(http).owedIn("usd")).toBe("0.8");
+    const { http: other } = rig(debt);
+    expect(await new DebtResource(other).owedIn("EUR")).toBe("0");
   });
 });
 
