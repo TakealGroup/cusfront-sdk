@@ -84,13 +84,7 @@ export type FeeKind = "spread" | "markup" | "commission";
  * and the payment is going back, or has gone back, to where it was paid from.
  */
 export type CardLoadStatus =
-  | "pending"
-  | "waiting"
-  | "stalled"
-  | "succeeded"
-  | "failed"
-  | "refunding"
-  | "refunded";
+  "pending" | "waiting" | "stalled" | "succeeded" | "failed" | "refunding" | "refunded";
 
 /**
  * A card to issue with the top-up: the fields of `cards.create` without
