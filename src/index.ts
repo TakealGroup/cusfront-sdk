@@ -227,6 +227,7 @@ export type {
   SupportFile,
   SupportMessage,
   SupportMessageStatus,
+  SupportRatingRequest,
   SupportResource,
 } from "./resources/support.js";
 export { anonymousKey, currentTouch } from "./resources/attribution.js";

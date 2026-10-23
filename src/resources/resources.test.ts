@@ -2436,6 +2436,13 @@ describe("SupportResource", () => {
     });
   });
 
+  it("rates the conversation", async () => {
+    const { captured, http } = rig(undefined, 204);
+    await new SupportResource(http).rate("r1", { rating: 4, comment: "быстро" });
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/support/ratings/r1");
+    expect(JSON.parse(String(captured[0]!.init.body))).toEqual({ rating: 4, comment: "быстро" });
+  });
+
   it("downloads an attachment as a Blob and keeps API errors", async () => {
     const captured: Captured[] = [];
     const fake: FetchLike = async (url, init) => {

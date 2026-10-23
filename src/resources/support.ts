@@ -6,6 +6,7 @@ import type { HttpClient } from "../http.js";
  *   GET  /me/support/messages             → list
  *   POST /me/support/messages             → send
  *   GET  /me/support/attachments/{id}     → attachment
+ *   POST /me/support/ratings/{id}         → rate
  *
  * What the person writes shows in the conversation at once, with the status
  * `queued`, and goes to support right after (`delivered`). Support answers
@@ -54,12 +55,20 @@ export interface SupportMessage {
   created_at: string;
 }
 
+/** Support closed the conversation and asks how it went. */
+export interface SupportRatingRequest {
+  id: string;
+  asked_at: string;
+}
+
 /** A page of the conversation, oldest first. */
 export interface SupportConversation {
   status: SupportConversationStatus;
   items: SupportMessage[];
   /** Older messages exist: `list({ before: items[0].created_at })`. */
   has_more: boolean;
+  /** Show a 1–5 rating when set; answer with `rate()`. `null` otherwise. */
+  rating_request: SupportRatingRequest | null;
 }
 
 /** A file to send. `data` may be a `Blob` (a `File` from an input), bytes,
@@ -126,6 +135,19 @@ export class SupportResource {
   /** A file from the conversation: the person's own or one support sent. */
   async attachment(id: string, opts: { signal?: AbortSignal } = {}): Promise<Blob> {
     return this.http.getBlob(`/me/support/attachments/${encodeURIComponent(id)}`, {
+      signal: opts.signal,
+    });
+  }
+
+  /** Answer `rating_request`: 1 (bad) to 5 (great), a comment if the person
+   *  wrote one. Each question takes one answer; a second one is a 404. */
+  async rate(
+    id: string,
+    answer: { rating: 1 | 2 | 3 | 4 | 5; comment?: string },
+    opts: { signal?: AbortSignal } = {},
+  ): Promise<void> {
+    await this.http.post<void>(`/me/support/ratings/${encodeURIComponent(id)}`, {
+      body: { rating: answer.rating, ...(answer.comment ? { comment: answer.comment } : {}) },
       signal: opts.signal,
     });
   }

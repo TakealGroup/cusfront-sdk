@@ -1081,6 +1081,13 @@ on (support sees those too and can send them again). Files are pictures and
 PDF up to 20 MB by default; the platform sets both, and a file it doesn't take
 comes back as a 400 with the reason. Up to 10 files per message.
 
+When support closes the conversation after answering, `chat.rating_request`
+asks how it went (a `support_rating_requested` notification points there too).
+Show 1 to 5 and an optional comment, then
+`client.support.rate(chat.rating_request.id, { rating: 5, comment })`. The
+question goes away once answered; a person who wrote from Telegram is asked
+there instead, with buttons.
+
 A new answer also arrives as a `support_reply` notification (see
 [Notifications](#notifications-inbox)) with `href: "/support"`. Writing to a
 conversation support has closed opens it again.

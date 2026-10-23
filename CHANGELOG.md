@@ -13,6 +13,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   writes with up to 10 files (a `File`, bytes or base64), `attachment(id)`
   downloads a file as a `Blob`. Answers come with ready, cleaned HTML in
   `html`. Needs the platform's support chat (0.6.12).
+- `support.rate(id, { rating, comment })` and `rating_request` on the
+  conversation: support asks how it went after closing a conversation it
+  answered.
 
 ## [0.6.5] — 2026-10-21
 
