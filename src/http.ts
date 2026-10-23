@@ -113,10 +113,26 @@ export class HttpClient {
     return this.request<T>("DELETE", path, opts);
   }
 
+  /** GET a file. Same auth and refresh as the JSON calls; an error status
+   *  throws `ApiError` the same way. */
+  async getBlob(path: string, opts: HttpOptions = {}): Promise<Blob> {
+    const resp = await this.send("GET", path, { ...opts, accept: "*/*" });
+    if (!resp.ok) return parseResponse<never>(resp);
+    return resp.blob();
+  }
+
   private async request<T>(method: string, path: string, opts: HttpOptions): Promise<T> {
+    return parseResponse<T>(await this.send(method, path, opts));
+  }
+
+  private async send(
+    method: string,
+    path: string,
+    opts: HttpOptions & { accept?: string },
+  ): Promise<Response> {
     const url = this.absolute(path);
     const headers: Record<string, string> = {
-      Accept: "application/json",
+      Accept: opts.accept ?? "application/json",
       ...this.defaultHeaders,
     };
     if (opts.body !== undefined) headers["Content-Type"] = "application/json";
@@ -147,10 +163,10 @@ export class HttpClient {
 
     if (resp.status === 401 && !opts.skipAuth && !opts.retried && this.refresher) {
       if (await this.refreshOnce()) {
-        return this.request<T>(method, path, { ...opts, retried: true });
+        return this.send(method, path, { ...opts, retried: true });
       }
     }
-    return parseResponse<T>(resp);
+    return resp;
   }
 
   private absolute(path: string): string {

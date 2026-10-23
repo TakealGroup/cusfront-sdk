@@ -36,6 +36,7 @@ import { AttributionResource } from "./resources/attribution.js";
 import { HistoryResource } from "./resources/history.js";
 import { ConsentsResource } from "./resources/consents.js";
 import { ReceiptsResource } from "./resources/receipts.js";
+import { SupportResource } from "./resources/support.js";
 import { FundingOptionsResource } from "./resources/funding-options.js";
 import {
   CLIENT_HEADER,
@@ -218,6 +219,16 @@ export type {
   ReceiptsResource,
   ListReceiptsParams,
 } from "./resources/receipts.js";
+export type {
+  SupportAttachment,
+  SupportChannel,
+  SupportConversation,
+  SupportConversationStatus,
+  SupportFile,
+  SupportMessage,
+  SupportMessageStatus,
+  SupportResource,
+} from "./resources/support.js";
 export { anonymousKey, currentTouch } from "./resources/attribution.js";
 export type {
   TouchFields,
@@ -372,6 +383,8 @@ export interface CusfrontClient {
   readonly consents: ConsentsResource;
   /** A numbered receipt for every payment. */
   readonly receipts: ReceiptsResource;
+  /** The chat with support: messages, files, the conversation's status. */
+  readonly support: SupportResource;
   /** Direct access to the token store (e.g. for an explicit sign-out
    *  on Capacitor's lifecycle "app pausing" event). */
   readonly tokens: TokenStore;
@@ -439,6 +452,7 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     history: new HistoryResource(http),
     consents: new ConsentsResource(http),
     receipts: new ReceiptsResource(http),
+    support: new SupportResource(http),
   };
 }
 

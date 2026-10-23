@@ -102,6 +102,11 @@
       "import": "./dist/resources/receipts.js",
       "require": "./dist/resources/receipts.cjs"
     },
+    "./support": {
+      "types": "./dist/resources/support.d.ts",
+      "import": "./dist/resources/support.js",
+      "require": "./dist/resources/support.cjs"
+    },
     "./attribution": {
       "types": "./dist/resources/attribution.d.ts",
       "import": "./dist/resources/attribution.js",

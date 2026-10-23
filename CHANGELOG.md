@@ -4,6 +4,16 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `support`: the chat with support. `list()` reads the conversation (oldest
+  first, `before` for older pages) and its status, `send({ text, files })`
+  writes with up to 10 files (a `File`, bytes or base64), `attachment(id)`
+  downloads a file as a `Blob`. Answers come with ready, cleaned HTML in
+  `html`. Needs the platform's support chat (0.6.12).
+
 ## [0.6.5] — 2026-10-21
 
 Needs platform (TKL) 0.6.11 or newer: `SUPPORTED_MEISTER` is `>=0.6.11, <0.7.0`.

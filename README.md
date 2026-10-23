@@ -1040,6 +1040,51 @@ export default {
 
 With Workbox, add `/^\/ingest\//` to `navigateFallbackDenylist` and give the path no runtime caching route.
 
+## Support chat
+
+`client.support` is the chat with support: one conversation per person, the
+same one the Telegram bot feeds. Support agents answer from their own inbox,
+and the answers come back here.
+
+```ts
+// A message with a picture from a file input.
+const file = input.files![0];
+const sent = await client.support.send({
+  text: "The card was declined at the shop",
+  files: [{ fileName: file.name, contentType: file.type, data: file }],
+});
+// sent.status === "queued" at first; "delivered" once support has it.
+
+const chat = await client.support.list();
+// chat.status: "none" | "open" | "resolved"; chat.items oldest first.
+for (const m of chat.items) {
+  if (m.author === "support") {
+    // Cleaned HTML, ready to show: paragraphs, line breaks, bold, italic,
+    // strikethrough, code, links, lists and quotes. Nothing else gets through.
+    bubble.innerHTML = m.html;
+    caption.textContent = m.operator_name ?? "Support";
+  } else {
+    bubble.textContent = m.text;
+  }
+  for (const a of m.attachments) {
+    const blob = await client.support.attachment(a.id); // the person's own or support's
+  }
+}
+
+// Older messages:
+if (chat.has_more) await client.support.list({ before: chat.items[0].created_at });
+```
+
+Show what the person sent right away, with its `status`: `queued` turns into
+`delivered` within seconds, and `failed` means the message could not be passed
+on (support sees those too and can send them again). Files are pictures and
+PDF up to 20 MB by default; the platform sets both, and a file it doesn't take
+comes back as a 400 with the reason. Up to 10 files per message.
+
+A new answer also arrives as a `support_reply` notification (see
+[Notifications](#notifications-inbox)) with `href: "/support"`. Writing to a
+conversation support has closed opens it again.
+
 ## Notifications (inbox)
 
 Everything the API tells a user (a confirmed deposit, a card transaction, a
@@ -1300,6 +1345,7 @@ Available now:
 - `@takeal/cusfront-sdk/history` — `HistoryResource` (the user's money history).
 - `@takeal/cusfront-sdk/consents` — `ConsentsResource` (what the user agreed to).
 - `@takeal/cusfront-sdk/receipts` — `ReceiptsResource` (a numbered receipt for every payment).
+- `@takeal/cusfront-sdk/support` — `SupportResource` (the chat with support; see [Support chat](#support-chat)).
 - `@takeal/cusfront-sdk/attribution` — `AttributionResource`, `anonymousKey`, `currentTouch` (where users come from).
 - `@takeal/cusfront-sdk/webhooks` — HMAC-SHA256 signature verifier (no network, isomorphic).
 - `@takeal/cusfront-sdk/react` — optional React hooks layer (`ClientProvider` + `useMe` / `useDeposits` / `useCards` / `useCardProducts` / `useBalance` / `useNotifications` / `useUnreadCount`). React is a `peerDependency`, never bundled.

@@ -25,6 +25,7 @@ import { AttributionResource, anonymousKey, currentTouch } from "./attribution.j
 import { HistoryResource } from "./history.js";
 import { ConsentsResource, DISPUTE_DOCUMENTS_CONSENT, HOLDER_DATA_CONSENT } from "./consents.js";
 import { ReceiptsResource } from "./receipts.js";
+import { SupportResource } from "./support.js";
 import { FundingOptionsResource, type FundingOption } from "./funding-options.js";
 import { CodesResource, type CodeCheck } from "./codes.js";
 import { ReferralResource, type Referral } from "./referral.js";
@@ -2411,5 +2412,49 @@ describe("ReceiptsResource", () => {
     const r = await new ReceiptsResource(http).get("r1");
     expect(r.number).toBe("R-000001");
     expect(captured[0]!.url).toBe("https://api.test/v1/me/receipts/r1");
+  });
+});
+
+describe("SupportResource", () => {
+  it("lists with paging params and sends files as base64", async () => {
+    const { captured, http } = rig({ status: "open", items: [], has_more: false });
+    const support = new SupportResource(http);
+    await support.list({ before: "2026-10-23T10:00:00Z", limit: 20 });
+    expect(captured[0]!.url).toBe(
+      "https://api.test/v1/me/support/messages?before=2026-10-23T10%3A00%3A00Z&limit=20",
+    );
+    await support.send({
+      text: "Карта не работает",
+      files: [{ fileName: "a.png", contentType: "image/png", data: new Uint8Array([1, 2, 3]) }],
+    });
+    const sent = captured[1]!;
+    expect(sent.init.method).toBe("POST");
+    expect(sent.url).toBe("https://api.test/v1/me/support/messages");
+    expect(JSON.parse(String(sent.init.body))).toEqual({
+      text: "Карта не работает",
+      attachments: [{ file_name: "a.png", content_type: "image/png", data_base64: "AQID" }],
+    });
+  });
+
+  it("downloads an attachment as a Blob and keeps API errors", async () => {
+    const captured: Captured[] = [];
+    const fake: FetchLike = async (url, init) => {
+      captured.push({ url: String(url), init: init ?? {} });
+      if (String(url).endsWith("/missing")) {
+        return new Response(JSON.stringify({ code: "not_found", message: "no such file" }), {
+          status: 404,
+        });
+      }
+      return new Response(new Uint8Array([9, 8, 7]), { headers: { "Content-Type": "image/png" } });
+    };
+    const http = new HttpClient("https://api.test", inMemoryStore(), fake);
+    const support = new SupportResource(http);
+    const blob = await support.attachment("abc");
+    expect(new Uint8Array(await blob.arrayBuffer())).toEqual(new Uint8Array([9, 8, 7]));
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/support/attachments/abc");
+    await expect(support.attachment("missing")).rejects.toMatchObject({
+      status: 404,
+      code: "not_found",
+    });
   });
 });
