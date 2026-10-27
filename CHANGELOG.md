@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `subscription.cancel()`: the person cancels their subscription in one
+  step. What they paid for the current period comes back to the balance
+  for the days not used; the answer says how much. Needs the platform's
+  next release.
+
 ### Changed
 
 - `support`: a message the person wrote in Telegram keeps its formatting.

@@ -2215,6 +2215,14 @@ describe("codes, referral, subscription", () => {
     expect(bodyOf(captured[1]!)).toEqual({ code: null });
   });
 
+  it("subscription.cancel posts to /me/subscription/cancel", async () => {
+    const out = { subscription: null, refund: "6.66", currency: "USD" };
+    const { captured, http } = rig(out);
+    expect(await new SubscriptionResource(http).cancel()).toEqual(out);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/subscription/cancel");
+    expect(captured[0]!.init.method).toBe("POST");
+  });
+
   it("cards.create sends promoCode as promo_code; deposits pass promo_code through", async () => {
     const { captured, http } = rig({ id: "card_1" });
     await new CardsResource(http).create({

@@ -7,7 +7,8 @@ import type { HttpClient } from "../http.js";
  * gift, when it ends. Not to be confused with `client.subscriptions`, which
  * is about announcement channels.
  *
- * Mirrors `GET /me/subscription` and `PUT /me/subscription/promo-code`.
+ * Mirrors `GET /me/subscription`, `PUT /me/subscription/promo-code` and
+ * `POST /me/subscription/cancel`.
  */
 
 export interface UserSubscription {
@@ -32,6 +33,16 @@ export interface UserSubscription {
   promo_code_id: string | null;
 }
 
+/** What cancelling did. */
+export interface CancelledSubscription {
+  /** The subscription, now `cancelled`. */
+  subscription: UserSubscription | null;
+  /** What went back to the balance for the unused days of the paid period,
+   *  decimal string; `"0"` for a gift, a trial or an unpaid renewal. */
+  refund: string;
+  currency: string;
+}
+
 export class SubscriptionResource {
   constructor(private readonly http: HttpClient) {}
 
@@ -47,5 +58,15 @@ export class SubscriptionResource {
    */
   async setPromoCode(code: string | null): Promise<UserSubscription> {
     return this.http.put<UserSubscription>("/me/subscription/promo-code", { body: { code } });
+  }
+
+  /**
+   * Cancel the subscription now, in one step. What was paid for the current
+   * period comes back to the balance for the days not used. No subscription
+   * running → 404; 503 `refund_unavailable` when the refund can't be made
+   * right now (the subscription keeps running; try again).
+   */
+  async cancel(): Promise<CancelledSubscription> {
+    return this.http.post<CancelledSubscription>("/me/subscription/cancel", {});
   }
 }

@@ -151,7 +151,7 @@ export type {
   ValidateCodeInput,
 } from "./resources/codes.js";
 export type { InvitedFriend, Referral, ReferralReward } from "./resources/referral.js";
-export type { UserSubscription } from "./resources/subscription.js";
+export type { UserSubscription, CancelledSubscription } from "./resources/subscription.js";
 export type { Branding } from "./resources/branding.js";
 export type { Wallet } from "./resources/wallet.js";
 export type { BlogPost, BlogBlock, BlogList, BlogListInput } from "./resources/blog.js";
@@ -351,7 +351,7 @@ export interface CusfrontClient {
   readonly codes: CodesResource;
   /** For referrers: the referral code, the link to share, invited friends and rewards. */
   readonly referral: ReferralResource;
-  /** The user's own subscription tier or gift, and a promo code for its monthly fee. */
+  /** The user's own subscription tier or gift, a promo code for its monthly fee, and cancelling it. */
   readonly subscription: SubscriptionResource;
   /** The wallet's currency: read it, switch it while the wallet is empty. */
   readonly wallet: WalletResource;
