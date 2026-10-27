@@ -6,4 +6,4 @@
  * `define`. `src/version.test.ts` checks it matches `package.json`, so a
  * release bump that forgets this file fails the test run.
  */
-export const SDK_VERSION = "0.6.6";
+export const SDK_VERSION = "0.6.7";
