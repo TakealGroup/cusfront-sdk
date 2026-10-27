@@ -16,13 +16,17 @@ import type { HttpClient } from "../http.js";
  * comes as a `support_reply` notification.
  *
  * The person may write from the Telegram bot too; it is one conversation,
- * and `channel` says where each message came from.
+ * and `channel` says where each message came from. A message written in
+ * Telegram keeps its formatting: `html` has it, `text` the plain words.
+ * An answer sent to the person's Telegram is `queued` until all of it got
+ * there, and `failed` if it could not get there.
  */
 
 /** Where a message came from, or where an answer was sent. */
 export type SupportChannel = "cabinet" | "telegram" | (string & {});
 
-/** How far a message got: `queued` until support has it. */
+/** How far a message got: `queued` until support has it (for an answer
+ *  sent to Telegram, until the person has it). */
 export type SupportMessageStatus = "queued" | "delivered" | "failed" | (string & {});
 
 /** The conversation's state: `none` until the person writes for the first
@@ -48,7 +52,8 @@ export interface SupportMessage {
   channel: SupportChannel | null;
   /** What the person wrote, plain text. Empty on answers. */
   text: string;
-  /** The answer as cleaned HTML. Empty on the person's own messages. */
+  /** The answer as cleaned HTML. On the person's own messages it is set
+   *  only for those written in Telegram, which keep their formatting. */
   html: string;
   attachments: SupportAttachment[];
   status: SupportMessageStatus;
