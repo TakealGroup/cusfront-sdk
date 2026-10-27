@@ -7,6 +7,7 @@ import { BalanceResource, type Balance } from "./balance.js";
 import { BonusResource, type BonusPreview, type BonusWallet } from "./bonus.js";
 import { DebtResource, type Debt } from "./debt.js";
 import { CloseRequestsResource, type CloseRequest } from "./close-requests.js";
+import { ClaimsResource, type Claim } from "./claims.js";
 import { BrandingResource, type Branding } from "./branding.js";
 import { BlogResource } from "./blog.js";
 import { DocumentsResource } from "./documents.js";
@@ -715,6 +716,98 @@ describe("CloseRequestsResource", () => {
     expect(captured[0]!.url).toBe("https://api.test/v1/me/close-requests/req_1/payout-details");
     expect(captured[0]!.init.method).toBe("POST");
     expect(bodyOf(captured[0]!)).toEqual(details);
+  });
+});
+
+describe("ClaimsResource", () => {
+  const stolen: Claim = {
+    id: "claim_1",
+    number: "C-000123",
+    kind: "stolen",
+    status: "open",
+    card_id: "card_1",
+    card_last4: "4242",
+    transaction: null,
+    description: "Taken with my bag",
+    reported_at: "2026-10-27T18:04:11Z",
+    card_freeze: "frozen",
+    card_frozen_at: "2026-10-27T18:04:12Z",
+    resolution: null,
+    created_at: "2026-10-27T18:04:11Z",
+    updated_at: "2026-10-27T18:04:12Z",
+    resolved_at: null,
+  };
+  const dispute: Claim = {
+    ...stolen,
+    id: "claim_2",
+    number: "C-000124",
+    kind: "dispute",
+    transaction: {
+      id: "txn_1",
+      amount: "12.5",
+      currency: "USD",
+      merchant_name: "Coffee Shop",
+      status: "cleared",
+      occurred_at: "2026-10-26T10:00:00Z",
+    },
+    description: "I didn't pay this, I don't know the shop.",
+    card_freeze: null,
+    card_frozen_at: null,
+  };
+
+  it("cards.reportLost POSTs /me/cards/{id}/report-lost with the kind and details", async () => {
+    const { captured, http } = rig(stolen);
+    expect(
+      await new CardsResource(http).reportLost("card 1", {
+        kind: "stolen",
+        details: "Taken with my bag",
+      }),
+    ).toEqual(stolen);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/cards/card%201/report-lost");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({ kind: "stolen", details: "Taken with my bag" });
+  });
+
+  it("cards.reportLost sends the kind alone when there are no details", async () => {
+    const { captured, http } = rig({ ...stolen, kind: "lost", card_freeze: "pending" });
+    const claim = await new CardsResource(http).reportLost("card_1", { kind: "lost" });
+    expect(claim.card_freeze).toBe("pending");
+    expect(bodyOf(captured[0]!)).toEqual({ kind: "lost" });
+  });
+
+  it("create POSTs /me/claims with the API's field names", async () => {
+    const { captured, http } = rig(dispute);
+    expect(
+      await new ClaimsResource(http).create({
+        kind: "dispute",
+        description: "I didn't pay this, I don't know the shop.",
+        transactionId: "txn_1",
+      }),
+    ).toEqual(dispute);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/claims");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({
+      kind: "dispute",
+      description: "I didn't pay this, I don't know the shop.",
+      transaction_id: "txn_1",
+    });
+  });
+
+  it("list GETs /me/claims, with paging when asked", async () => {
+    const page = { items: [dispute, stolen], total: 2 };
+    const { captured, http } = rig(page);
+    expect(await new ClaimsResource(http).list()).toEqual(page);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/claims");
+    expect(captured[0]!.init.method).toBe("GET");
+    const { captured: paged, http: other } = rig(page);
+    await new ClaimsResource(other).list({ limit: 10, offset: 20 });
+    expect(paged[0]!.url).toBe("https://api.test/v1/me/claims?limit=10&offset=20");
+  });
+
+  it("get GETs /me/claims/{id}", async () => {
+    const { captured, http } = rig(dispute);
+    expect(await new ClaimsResource(http).get("claim 2")).toEqual(dispute);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/claims/claim%202");
   });
 });
 

@@ -1,3 +1,4 @@
+import type { Claim } from "./claims.js";
 import type { ConsentChannel, ConsentKind } from "./consents.js";
 import type { HttpClient } from "../http.js";
 import type { CustomerInfo } from "../types/customer.js";
@@ -22,6 +23,7 @@ import type { Deposit, DepositMethod } from "./deposits.js";
  *   GET    /me/cards/{id}/balance    → balance (prepaid remaining)
  *   POST   /me/cards/{id}/freeze     → freeze
  *   POST   /me/cards/{id}/unfreeze   → unfreeze
+ *   POST   /me/cards/{id}/report-lost → reportLost (lost or stolen: frozen at once)
  *   POST   /me/cards/{id}/transfer   → transfer (to another of their cards)
  *   POST   /me/cards/{id}/terminate  → terminate (one-way)
  *   POST   /me/cards/{id}/reveal     → reveal (the numbers, or a provider page)
@@ -889,6 +891,26 @@ export class CardsResource {
    */
   async unfreeze(id: string): Promise<Card> {
     return this.http.post<Card>(`/me/cards/${encodeURIComponent(id)}/unfreeze`, { body: {} });
+  }
+
+  /**
+   * Report the card lost or stolen. Works at any time, on an active or a
+   * frozen card. The report is recorded first with the server's time, which
+   * decides who pays for operations someone else made; then the card is
+   * frozen at its issuer and only support can unfreeze it. Resolves to the
+   * claim (`client.claims`): show its `number` and `reported_at`. When the
+   * issuer can't be reached, `card_freeze` is `"pending"`: the report still
+   * counts and support freezes the card by hand. Reporting again while the
+   * report is open returns the same claim. 404 / 403 not the user's card ·
+   * 409 `card_not_open`: the card is closed or was never issued.
+   */
+  async reportLost(
+    id: string,
+    input: { kind: "lost" | "stolen"; details?: string },
+  ): Promise<Claim> {
+    return this.http.post<Claim>(`/me/cards/${encodeURIComponent(id)}/report-lost`, {
+      body: { kind: input.kind, details: input.details },
+    });
   }
 
   /**
