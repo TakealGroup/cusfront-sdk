@@ -712,6 +712,43 @@ Only the last four digits come back (`payout_details.masked`). 409 codes of
 `topup_in_progress`, `card_closing`, `no_balance` (the card holds nothing:
 `cards.terminate()` it), `provider_refused`.
 
+## A lost or stolen card, disputes and complaints
+
+The user can report a card lost or stolen at any time. The report is
+recorded first, with the server's time: that time decides who pays for
+operations someone else made with the card, so show it. Then the card is
+frozen at its issuer, and from then on only support can unfreeze it
+(`cards.unfreeze()` answers 409 `card_locked`).
+
+```ts
+const claim = await client.cards.reportLost(cardId, { kind: "stolen", details: "Taken with my bag" });
+// claim.number: "C-000123", to quote to support
+// claim.reported_at: when the report counts from
+// claim.card_freeze: "frozen", or "pending" when the issuer couldn't be reached;
+//   the report counts all the same and support freezes the card by hand
+```
+
+Reporting the same card again while its report is open returns that claim.
+409 `card_not_open`: the card is closed or was never issued.
+
+A card operation the user doesn't agree with, or anything else, is a claim
+too. Name the operation as `client.history` does (`txn_<id>`); its card is
+found from it.
+
+```ts
+await client.claims.create({
+  kind: "dispute", // or "complaint"
+  transactionId: entry.id,
+  description: "I didn't make this payment and don't know the shop.",
+});
+const { items, total } = await client.claims.list(); // newest first, every kind
+const one = await client.claims.get(claimId);
+// status: "open" → "in_review" → "resolved" | "rejected", with support's answer in `resolution`
+```
+
+The user is notified when a claim comes in and each time its status
+changes. 409 `too_many_claims`: 20 claims are waiting for an answer already.
+
 ## Promo and referral codes
 
 A code goes with the operation it is for. At sign-up an unknown or expired

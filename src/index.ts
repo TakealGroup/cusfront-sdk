@@ -19,6 +19,7 @@ import { BalanceResource } from "./resources/balance.js";
 import { BonusResource } from "./resources/bonus.js";
 import { DebtResource } from "./resources/debt.js";
 import { CloseRequestsResource } from "./resources/close-requests.js";
+import { ClaimsResource } from "./resources/claims.js";
 import { CodesResource } from "./resources/codes.js";
 import { ReferralResource } from "./resources/referral.js";
 import { SubscriptionResource } from "./resources/subscription.js";
@@ -130,6 +131,15 @@ export type {
   PayoutDetailsInput,
   PayoutDetailsShown,
 } from "./resources/close-requests.js";
+export type {
+  Claim,
+  ClaimError,
+  ClaimKind,
+  ClaimPage,
+  ClaimStatus,
+  ClaimTransaction,
+  CreateClaimInput,
+} from "./resources/claims.js";
 export type { Balance } from "./resources/balance.js";
 export type {
   BonusLot,
@@ -347,6 +357,8 @@ export interface CusfrontClient {
   readonly debt: DebtResource;
   /** Close a card that still holds money: the rest goes back the way it was paid. */
   readonly closeRequests: CloseRequestsResource;
+  /** Dispute a card operation or complain, and follow claims (lost and stolen cards included) by number and status. */
+  readonly claims: ClaimsResource;
   /** Promo and referral codes: check what a code would do before using it. */
   readonly codes: CodesResource;
   /** For referrers: the referral code, the link to share, invited friends and rewards. */
@@ -436,6 +448,7 @@ export function createClient(opts: CreateClientOptions): CusfrontClient {
     bonus: new BonusResource(http),
     debt: new DebtResource(http),
     closeRequests: new CloseRequestsResource(http),
+    claims: new ClaimsResource(http),
     codes: new CodesResource(http),
     referral: new ReferralResource(http),
     subscription: new SubscriptionResource(http),

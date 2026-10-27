@@ -6,6 +6,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `cards.reportLost(id, { kind, details })`: the user reports a card lost
+  or stolen, at any time. The report is recorded with the server's time,
+  which decides who pays for operations someone else made, and the card is
+  frozen at its issuer; only support can unfreeze it. Resolves to a
+  `Claim`. When the issuer can't be reached, `card_freeze` is `"pending"`
+  and the report counts all the same. Needs the platform's next release.
+- `claims`: dispute a card operation or complain with `create({ kind,
+  description, cardId, transactionId })`, and follow every claim, lost and
+  stolen cards included, with `list()` and `get(id)`: a `number` such as
+  `C-000123`, a `status` (`open`, `in_review`, `resolved`, `rejected`) and
+  support's answer in `resolution`. Needs the platform's next release.
+
 ### Changed
 
 - `support`: a message the person wrote in Telegram keeps its formatting.

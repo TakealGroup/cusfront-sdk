@@ -57,6 +57,11 @@
       "import": "./dist/resources/close-requests.js",
       "require": "./dist/resources/close-requests.cjs"
     },
+    "./claims": {
+      "types": "./dist/resources/claims.d.ts",
+      "import": "./dist/resources/claims.js",
+      "require": "./dist/resources/claims.cjs"
+    },
     "./codes": {
       "types": "./dist/resources/codes.d.ts",
       "import": "./dist/resources/codes.js",
