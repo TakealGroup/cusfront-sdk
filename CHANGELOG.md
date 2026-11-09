@@ -4,6 +4,11 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.9] — 2026-11-10
+
+The package's links (repository, issues, changelog) point at the public mirror on GitHub,
+https://github.com/TakealGroup/cusfront-sdk. No code changes.
+
 ## [0.6.8] — 2026-10-27
 
 Works with platform (TKL) 0.6.13 up to, not including, 1.0.0: `SUPPORTED_MEISTER` is
