@@ -232,12 +232,12 @@
     "client",
     "typescript"
   ],
-  "homepage": "https://git.wiseless.net/takeal/cusfront-sdk",
+  "homepage": "https://github.com/TakealGroup/cusfront-sdk",
   "bugs": {
-    "url": "https://git.wiseless.net/takeal/cusfront-sdk/issues"
+    "url": "https://github.com/TakealGroup/cusfront-sdk/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://git.wiseless.net/takeal/cusfront-sdk.git"
+    "url": "https://github.com/TakealGroup/cusfront-sdk.git"
   }
 }
