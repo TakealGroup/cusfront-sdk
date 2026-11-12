@@ -4,6 +4,21 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `cards.balance()` answers `pending` as well: top-ups the issuer has
+  accepted and not confirmed yet. That money is never in `amount`, even
+  when the issuer already shows it in its own balance, so show it next to
+  the balance as on its way. Needs the platform's next release; an older
+  platform leaves it out.
+
+### Changed
+
+- `Card.topups_pending` and `Card.topups_held` count top-ups paid straight to
+  the card as well as top-ups from the wallet (platform's next release).
+
 ## [0.6.9] — 2026-11-10
 
 The package's links (repository, issues, changelog) point at the public mirror on GitHub,

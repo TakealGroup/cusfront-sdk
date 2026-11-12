@@ -234,7 +234,8 @@ export interface Card {
   close_blocked: CloseBlockedReason | null;
   /**
    * Top-ups the issuer has accepted and not loaded yet, summed, decimal
-   * string in `currency`; `null` when there are none. Show it next to the
+   * string in `currency`; `null` when there are none. It counts top-ups from
+   * the wallet and top-ups paid straight to the card. Show it next to the
    * balance as money on its way to the card.
    */
   topups_pending: string | null;
@@ -483,6 +484,13 @@ export function cardOrderBody(input: CardOrderInput): Record<string, unknown> {
 export interface CardBalance {
   amount: string;
   currency: string;
+  /**
+   * From `cards.balance()` only: top-ups the issuer has accepted and not
+   * confirmed yet, summed, decimal string in `currency`; `null` when there
+   * are none. Not part of `amount`, even when the issuer already shows the
+   * money: show it next to the balance as on its way.
+   */
+  pending?: string | null;
 }
 
 /** What a top-up of a card can be right now, from `GET /me/cards/{id}/topup`. */
