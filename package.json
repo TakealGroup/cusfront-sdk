@@ -1,6 +1,6 @@
 {
   "name": "@takeal/cusfront-sdk",
-  "version": "0.6.10",
+  "version": "0.6.11",
   "description": "Typed client for the Takeal end-user API: sign-up and login, wallet, deposits, cards, sessions, notifications, devices, webhook verification.",
   "license": "MIT",
   "type": "module",
