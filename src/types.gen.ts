@@ -518,7 +518,9 @@ export type paths = {
          *     request (`user_request`, 9.2) is the default. A 9.3 basis refunds at the
          *     card's average top-up rate, adds the issue fee's unexpired share (`b`)
          *     or the issue and delivery fee (`d`), and sends what the platform owes on
-         *     top of the card's balance at once, without waiting for the issuer. A
+         *     top of the card's balance at once, without waiting for the issuer. An
+         *     issue fee the holder paid from their account goes back to that account,
+         *     in its currency; a fee paid with a top-up goes back with the rest. A
          *     basis changed after money went back pays the difference the same way;
          *     what already went back is never taken back. Audited.
          */
@@ -1134,6 +1136,8 @@ export type paths = {
          * Refresh a card from its connector
          * @description Re-reads the last four digits, expiry and status from the provider and
          *     stores them on the card. Use it when issuance left those fields blank.
+         *     A card still waiting for issuance that the provider has already issued
+         *     becomes active, as if the provider's activation notice had arrived.
          *     Safe to repeat. The full card number is never returned. Audited.
          */
         post: operations["refresh_card_from_connector"];
@@ -1273,6 +1277,78 @@ export type paths = {
          *     active returns it unchanged. Audited.
          */
         post: operations["unfreeze_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/claims": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Claims
+         * @description The holders' claims, newest first: cards reported lost or stolen (with
+         *     the time of the report and whether the card is frozen), disputed
+         *     operations and complaints.
+         */
+        get: operations["list_claims"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/claims/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A claim
+         * @description Everything about one claim: the holder, the card and its status now, the
+         *     operation it is about, the time of the report and, for a lost or stolen
+         *     card, whether the freeze went through.
+         */
+        get: operations["get_claim"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a claim
+         * @description Set the status, write the answer the holder sees, or both. A claim is
+         *     resolved or rejected only with an answer. The holder is notified when
+         *     the status changes. Audited.
+         */
+        patch: operations["update_claim"];
+        trace?: never;
+    };
+    "/v1/admin/claims/{id}/freeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Freeze the card of a loss report again
+         * @description For a card reported lost or stolen whose freeze didn't go through: asks
+         *     the issuer again. A card frozen already only gets the claim updated. The
+         *     card stays frozen as support's freeze. Audited.
+         */
+        post: operations["retry_claim_freeze"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1798,7 +1874,8 @@ export type paths = {
          * Get a connector's activity totals
          * @description Returns counts and summed amounts for everything that went through this
          *     connector, grouped by status and currency. What is counted depends on the
-         *     connector's role: payments, deposits, cards or settlement cycles. Operator-only.
+         *     connector's role: payments, deposits, cards, settlement cycles, or for a
+         *     support connector the messages people wrote, with no amount. Operator-only.
          */
         get: operations["connector_stats"];
         put?: never;
@@ -2468,6 +2545,50 @@ export type paths = {
         get: operations["summary"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/failed-tasks/support-messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List support messages that never reached the platform
+         * @description Messages people wrote to support from the cabinet or the Telegram bot that
+         *     the support platform refused or that ran out of attempts, newest first.
+         *     The text is not shown here: operators read conversations on the platform.
+         */
+        get: operations["list_support_messages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/failed-tasks/support-messages/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a support message again
+         * @description Puts the message back in the queue with a fresh set of attempts. Use it
+         *     once whatever stopped it is fixed, a revoked token say. It leaves this
+         *     list; if it fails again, it comes back. Audited.
+         */
+        post: operations["retry_support_message"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3233,7 +3354,9 @@ export type paths = {
         /**
          * Get card spend metrics
          * @description Returns totals and breakdowns of card transactions over the last
-         *     `window_days` (default 7, max 90), optionally limited to one currency.
+         *     `window_days` (default 7, max 90). Amounts are what the cards were
+         *     charged, in one currency at a time: the one you ask for, or else the one
+         *     most was spent in. `by_currency` lists them all.
          */
         get: operations["issuing_metrics"];
         put?: never;
@@ -3989,6 +4112,52 @@ export type paths = {
         patch: operations["patch_product"];
         trace?: never;
     };
+    "/v1/admin/storefront/products/{id}/holder-pool": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A program's holder pool
+         * @description The holders the provider already checked, with how many cards each one
+         *     carries and how many more the pool can take.
+         */
+        get: operations["get_pool"];
+        put?: never;
+        /**
+         * Add a holder to the pool
+         * @description Adds a holder the provider has already checked. Its cards will go to
+         *     any user of the program, up to the program's cards per holder.
+         */
+        post: operations["add_holder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/storefront/products/{id}/holder-pool/{holder_id}/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retire a pool holder
+         * @description The holder takes no new cards. Cards already on it keep working.
+         */
+        post: operations["retire_holder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/storefront/products/{id}/image": {
         parameters: {
             query?: never;
@@ -4035,6 +4204,73 @@ export type paths = {
          */
         put: operations["put_issuance"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/storefront/products/{id}/stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A product's stock of virtual cards
+         * @description Cards issued ahead of time and ready to hand out, the batches that made
+         *     them, and what each one costs. An order on the program gets a stock card
+         *     first, at once; it goes to the provider only when the stock is empty.
+         */
+        get: operations["get_stock"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/storefront/products/{id}/stock/batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue a stock batch
+         * @description Starts issuing `count` cards for the stock, one by one in the
+         *     background. Each card costs the provider's issuance price, and the
+         *     provider's minimum is put on it from the platform's float and stays on
+         *     it for the buyer: price the product to cover both. Three refusals in a
+         *     row stop the batch.
+         */
+        post: operations["order_batch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/storefront/products/{id}/stock/batches/{batch_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a stock batch
+         * @description Stops issuing the rest of a running batch. Cards already issued stay in
+         *     the stock.
+         */
+        post: operations["cancel_batch"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4114,6 +4350,29 @@ export type paths = {
          * @description Changes only the fields present in the body. Audited.
          */
         patch: operations["patch_tier"];
+        trace?: never;
+    };
+    "/v1/admin/support/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Look up a support contact
+         * @description For the operator panel inside the support platform: the account behind a
+         *     contact, found by its identifier (our user id, or the id of a Telegram
+         *     conversation with no account) or by e-mail. Read-only. Every look is
+         *     written to the audit log under the operator's name.
+         */
+        get: operations["profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/admin/users": {
@@ -5763,6 +6022,10 @@ export type paths = {
          *     issuer reports it: the same figure support sees. When the issuer can't be
          *     asked at this moment the answer is a 503 rather than a guess. For a card
          *     whose issuer does not report balances, the platform's own books answer.
+         *
+         *     A top-up the issuer has accepted and not confirmed yet is in `pending`,
+         *     never in `amount`. Some issuers show such money in their balance before
+         *     they confirm it; it counts as spendable only once they do.
          */
         get: operations["get_card_balance"];
         put?: never;
@@ -5845,6 +6108,33 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/cards/{id}/report-lost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report a card lost or stolen
+         * @description Works at any time. The report is recorded first, with the time we took
+         *     it: that time decides who pays for operations someone else made with the
+         *     card. Then the card is frozen at its issuer, and from then on only
+         *     support can unfreeze it. A card that is frozen already is reported all
+         *     the same. If the issuer can't be reached, the report still stands:
+         *     `card_freeze` reads `pending`, support is told and freezes the card by
+         *     hand. Reporting a card again while its report is open returns that same
+         *     report, and tries the freeze again if it hadn't gone through.
+         */
+        post: operations["report_card_lost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/cards/{id}/reveal": {
         parameters: {
             query?: never;
@@ -5860,6 +6150,10 @@ export type paths = {
          *     billing address it is registered at. The session is enough: no password
          *     or code is asked again. Rate limited per card and per user. The response
          *     is marked no-store and the details are never kept on the platform.
+         *
+         *     For some cards the details are still being prepared right after the card
+         *     is issued: the answer then has `details_pending` set and nothing else,
+         *     and doesn't count against the limit.
          */
         post: operations["reveal_card"];
         delete?: never;
@@ -5968,6 +6262,53 @@ export type paths = {
          *     frozen is a no-op.
          */
         post: operations["me_unfreeze_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/claims": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My claims
+         * @description Every claim you made, lost and stolen cards included, newest first, with
+         *     its number, status and support's answer.
+         */
+        get: operations["my_claims"];
+        put?: never;
+        /**
+         * Dispute a card operation, or complain
+         * @description Opens a claim with a number you can quote to support, and a status you
+         *     can follow: `open`, then `in_review`, then `resolved` or `rejected` with
+         *     support's answer in `resolution`. You're notified each time the status
+         *     changes. Name the card or the operation when the claim is about one; an
+         *     operation is enough, its card is found from it. At most 20 claims can
+         *     wait for an answer at once.
+         */
+        post: operations["create_claim"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/claims/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A claim of mine */
+        get: operations["my_claim"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6654,6 +6995,30 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/subscription/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel your subscription
+         * @description Ends your subscription now; nothing more is charged for it. What you paid
+         *     for the current period comes back to your balance for the days you have
+         *     not used. A gift, a trial or a renewal you haven't paid yet ends with
+         *     nothing to give back. Bonuses and promo-code discounts that went into the
+         *     fee are not returned.
+         */
+        post: operations["cancel_subscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/subscription/promo-code": {
         parameters: {
             query?: never;
@@ -6699,6 +7064,74 @@ export type paths = {
          */
         put: operations["put_subscriptions"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/support/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a file from the conversation
+         * @description Files you attached and files support sent you. Nobody else's.
+         */
+        get: operations["get_attachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/support/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the conversation with support
+         * @description The latest messages, oldest first, with the conversation's status. Pass
+         *     `before` to read further back.
+         */
+        get: operations["list_messages"];
+        put?: never;
+        /**
+         * Write to support
+         * @description Adds a message to the conversation. It shows in the conversation at
+         *     once, with the status `queued` until support has it. A message to a
+         *     closed conversation opens it again.
+         */
+        post: operations["post_message"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/support/ratings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rate the conversation with support
+         * @description Answers the question in `rating_request`: 1 to 5, with a comment if you
+         *     like. Each question takes one answer.
+         */
+        post: operations["rate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7287,6 +7720,16 @@ export type components = {
              */
             user_id: string;
         };
+        /** @description A holder to add to the pool. */
+        AddPoolHolderBody: {
+            customer?: null | components["schemas"]["CustomerInfo"];
+            /** @description The holder's e-mail at the provider. It has to be on the deployment's holder mail domain (`cardholder.email_domain`) so the provider's codes reach the platform. Leave it out to give the holder a new mailbox there. */
+            email?: string | null;
+            /** @description A note for other operators. */
+            note?: string | null;
+            /** @description The provider's id for the holder. */
+            provider_ref?: string | null;
+        };
         /**
          * @description Postal address. ISO 3166 codes are recommended for `state` and `country`
          *     but not enforced.
@@ -7361,6 +7804,27 @@ export type components = {
          * @enum {string}
          */
         AdjustSideBody: "provider" | "books";
+        AdminClaimList: {
+            /** @description Newest first. */
+            items: components["schemas"]["AdminClaimView"][];
+            /** Format: int64 */
+            total: number;
+        };
+        /** @description A claim as the operator sees it. */
+        AdminClaimView: components["schemas"]["ClaimView"] & {
+            card_connector_slug?: string | null;
+            /** @description The card's status now. */
+            card_status?: string | null;
+            /** @description Lost or stolen: the card's status when the report came in. */
+            card_status_at_report?: string | null;
+            /** @description Lost or stolen: why the issuer didn't freeze the card, while it isn't frozen. */
+            freeze_error?: string | null;
+            /** @description The operator who last changed the claim. */
+            updated_by_email?: string | null;
+            user_email?: string | null;
+            /** Format: uuid */
+            user_id: string;
+        };
         /** @description One line of the queue. */
         AdminCloseRequestItem: {
             /** @description What the card held. */
@@ -7424,7 +7888,7 @@ export type components = {
             early_due_at?: string | null;
             /** @description What the card held by the books when the holder asked. */
             expected_amount: string;
-            /** @description What the basis adds, in the card's currency. */
+            /** @description What the basis adds through the card's payments, in the card's currency. */
             extras_amount: string;
             /** Format: date-time */
             identity_checked_at?: string | null;
@@ -7459,6 +7923,7 @@ export type components = {
             user_email?: string | null;
             /** Format: uuid */
             user_id: string;
+            wallet_extras?: null | components["schemas"]["AmountView"];
         };
         AdminCreateCardBody: {
             /** @description Card BIN to issue on. Passed to the connector as `issuer_bin`. */
@@ -8247,6 +8712,19 @@ export type components = {
             channel?: string | null;
             description?: string | null;
         };
+        /** @description What cancelling did. */
+        CancelledSubscription: {
+            /** @description ISO 4217 code of the refund. */
+            currency: string;
+            /**
+             * @description What went back to your balance for the unused part of the period,
+             *     decimal string. `0` when nothing was paid for it (a gift, a trial, a
+             *     renewal not paid yet).
+             * @example 6.66
+             */
+            refund: string;
+            subscription?: null | components["schemas"]["UserSubscriptionView"];
+        };
         /**
          * @description A card issued to a user. For gift cards, `redemption_code` is returned only
          *     in the creation response; later reads leave it out.
@@ -8333,6 +8811,15 @@ export type components = {
             amount?: string | null;
             /** @description ISO 4217 code. */
             currency?: string | null;
+        };
+        /** @description A card's balance, with what is still on its way to it. */
+        CardBalanceResponse: {
+            /** @description What the card can spend, as a decimal string, e.g. "6.00". */
+            amount: string;
+            /** @description ISO 4217 code. */
+            currency: string;
+            /** @description Top-ups the issuer has accepted and not confirmed yet, summed, decimal string in the card's currency; not part of `amount`. Null when there are none. */
+            pending?: string | null;
         };
         /** @description Where the balance of a closed card goes and how far it got. */
         CardClosureView: {
@@ -8422,6 +8909,11 @@ export type components = {
              */
             transaction_id: string;
         };
+        /**
+         * @description Whether the card of a loss report is frozen at its issuer.
+         * @enum {string}
+         */
+        CardFreeze: "frozen" | "pending";
         /** @description The balance of a closed card on its way to the card that replaced it. */
         CardInTransit: {
             /**
@@ -8820,6 +9312,8 @@ export type components = {
             close_blocked?: string | null;
             /** @description The design shown for this card: the one the holder picked, else the product's, else the deployment default. */
             design: components["schemas"]["DesignRef"];
+            /** @description True while the card's connector is still reading its details: the card works, but its number can't be shown yet, and a stock card like this isn't handed out. */
+            details_pending: boolean;
             in_transit?: null | components["schemas"]["CardInTransit"];
             moderation?: null | components["schemas"]["CardModeration"];
             product?: null | components["schemas"]["ProductRef"];
@@ -8941,6 +9435,11 @@ export type components = {
             /** @description Platform version this deployment runs (TKL). */
             version: string;
         };
+        /**
+         * @description Where a person wrote from, and so where the answer goes.
+         * @enum {string}
+         */
+        Channel: "cabinet" | "telegram";
         ChannelHealth: {
             /** @description `telegram`, `push`, `email` or `sms`. */
             channel: string;
@@ -9026,6 +9525,66 @@ export type components = {
             skipped?: boolean;
         };
         /**
+         * @description What the claim is about.
+         * @enum {string}
+         */
+        ClaimKind: "lost" | "stolen" | "dispute" | "complaint";
+        /**
+         * @description Where a claim stands.
+         * @enum {string}
+         */
+        ClaimStatus: "open" | "in_review" | "resolved" | "rejected";
+        /** @description The card operation a claim is about. */
+        ClaimTransaction: {
+            /** @description Decimal string, without a sign. */
+            amount: string;
+            currency: string;
+            /** @description The operation's id in the history, `txn_<id>`. */
+            id: string;
+            merchant_name?: string | null;
+            /** Format: date-time */
+            occurred_at: string;
+            /** @description `pending`, `cleared`, `reversed` or `declined`. */
+            status: string;
+        };
+        /** @description A claim as its holder sees it. */
+        ClaimView: {
+            card_freeze?: null | components["schemas"]["CardFreeze"];
+            /**
+             * Format: date-time
+             * @description Lost or stolen only: when the card was frozen (or found frozen already).
+             */
+            card_frozen_at?: string | null;
+            /** Format: uuid */
+            card_id?: string | null;
+            card_last4?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** @description The holder's own words. */
+            description: string;
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["ClaimKind"];
+            /** @description What support calls it, e.g. `C-000123`. */
+            number: string;
+            /**
+             * Format: date-time
+             * @description When the platform took the claim. For a lost or stolen card, this time decides who pays for the operations someone else made with it.
+             */
+            reported_at: string;
+            /** @description Support's answer, once there is one. */
+            resolution?: string | null;
+            /**
+             * Format: date-time
+             * @description When the claim was resolved or rejected.
+             */
+            resolved_at?: string | null;
+            status: components["schemas"]["ClaimStatus"];
+            transaction?: null | components["schemas"]["ClaimTransaction"];
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /**
          * @description Why the card is closed, as the operator recorded it.
          * @enum {string}
          */
@@ -9058,7 +9617,7 @@ export type components = {
             currency: string;
             /** Format: uuid */
             id: string;
-            /** @description `original_payment`: back to the details a top-up was paid with; `manual`: transferred to the details you gave. */
+            /** @description `original_payment`: back to the details a top-up was paid with; `manual`: transferred to the details you gave; `wallet`: back to your account, for the part of the issue fee you paid from it. */
             method: string;
             /** @description `pending` (sent, the bank has not confirmed it yet) or `succeeded`. */
             status: string;
@@ -9101,7 +9660,7 @@ export type components = {
             on_the_way: components["schemas"]["AmountView"];
             payout_details?: null | components["schemas"]["PayoutDetailsShown"];
             refund_total?: null | components["schemas"]["AmountView"];
-            /** @description What went back already. */
+            /** @description What already went back to the details you paid with, in the payout currency. Money returned to your account is listed in `refunds` in its own currency. */
             refunded: components["schemas"]["AmountView"];
             /** Format: date-time */
             refunded_at?: string | null;
@@ -9220,6 +9779,8 @@ export type components = {
             acquirers: number;
             /** @description Funding connectors (money in). */
             funders: number;
+            /** @description Support inbox connectors. */
+            helpdesks: number;
             /** @description Card connectors (user spending). */
             issuers: number;
             /** @description Settlement connectors (merchant payouts). */
@@ -9289,7 +9850,7 @@ export type components = {
             amount_basis: string;
             /** @description Counts and totals grouped by status and currency. */
             buckets: components["schemas"]["StatBucket"][];
-            /** @description `funder`, `issuer`, `acquirer` or `settler`. */
+            /** @description `funder`, `issuer`, `acquirer`, `settler` or `helpdesk`. */
             role: string;
         };
         /** @description What pulling one connector's catalog did. */
@@ -9347,7 +9908,7 @@ export type components = {
             last_event_at?: string | null;
             /** @description Redacted preview of the secret the platform presents when calling the connector. */
             outbound_auth_secret_preview: string;
-            /** @description `funder`, `issuer`, `acquirer` or `settler`. */
+            /** @description `funder`, `issuer`, `acquirer`, `settler` or `helpdesk`. */
             role: string;
             /** @description Redacted preview of the secret the connector uses to sign its webhooks. */
             signing_secret_preview: string;
@@ -9475,10 +10036,30 @@ export type components = {
             /** @description Pay part of the price with bonuses. On by default whenever you have bonuses; send `false` to pay it all from the wallet. The response's `bonus` says how many were used and the price before and after. */
             use_bonus?: boolean | null;
         };
+        /**
+         * @example {
+         *       "description": "I didn't make this payment and don't know the shop.",
+         *       "kind": "dispute",
+         *       "transaction_id": "txn_3f0c2a9e-4d4b-4f8e-9b7a-0d2c5e1f6a11"
+         *     }
+         */
+        CreateClaimBody: {
+            /**
+             * Format: uuid
+             * @description The card it is about. Optional; taken from the operation when one is named.
+             */
+            card_id?: string | null;
+            /** @description What happened, in your own words: 10 to 4000 characters. */
+            description: string;
+            /** @description `dispute` (a card operation you don't agree with) or `complaint`. A lost or stolen card is reported with `POST /me/cards/{id}/report-lost`. */
+            kind: components["schemas"]["ClaimKind"];
+            /** @description The operation it is about, as your history names it (`txn_<id>`). Optional. */
+            transaction_id?: string | null;
+        };
         CreateConnectorBody: {
             /** @description URL the platform will call the connector on. Must start with `http://` or `https://`. */
             grpc_url: string;
-            /** @description `funder`, `issuer` or `acquirer`. */
+            /** @description `funder`, `issuer`, `acquirer`, `settler` or `helpdesk`. */
             role: string;
             /** @description Stable lowercase identifier, 3 to 64 characters of `a-z`, `0-9`, `-` and `_`, starting with a letter. */
             slug: string;
@@ -10099,6 +10680,8 @@ export type components = {
             seen_count: number;
             /** @description The text as it first came. */
             text: string;
+            /** @description What the holder is told about a decline with this text: `insufficient_funds`, `limit_exceeded`, `card_blocked`, `card_expired`, `wrong_details`, `merchant_not_allowed` or `other`. Null: guessed from the text's words, which works only for English texts. */
+            user_code?: string | null;
         };
         /** @description Decline texts and how many of them are in each category. */
         DeclineReasonsPage: {
@@ -10116,6 +10699,12 @@ export type components = {
             /** Format: date-time */
             since: string;
         };
+        /**
+         * @description How far a message the person wrote has got towards the platform.
+         *     Operator messages are `delivered` from the start: they came from there.
+         * @enum {string}
+         */
+        DeliveryStatus: "queued" | "delivered" | "failed";
         /**
          * @description How the user funds the deposit.
          * @enum {string}
@@ -10981,6 +11570,23 @@ export type components = {
             /** Format: int64 */
             total: number;
         };
+        /** @description A program's holder pool. */
+        HolderPool: {
+            /**
+             * Format: int32
+             * @description Cards the provider lets one holder have.
+             */
+            cards_per_holder: number;
+            /**
+             * Format: int64
+             * @description Cards that can still be issued on the pool's active holders.
+             */
+            free_places: number;
+            /** @description `generate` or `pool`: whether the program takes its holders from here at all. */
+            holder_source: string;
+            /** @description Every holder of the pool, retired ones last. */
+            holders: components["schemas"]["PoolHolderView"][];
+        };
         IdentityBody: {
             /** @description How the identity was checked (the document, the call), for the audit log. At least 3 characters. */
             note: string;
@@ -11074,8 +11680,15 @@ export type components = {
             cardholder_country?: string | null;
             /** @description State or region of a made-up holder's address, e.g. `CA` or `US-CA`. `null` or empty: any state of the country. */
             cardholder_state?: string | null;
+            /**
+             * Format: int32
+             * @description Cards the provider lets one pool holder have, 1 to 1000.
+             */
+            holder_card_cap?: number | null;
             /** @description The program sends the holder's real details to the issuer: issue its cards only to holders who consented to that. */
             holder_data_required?: boolean | null;
+            /** @description `generate` (a holder made for each user) or `pool` (holders from the program's pool, see `/admin/storefront/products/{id}/holder-pool`). */
+            holder_source?: string | null;
             /**
              * Format: int32
              * @description Order in which this connector's programs are tried when the buyer does not choose. Lower first.
@@ -11118,8 +11731,20 @@ export type components = {
             connector_active: boolean;
             /** @description Slug of the card connector the program belongs to. */
             connector_slug: string;
+            /**
+             * Format: int32
+             * @description Cards the provider lets one pool holder have.
+             */
+            holder_card_cap: number;
             /** @description The holder's real details go to the issuer with every card on this program. A card is then issued only to a holder who consented to that (`holder_data_transfer`); the catalog tells the cabinet to ask. Off by default: the issuer gets no real details. */
             holder_data_required: boolean;
+            /**
+             * Format: int64
+             * @description Free places left in the pool: cards that can still be issued on it. Counts only when `holder_source` is `pool`.
+             */
+            holder_pool_free: number;
+            /** @description Where a card's holder comes from: `generate` (a holder made for each user, as the policy says) or `pool` (a place on one of the holders the operator keeps in the program's pool; each holder takes `holder_card_cap` cards). */
+            holder_source: string;
             last_failure?: null | components["schemas"]["IssueFailure"];
             /** @description Smallest starting balance the provider requires on a new card, decimal string; null when a card may start empty. The platform funds it, so price it in. */
             min_initial_amount?: string | null;
@@ -11171,11 +11796,20 @@ export type components = {
             active_cards: number;
             /** @description Spend per card connector, highest first. */
             by_connector: components["schemas"]["GroupSpend"][];
+            /**
+             * @description Spend and count in each currency the cards were charged in, highest
+             *     first; `key` is the currency.
+             */
+            by_currency: components["schemas"]["GroupSpend"][];
             /** @description Spend per card funding mode, highest first. */
             by_plan: components["schemas"]["GroupSpend"][];
             /** @description Transaction counts per status. */
             by_status: components["schemas"]["StatusCount"][];
-            /** @description Currency filter that was applied, if any. */
+            /**
+             * @description The currency every figure here is in: what the cards were charged in,
+             *     not the merchants' currencies. The one asked for, else the one most
+             *     was spent in; null when the window has no transactions.
+             */
             currency?: string | null;
             /** @description Spend and count per day, oldest first. */
             daily: components["schemas"]["DayBucket"][];
@@ -11184,7 +11818,10 @@ export type components = {
              * @description Number of declined transactions in the window.
              */
             declined_count: number;
-            /** @description Total spend in the window, excluding declined transactions. Decimal string. */
+            /**
+             * @description Total spend in the window, excluding declined transactions, in
+             *     `currency`. Decimal string.
+             */
             spend: string;
             /** @description The ten merchants with the highest spend. */
             top_merchants: components["schemas"]["GroupSpend"][];
@@ -11211,6 +11848,8 @@ export type components = {
             category: string;
             /** @description A note for other operators, e.g. what the text means. Empty clears it; omit to keep it. */
             note?: string | null;
+            /** @description What the holder is told: `insufficient_funds`, `limit_exceeded`, `card_blocked`, `card_expired`, `wrong_details`, `merchant_not_allowed` or `other`. Empty goes back to a guess from the text; omit to keep it. */
+            user_code?: string | null;
         };
         /**
          * @description One of the two lanes.
@@ -11637,6 +12276,13 @@ export type components = {
             /** @description `true` while the app should ask "how did you hear about us". Asked once: any answer, skipping included, turns it off. */
             survey_pending: boolean;
         };
+        /** @description The holder's claims. */
+        MyClaims: {
+            /** @description Newest first. */
+            items: components["schemas"]["ClaimView"][];
+            /** Format: int64 */
+            total: number;
+        };
         /** @description The holder's close requests. */
         MyCloseRequests: {
             /** @description Newest first. */
@@ -11669,6 +12315,18 @@ export type components = {
             rewards: components["schemas"]["RewardView"][];
             /** @description Bonuses you earned in total, decimal string. */
             total_rewarded: string;
+        };
+        /** @description A file to attach, sent inline. */
+        NewAttachment: {
+            /**
+             * @description E.g. `image/png` or `application/pdf`. Which types are accepted and
+             *     how large a file may be is set by the platform; by default pictures
+             *     and PDF up to 20 MB.
+             */
+            content_type: string;
+            /** @description The file in base64. A `data:` URL prefix is accepted. */
+            data_base64: string;
+            file_name: string;
         };
         /** @description Fields for adding a bank account. */
         NewBankAccount: {
@@ -11796,6 +12454,12 @@ export type components = {
             currency_hint?: string | null;
             /** @description Display name. */
             name: string;
+        };
+        NewSupportMessage: {
+            /** @description Up to 10 files. */
+            attachments?: components["schemas"]["NewAttachment"][];
+            /** @description What you want to say. May be empty when there is a file. */
+            text?: string;
         };
         NewTierBody: {
             /** @description Currency of the fee, ISO 4217 code. */
@@ -12033,6 +12697,13 @@ export type components = {
             /** @description Version of the running API build. */
             version: string;
         };
+        OrderBatchBody: {
+            /**
+             * Format: int32
+             * @description Cards to issue, 1 to 500.
+             */
+            count: number;
+        };
         /** @description The storefront order. */
         OrderBody: {
             /** @description Product ids in the order buyers should see them, first to last. Products left out keep their relative order after the listed ones. */
@@ -12247,6 +12918,101 @@ export type components = {
             code: string;
             /** @description Keep this browser signed in; see `POST /auth/refresh`. */
             remember_me?: boolean;
+        };
+        /** @description One balance. */
+        PanelBalance: {
+            amount: string;
+            currency: string;
+        };
+        /** @description One card. */
+        PanelCard: {
+            card_type: string;
+            connector_slug?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            currency: string;
+            /** Format: uuid */
+            id: string;
+            last4?: string | null;
+            /** @description The name the user gave the card. */
+            name?: string | null;
+            /** @description The provider's last known balance, decimal string. */
+            provider_balance?: string | null;
+            status: string;
+        };
+        /** @description A top-up. */
+        PanelDeposit: {
+            amount: string;
+            /** Format: date-time */
+            created_at: string;
+            currency: string;
+            failure_reason?: string | null;
+            /** Format: uuid */
+            id: string;
+            method?: string | null;
+            status: string;
+        };
+        /** @description What the panel shows for one contact. */
+        PanelProfile: (components["schemas"]["PanelUser"] & {
+            /** @enum {string} */
+            kind: "user";
+        }) | (components["schemas"]["PanelTelegramChat"] & {
+            /** @enum {string} */
+            kind: "telegram";
+        });
+        /** @description A Telegram chat with no account: what the platform knows about it. */
+        PanelTelegramChat: {
+            /** Format: date-time */
+            first_message_at?: string | null;
+            /** @description The language Telegram reports for the chat. */
+            language?: string | null;
+            /** Format: int64 */
+            messages: number;
+            /** Format: int64 */
+            telegram_chat_id?: number | null;
+            /** Format: uuid */
+            thread_id: string;
+        };
+        /** @description A card operation. */
+        PanelTransaction: {
+            amount: string;
+            /** Format: uuid */
+            card_id?: string | null;
+            card_last4?: string | null;
+            currency: string;
+            decline_category?: string | null;
+            /** @description Our note on that text: what it means and whose fault it is. */
+            decline_note?: string | null;
+            /** @description What the provider said when it declined. */
+            decline_reason?: string | null;
+            /** Format: uuid */
+            id: string;
+            merchant_name?: string | null;
+            /** Format: date-time */
+            occurred_at?: string | null;
+            status: string;
+        };
+        /** @description A user's account as the panel shows it. */
+        PanelUser: {
+            balances: components["schemas"]["PanelBalance"][];
+            cards: components["schemas"]["PanelCard"][];
+            /** Format: date-time */
+            created_at: string;
+            /** @description The last 10 top-ups, newest first. */
+            deposits: components["schemas"]["PanelDeposit"][];
+            /** @description The account's address; empty while it is a Telegram placeholder. */
+            email: string;
+            /** Format: uuid */
+            id: string;
+            locale?: string | null;
+            /** @description The name printed on the user's latest card, if any. */
+            name?: string | null;
+            /** @description `active`, `disabled` or `erased`. */
+            status: string;
+            telegram_id?: string | null;
+            telegram_username?: string | null;
+            /** @description The last 20 card operations, newest first. */
+            transactions: components["schemas"]["PanelTransaction"][];
         };
         /**
          * @example {
@@ -12540,6 +13306,22 @@ export type components = {
         Placeholder: {
             description: string;
             name: string;
+        };
+        /** @description A holder of the pool, as operators see it. */
+        PoolHolderView: components["schemas"]["CardholderView"] & {
+            /**
+             * Format: int32
+             * @description Cards issued on the holder. A closed card keeps its place; a failed issuance gives it back.
+             */
+            cards_taken: number;
+            note?: string | null;
+            /** @description The provider's own id for the holder, as the operator entered it. */
+            provider_ref?: string | null;
+            /**
+             * Format: date-time
+             * @description Set once the holder takes no new cards. Its cards keep working.
+             */
+            retired_at?: string | null;
         };
         PostList: {
             /**
@@ -13061,6 +13843,22 @@ export type components = {
              */
             spread_bps: number;
         };
+        RatingAnswer: {
+            /** @description What could be better, in your words. Optional. */
+            comment?: string | null;
+            /**
+             * Format: int32
+             * @description 1 (bad) to 5 (great).
+             */
+            rating: number;
+        };
+        /** @description A request to rate the conversation. */
+        RatingQuestion: {
+            /** Format: date-time */
+            asked_at: string;
+            /** Format: uuid */
+            id: string;
+        };
         ReadAllBody: {
             /**
              * Format: date-time
@@ -13246,15 +14044,15 @@ export type components = {
             /** Format: uuid */
             deposit_id?: string | null;
             failure_reason?: string | null;
-            /** @description From the issue fee's revenue, in the card's currency. */
+            /** @description From the issue fee's revenue, in the card's currency; for a `wallet` part, its whole amount in its own currency. */
             fee_part: string;
             /** Format: uuid */
             id: string;
-            /** @description `provider` (a partial refund of a payment) or `manual` (a transfer made by hand). */
+            /** @description `provider` (a partial refund of a payment), `manual` (a transfer made by hand) or `wallet` (the share of an issue fee paid from the wallet, back to it). */
             kind: string;
             /** @description From the FX margin's revenue, in the card's currency. */
             markup_part: string;
-            /** @description The official rate the card's money was valued at, payout currency per card currency unit. */
+            /** @description The official rate the card's money was valued at, payout currency per card currency unit; 1 for a `wallet` part. */
             official_rate: string;
             /** Format: date */
             paid_on?: string | null;
@@ -13373,6 +14171,18 @@ export type components = {
         };
         /**
          * @example {
+         *       "details": "Taken with my bag at the station around 18:00.",
+         *       "kind": "stolen"
+         *     }
+         */
+        ReportLostBody: {
+            /** @description What happened, in your own words. Optional, 4000 characters at most. */
+            details?: string | null;
+            /** @description `lost` or `stolen`. */
+            kind: components["schemas"]["ClaimKind"];
+        };
+        /**
+         * @example {
          *       "email": "new@example.com"
          *     }
          */
@@ -13410,6 +14220,8 @@ export type components = {
             cardholder?: null | components["schemas"]["CardholderView"];
             /** @description Card security code. */
             cvv: string;
+            /** @description True when the card's details are still being prepared: the card provider shows them only on its own page, and they are being read from there. Nothing else in the answer is filled then, and the attempt doesn't count against your limit. Ask again in a minute or two. The card itself says the same in `details_pending`, so a client can show "Details are being prepared" without asking. */
+            details_pending: boolean;
             /**
              * Format: int32
              * @description How long the client should show the details before clearing them, in seconds.
@@ -13758,6 +14570,35 @@ export type components = {
             /** @description Transaction status. */
             status: string;
         };
+        /** @description One batch of stock cards. */
+        StockBatch: {
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: int32
+             * @description Issuances the provider refused.
+             */
+            failed: number;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: int32
+             * @description Cards issued so far.
+             */
+            issued: number;
+            /** @description The provider's last refusal. */
+            last_error?: string | null;
+            /**
+             * Format: int32
+             * @description Cards ordered.
+             */
+            requested: number;
+            requested_by_email?: string | null;
+            /** @description `running`, `done`, `stopped` (the provider refused three times in a row) or `canceled`. */
+            status: string;
+        };
         /** @description One card of a batch as it comes from the provider. No `Debug`: the code is in it. */
         StockCardBody: {
             /** @description The activation code that came with it. */
@@ -13853,10 +14694,12 @@ export type components = {
         };
         /** @description The whole storefront. */
         StorefrontView: {
-            /** @description Every wallet currency a buyer may hold here. */
+            /** @description Every currency a price can be set in: the wallet currencies a buyer may hold here and the currencies buyers pay in through the top-up methods. */
             buyer_currencies: string[];
             /** @description Currency buyers hold by default on this deployment: the natural currency for prices. */
             buyer_currency: string;
+            /** @description Null when new cardholders can be registered. `unset`: `cardholder.email_domain` is empty; `names_site`: it is the site's own domain and is ignored. Either way a card that needs a new holder is not issued until a separate domain is set in Configuration. */
+            holder_mail_domain_problem?: string | null;
             /** @description Every product of every card connector, in storefront order. */
             products: components["schemas"]["StorefrontProduct"][];
         };
@@ -13953,9 +14796,80 @@ export type components = {
             orphan_cards: number;
             /**
              * Format: int64
+             * @description Messages people wrote to support that never reached the support
+             *     platform.
+             */
+            support_messages: number;
+            /**
+             * Format: int64
              * @description Webhooks to merchants and organizations that ran out of attempts.
              */
             webhooks: number;
+        };
+        /** @description A file attached to a message. */
+        SupportAttachment: {
+            content_type: string;
+            file_name: string;
+            /**
+             * Format: uuid
+             * @description Download it from `/me/support/attachments/{id}`.
+             */
+            id: string;
+            /**
+             * Format: int64
+             * @description Size in bytes.
+             */
+            size: number;
+        };
+        /** @description The conversation, or a page of its older part. */
+        SupportConversation: {
+            /**
+             * @description Whether there are older messages: ask again with `before` set to the
+             *     first item's `created_at`.
+             */
+            has_more: boolean;
+            /** @description Oldest first. */
+            items: components["schemas"]["SupportMessage"][];
+            rating_request?: null | components["schemas"]["RatingQuestion"];
+            /**
+             * @description `open`, `resolved` once support has closed it, or `none` if you never
+             *     wrote. Writing again reopens it.
+             */
+            status: string;
+        };
+        /** @description One message in the conversation. */
+        SupportMessage: {
+            attachments: components["schemas"]["SupportAttachment"][];
+            /** @description `user` for what you wrote, `support` for an answer. */
+            author: string;
+            channel?: null | components["schemas"]["Channel"];
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * @description The answer as HTML, already cleaned: paragraphs, line breaks, bold,
+             *     italic, strikethrough, code, links, lists and quotes only. Show it
+             *     as is. On your own messages it is set only for those written in
+             *     Telegram, which keep their formatting; empty otherwise.
+             */
+            html: string;
+            /** Format: uuid */
+            id: string;
+            /** @description The name the support agent goes by. Only on answers. */
+            operator_name?: string | null;
+            /**
+             * @description Your messages: `queued` until support has it, then `delivered`;
+             *     `failed` if it could not be passed on (support sees those too).
+             *     Answers: `delivered`. An answer sent to your Telegram is `queued`
+             *     until all of it got there, and `failed` if it could not.
+             */
+            status: components["schemas"]["DeliveryStatus"];
+            /** @description What you wrote, as plain text. Empty on answers. */
+            text: string;
+        };
+        SupportMessagePage: {
+            items: components["schemas"]["UndeliveredMessage"][];
+            /** Format: int64 */
+            total: number;
         };
         /**
          * @example {
@@ -14232,6 +15146,12 @@ export type components = {
             wallet_available: components["schemas"]["BalanceResponse"];
         };
         TotpStepBody: {
+            /**
+             * @description `support_panel`: sign in to the operator panel inside the support
+             *     platform instead of the operator console. The token then opens the panel's reads only,
+             *     is never remembered, and needs the `support.panel` permission.
+             */
+            audience?: string | null;
             /** @description The `challenge_token` from the login response. */
             challenge_token: string;
             /** @description 6-digit code from the authenticator app; surrounding whitespace is ignored. */
@@ -14407,6 +15327,28 @@ export type components = {
             /** Format: date-time */
             updated_at: string;
         };
+        /**
+         * @description A message that never reached the platform, as the operator console lists it. No text:
+         *     operators read conversations on the platform, not in the operator console.
+         */
+        UndeliveredMessage: {
+            attachments: number;
+            /** Format: int32 */
+            attempts: number;
+            channel?: null | components["schemas"]["Channel"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            id: string;
+            last_error?: string | null;
+            /** Format: int64 */
+            telegram_chat_id?: number | null;
+            /** Format: uuid */
+            thread_id: string;
+            user_email?: string | null;
+            /** Format: uuid */
+            user_id?: string | null;
+        };
         UnlinkTelegramResult: {
             /** @description True when a Telegram link was removed, false when the user had none. */
             removed: boolean;
@@ -14424,6 +15366,17 @@ export type components = {
             /** @description Line number in the file, from 1. */
             line: number;
             value: string;
+        };
+        /**
+         * @example {
+         *       "resolution": "We've returned 12.50 USD to your card.",
+         *       "status": "resolved"
+         *     }
+         */
+        UpdateClaimBody: {
+            /** @description The answer the holder sees, 4000 characters at most. An empty string clears it. */
+            resolution?: string | null;
+            status?: null | components["schemas"]["ClaimStatus"];
         };
         UpdateEndpointBody: {
             /** @description New event filter. Empty list means every event. */
@@ -14523,6 +15476,8 @@ export type components = {
             currency: string;
             /** @description The design shown for this card. */
             design: components["schemas"]["DesignRef"];
+            /** @description True while the card's details are being prepared: the card can already be used and topped up, but its number can't be shown yet. Show "Details are being prepared" instead of the reveal button; it turns false on its own within minutes. */
+            details_pending: boolean;
             /** Format: int32 */
             expiry_month?: number | null;
             /** Format: int32 */
@@ -14809,6 +15764,44 @@ export type components = {
              */
             effective_from?: string | null;
             note?: string | null;
+        };
+        /** @description A product's stock of virtual cards. */
+        VirtualStock: {
+            /** @description Newest first. */
+            batches: components["schemas"]["StockBatch"][];
+            /** @description What the provider charges to issue one card, as the operator entered it; decimal string. Null when not entered. */
+            cost_per_card?: string | null;
+            /** @description Card currency. */
+            currency?: string | null;
+            /**
+             * Format: int64
+             * @description Active cards whose details the connector is still reading. They become ready once it has them. Always 0 for connectors that don't read card details ahead of time.
+             */
+            details_waiting: number;
+            /**
+             * Format: int64
+             * @description Cards already given to buyers.
+             */
+            handed_out: number;
+            /**
+             * Format: date-time
+             * @description When the last live issuance failed; null after one that worked. With that set and no card ready, the product is off sale.
+             */
+            live_failed_at?: string | null;
+            /** @description What the platform puts on each stock card: the provider's minimum, decimal string in `currency`. Null: the card starts empty. */
+            load_per_card?: string | null;
+            /**
+             * Format: int64
+             * @description Cards ready to hand out.
+             */
+            ready: number;
+            /** @description Null when the program can keep a stock; otherwise why it can't. */
+            unavailable_reason?: string | null;
+            /**
+             * Format: int64
+             * @description Cards the provider accepted and has not issued yet.
+             */
+            waiting: number;
         };
         VoidStockBody: {
             /** @description Why the plastic will never be activated: lost, damaged, returned. */
@@ -17696,6 +18689,184 @@ export interface operations {
             };
         };
     };
+    list_claims: {
+        parameters: {
+            query?: {
+                /** @description One status, `active` for the open ones and those in review, or `all` (the default). */
+                status?: string | null;
+                /** @description One kind, or `loss` for lost and stolen cards together. */
+                kind?: string | null;
+                /** @description 1 to 200, 50 by default. */
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The claims */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminClaimList"];
+                };
+            };
+            /** @description An unknown status or kind */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the claims.manage permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_claim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The claim */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The claim */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminClaimView"];
+                };
+            };
+            /** @description Missing the claims.manage permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such claim */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_claim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The claim */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateClaimBody"];
+            };
+        };
+        responses: {
+            /** @description The claim after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminClaimView"];
+                };
+            };
+            /** @description `validation`: nothing to change, or an answer that is too long */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the claims.manage permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such claim */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `resolution_required`: resolving or rejecting needs an answer */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    retry_claim_freeze: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The claim */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The claim; `freeze_error` says why when the issuer still didn't freeze the card */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminClaimView"];
+                };
+            };
+            /** @description Missing the claims.manage permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such claim */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `not_a_loss_report`: the claim isn't about a lost or stolen card; `card_not_open`: the card is closed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_code_programs: {
         parameters: {
             query?: never;
@@ -20419,6 +21590,79 @@ export interface operations {
             };
         };
     };
+    list_support_messages: {
+        parameters: {
+            query?: {
+                /** @description 1 to 200. Default 50. */
+                limit?: number;
+                /** @description Rows to skip. Default 0. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportMessagePage"];
+                };
+            };
+            /** @description limit out of range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    retry_support_message: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Message id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued again */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No undelivered message with that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_webhooks: {
         parameters: {
             query?: {
@@ -22073,7 +23317,7 @@ export interface operations {
             query?: {
                 /** @description Days to look back. Default 7, max 90 */
                 window_days?: number;
-                /** @description Only count transactions in this ISO 4217 currency */
+                /** @description Count only cards charged in this ISO 4217 currency */
                 currency?: string;
             };
             header?: never;
@@ -23671,6 +24915,136 @@ export interface operations {
             };
         };
     };
+    get_pool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Product id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolderPool"];
+                };
+            };
+            /** @description Missing the connectors.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such product */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    add_holder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Product id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddPoolHolderBody"];
+            };
+        };
+        responses: {
+            /** @description The pool after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolderPool"];
+                };
+            };
+            /** @description Bad details, or an e-mail off the holder mail domain */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the connectors.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such product */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No holder mail domain is set in Configuration */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    retire_holder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Product id */
+                id: string;
+                /** @description Pool holder id */
+                holder_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pool after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolderPool"];
+                };
+            };
+            /** @description Missing the connectors.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such product or pool holder */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     upload_tile_image: {
         parameters: {
             query?: never;
@@ -23766,6 +25140,136 @@ export interface operations {
                 content?: never;
             };
             /** @description No such product */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_stock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Product id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VirtualStock"];
+                };
+            };
+            /** @description Missing the connectors.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such product */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    order_batch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Product id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderBatchBody"];
+            };
+        };
+        responses: {
+            /** @description The stock after the order */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VirtualStock"];
+                };
+            };
+            /** @description Bad count, or a program that can't keep a stock */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the connectors.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such product */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A batch for the product is still running */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    cancel_batch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Product id */
+                id: string;
+                /** @description Batch id */
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The stock after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VirtualStock"];
+                };
+            };
+            /** @description Missing the connectors.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such product or running batch */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -23902,6 +25406,61 @@ export interface operations {
                 };
             };
             /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    profile: {
+        parameters: {
+            query?: {
+                /**
+                 * @description The contact's identifier on the support platform: a user id, or the
+                 *     id of a conversation from Telegram with no account.
+                 */
+                identifier?: string;
+                /** @description The contact's e-mail, when there is no identifier. */
+                email?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PanelProfile"];
+                };
+            };
+            /** @description Neither identifier nor email given */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the support.panel permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Nobody with that identifier or e-mail */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -26676,7 +28235,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BalanceResponse"];
+                    "application/json": components["schemas"]["CardBalanceResponse"];
                 };
             };
             /** @description `currency` is not the card's currency */
@@ -26842,6 +28401,61 @@ export interface operations {
             };
             /** @description A virtual card has no PIN */
             501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    report_card_lost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The card */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportLostBody"];
+            };
+        };
+        responses: {
+            /** @description The report, with whether the card is frozen */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimView"];
+                };
+            };
+            /** @description `validation`: an unknown kind, or details that are too long */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The card isn't yours */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such card */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `card_not_open`: the card is closed or was never issued */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -27183,6 +28797,112 @@ export interface operations {
             };
             /** @description Connector unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    my_claims: {
+        parameters: {
+            query?: {
+                /** @description 1 to 100, 20 by default. */
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The claims */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyClaims"];
+                };
+            };
+        };
+    };
+    create_claim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateClaimBody"];
+            };
+        };
+        responses: {
+            /** @description The claim */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimView"];
+                };
+            };
+            /** @description `validation`: a description that is too short or too long, an operation that isn't on your cards, or a lost or stolen card (report it with `report-lost`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The card isn't yours */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such card */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `too_many_claims`: 20 claims are waiting for an answer already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    my_claim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The claim */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The claim */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimView"];
+                };
+            };
+            /** @description No such claim */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -28378,6 +30098,46 @@ export interface operations {
             };
         };
     };
+    cancel_subscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancelledSubscription"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No subscription is running */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `refund_unavailable`: the refund could not be made right now; the subscription is still running, try again */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     set_subscription_code: {
         parameters: {
             query?: never;
@@ -28480,6 +30240,143 @@ export interface operations {
             };
             /** @description Missing or invalid token */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_attachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Attachment id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description No such file in your conversation */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_messages: {
+        parameters: {
+            query?: {
+                /** @description Only messages written before this moment. */
+                before?: string;
+                /** @description 1 to 100. Default 50. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportConversation"];
+                };
+            };
+            /** @description limit out of range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    post_message: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSupportMessage"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportMessage"];
+                };
+            };
+            /** @description Empty message, too long, too many files, a file too large or of a type that isn't accepted */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description This platform can't take files right now */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    rate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The id from rating_request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RatingAnswer"];
+            };
+        };
+        responses: {
+            /** @description Thank you */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The rating is not 1 to 5, or the comment is too long */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such question, or it was answered already */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

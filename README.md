@@ -411,18 +411,34 @@ keeps one, the `cardholder` (name, phone, address) a checkout asks for. No
 password or code is asked again; the API rate-limits and logs every call.
 Keep the result in memory only and clear it after `expires_in_seconds`.
 
-Some issuers do not hand out the numbers and show them on a page of their
-own instead. Then `reveal_url` is set and `pan` and `cvv` are empty:
+A reveal gives one of three answers, and `r.state` says which:
+
+- `numbers`: `pan`, `cvv` and the expiry are filled in.
+- `page`: the issuer shows the numbers on a page of its own. `reveal_url` is
+  set and `pan` and `cvv` are empty.
+- `pending`: the card's details are still being prepared. Some issuers show
+  the details only on their own page, and the platform reads them from there
+  shortly after the card is issued. Nothing else is filled in, and the
+  attempt doesn't count against the reveal limit.
 
 ```tsx
 const r = await client.cards.reveal(card.id);
-if (r.reveal_url) {
-  // The issuer's page. Open it at once: the address is short-lived and
-  // often good for one opening. Never store or log it.
-  return <iframe src={r.reveal_url} sandbox="allow-scripts allow-same-origin" title="Card details" />;
+switch (r.state) {
+  case "pending":
+    return <p>Details are being prepared. Check back in a minute.</p>;
+  case "page":
+    // The issuer's page. Open it at once: the address is short-lived and
+    // often good for one opening. Never store or log it.
+    return <iframe src={r.reveal_url} sandbox="allow-scripts allow-same-origin" title="Card details" />;
+  case "numbers":
+    return showNumbers(r.pan, r.cvv, r.expiry_month, r.expiry_year);
 }
-showNumbers(r.pan, r.cvv, r.expiry_month, r.expiry_year);
 ```
+
+The card says it before you ask: `card.details_pending` is `true` while its
+details are being prepared. Show "Details are being prepared" instead of the
+reveal button, and refresh the card later; no reveal call is needed for that.
+Once the details are ready, reveals return the numbers again, as text.
 
 A physical card takes a PIN from the user. Send it once; neither the SDK nor
 the API keeps it, and the user gets a notification that it was set:

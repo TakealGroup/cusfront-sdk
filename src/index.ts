@@ -15,6 +15,7 @@ import { HttpClient, type FetchLike } from "./http.js";
 import { AuthResource } from "./resources/auth.js";
 import { DepositsResource } from "./resources/deposits.js";
 import { CardsResource } from "./resources/cards.js";
+export { revealState } from "./resources/cards.js";
 import { BalanceResource } from "./resources/balance.js";
 import { BonusResource } from "./resources/bonus.js";
 import { DebtResource } from "./resources/debt.js";
@@ -108,6 +109,7 @@ export type {
   TopUpResult,
   RevealCardInput,
   RevealedCard,
+  RevealState,
   BillingAddress,
   Cardholder,
   SetPinInput,

@@ -240,6 +240,14 @@ export interface Card {
    */
   topups_pending: string | null;
   /**
+   * `true` while the card's details are being prepared: the card can be
+   * used and topped up, but its number can't be shown yet. Show "Details
+   * are being prepared" instead of the reveal button and refresh the card
+   * later; it turns `false` on its own, usually within minutes. Absent
+   * from platforms before 0.7.6.
+   */
+  details_pending?: boolean;
+  /**
    * Top-ups the issuer has held for too long, summed, decimal string in
    * `currency`; `null` when there are none. The money is safe and waits for
    * support to settle it; say so instead of offering a retry.
@@ -597,15 +605,30 @@ export interface RevealCardInput {
 }
 
 /**
+ * What a reveal gave, so a client can switch on one field:
+ *
+ * - `numbers`: `pan`, `cvv` and the expiry are filled in;
+ * - `page`: the issuer shows the numbers on a page of its own, `reveal_url`
+ *   is set and `pan` and `cvv` are empty;
+ * - `pending`: the card's details are still being prepared, nothing else
+ *   is filled in. Show "Details are being prepared" and try again in a
+ *   minute or two; the attempt didn't count against the reveal limit.
+ */
+export type RevealState = "numbers" | "page" | "pending";
+
+/**
  * Full card data from a successful reveal. **Security**: never persist this,
  * keep it in volatile memory only, clear it within `expires_in_seconds`, and
  * never write it to localStorage / logs (the API marks the response no-store).
  *
+ * `state` says which of three answers this is (see {@link RevealState}).
  * Some issuers hand out a page that shows the numbers instead of the
- * numbers themselves. Then `reveal_url` is set, `pan` and `cvv` are empty,
- * and the client opens the page in a frame; see the README for the frame.
+ * numbers themselves; for some cards the details are still being prepared
+ * right after issuance.
  */
 export interface RevealedCard {
+  /** Which answer this is; set by the SDK from the fields below. */
+  state: RevealState;
   /** The card number; empty when `reveal_url` is set. */
   pan: string;
   /** The security code; empty when `reveal_url` is set. */
@@ -632,6 +655,18 @@ export interface RevealedCard {
   billing_address?: BillingAddress;
   /** Display window before the client should auto-clear the data. */
   expires_in_seconds: number;
+  /**
+   * `true` when the details are still being prepared (`state: "pending"`).
+   * Absent from platforms before 0.7.6.
+   */
+  details_pending?: boolean;
+}
+
+/** The three answers of a reveal told apart; see {@link RevealState}. */
+export function revealState(r: Omit<RevealedCard, "state">): RevealState {
+  if (r.details_pending) return "pending";
+  if (r.reveal_url) return "page";
+  return "numbers";
 }
 
 /** Postal address a card is registered at. Which parts exist depends on the country. */
@@ -880,15 +915,22 @@ export class CardsResource {
    * keep the result in volatile memory only, never write it to
    * localStorage / logs, and clear it within `expires_in_seconds`.
    *
-   * The result is the numbers, or `reveal_url` with empty `pan` and `cvv`
-   * when the issuer shows them on a page of its own: open that page in a
-   * frame right away, it is short-lived.
+   * `state` tells the three answers apart: `numbers`; `page`, with
+   * `reveal_url` and empty `pan` and `cvv` when the issuer shows them on a
+   * page of its own (open that page in a frame right away, it is
+   * short-lived); or `pending` while the card's details are still being
+   * prepared, which doesn't count against the limit. A card says the same
+   * in {@link Card.details_pending}, so there is no need to call this just
+   * to find out.
    *
    * 403 not your card · 409 `card_locked` · 429 rate-limited · 501 connector
    * has no sensitive-data endpoint · 503 `provider_unavailable`.
    */
   async reveal(id: string, _input?: RevealCardInput): Promise<RevealedCard> {
-    return this.http.post<RevealedCard>(`/me/cards/${encodeURIComponent(id)}/reveal`);
+    const r = await this.http.post<Omit<RevealedCard, "state">>(
+      `/me/cards/${encodeURIComponent(id)}/reveal`,
+    );
+    return { ...r, state: revealState(r) };
   }
 
   /**

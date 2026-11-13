@@ -4,6 +4,23 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- A card's details can be "being prepared" right after issuance, for issuers
+  that show them only on their own page. `cards.reveal()` answers with
+  `state`: `numbers`, `page` (`reveal_url`) or `pending`, and `Card.details_pending`
+  says it on the card itself, so a client can show "Details are being
+  prepared" without calling reveal. A pending reveal doesn't count against the
+  reveal limit. Once the details are ready, reveals give the numbers as text
+  again. `revealState()` tells the three answers apart for a raw response.
+
+### Changed
+
+- `SUPPORTED_MEISTER` is `>=0.7.6, <1.0.0`: platform 0.7.6 is where details can
+  be "being prepared".
+
 ## [0.6.10] — 2026-11-13
 
 ### Added

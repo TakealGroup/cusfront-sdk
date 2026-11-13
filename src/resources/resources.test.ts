@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { HttpClient, type FetchLike } from "../http.js";
 import { inMemoryStore } from "../token-store.js";
 import { DepositsResource, type Deposit, type FundingQuote, type Refund } from "./deposits.js";
-import { CardsResource, type Card, type CardBalance, type CardProduct } from "./cards.js";
+import {
+  CardsResource,
+  revealState,
+  type Card,
+  type CardBalance,
+  type CardProduct,
+} from "./cards.js";
 import { BalanceResource, type Balance } from "./balance.js";
 import { BonusResource, type BonusPreview, type BonusWallet } from "./bonus.js";
 import { DebtResource, type Debt } from "./debt.js";
@@ -465,10 +471,50 @@ describe("CardsResource", () => {
     const out = await new CardsResource(http).reveal("card_1", {
       password: "ignored since 0.3.12",
     });
-    expect(out).toEqual(revealed);
+    expect(out).toEqual({ ...revealed, state: "numbers" });
     expect(captured[0]!.url).toBe("https://api.test/v1/me/cards/card_1/reveal");
     expect(captured[0]!.init.method).toBe("POST");
     expect(captured[0]!.init.body ?? null).toBeNull();
+  });
+
+  it("reveal tells its three answers apart: numbers, page, pending", async () => {
+    const base = { expiry_month: 0, expiry_year: 0, holder_name: "", expires_in_seconds: 30 };
+    const numbers = {
+      ...base,
+      pan: "4111111111111111",
+      cvv: "123",
+      expiry_month: 6,
+      expiry_year: 2028,
+      details_pending: false,
+    };
+    const page = {
+      ...base,
+      pan: "",
+      cvv: "",
+      reveal_url: "https://cards.issuer.example/show?token=one-time",
+    };
+    const pending = { ...base, pan: "", cvv: "", expires_in_seconds: 0, details_pending: true };
+    const cases: Array<[object, string]> = [
+      [numbers, "numbers"],
+      [page, "page"],
+      [pending, "pending"],
+    ];
+    for (const [answer, state] of cases) {
+      const { captured, http } = rig(answer);
+      const out = await new CardsResource(http).reveal("card_1");
+      expect(out.state).toBe(state);
+      expect(captured).toHaveLength(1);
+    }
+    // A platform before 0.7.6 sends no details_pending: still numbers.
+    const { http } = rig({ ...base, pan: "4111111111111111", cvv: "123" });
+    expect((await new CardsResource(http).reveal("card_1")).state).toBe("numbers");
+    expect(revealState(pending)).toBe("pending");
+  });
+
+  it("a card says its details are being prepared", async () => {
+    const { http } = rig({ ...CARD, details_pending: true });
+    const card = await new CardsResource(http).get("card_1");
+    expect(card.details_pending).toBe(true);
   });
 
   it("reveal returns the issuer's page when the numbers are not handed out", async () => {
