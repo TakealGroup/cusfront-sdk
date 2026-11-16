@@ -42,8 +42,10 @@ export type CardType = "credit" | "prepaid" | "gift";
 /**
  * Card lifecycle state.
  *
- * - `pending_payment`: the row exists but the issuance fee has not been
- *   paid yet; the provider has not been called and nothing is visible.
+ * - `pending_payment`: an order waiting for its payment, not a card yet.
+ *   It has no digits and no expiry, and nothing can be done with it:
+ *   revealing, freezing, closing or renaming it answers 409 `card_pending`.
+ *   Show it as "waiting for payment", without a way into the card's page.
  * - `pending`: the issuer accepted the order and has not issued the card
  *   yet. The price is charged. Show the card as "being issued" with no
  *   numbers; it becomes `active` on its own, or `failed` with the price
@@ -222,7 +224,7 @@ export interface Card {
   user_id: string;
   card_type: CardType;
   status: CardStatus;
-  /** Last four digits of the PAN — safe to display. */
+  /** Last four digits of the PAN — safe to display. Null until the card is paid for and issued. */
   last4: string | null;
   expiry_month: number | null;
   expiry_year: number | null;

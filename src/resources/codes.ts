@@ -6,7 +6,9 @@ import type { HttpClient } from "../http.js";
  * Promo and referral codes. A code is used on the operation itself:
  * `code` on `auth.register` / `auth.exchangeTelegram`, `promo_code` on
  * `deposits.initiate`, `promoCode` on `cards.create`, and
- * `client.subscription.setPromoCode` for the monthly fee.
+ * `client.subscription.setPromoCode` for the monthly fee. On a card bought
+ * with a payment, a code that works on issuing a card lowers the card's
+ * price; one that works on top-ups lowers the payment's commission.
  * {@link CodesResource.validate} checks one first and says what it would do,
  * without using it up.
  *
@@ -82,6 +84,24 @@ export interface ValidateCodeInput {
   amount?: string;
   /** ISO 4217 code of `amount`; for a top-up, the currency it is credited in. */
   currency?: string;
+  /**
+   * For a top-up paid in another currency than it is credited in: what is
+   * paid, decimal string. A code's minimum may be set in either currency;
+   * with both amounts sent it is checked the way the top-up itself checks it.
+   */
+  paid_amount?: string;
+  /** ISO 4217 code of `paid_amount`. */
+  paid_currency?: string;
+  /**
+   * For a card bought with a payment (`cardOrders.create`, or
+   * `deposits.initiate` with `issue_card`): the product. The code is then
+   * checked the way that purchase takes it: as a card issuance, against the
+   * product's price, when the code works on issuing a card, and as a top-up
+   * otherwise. `discount.applies_to` in the answer says which, and
+   * `discount_value` is what comes off the card's price. `operation` may be
+   * `deposit` or `card_issuance`.
+   */
+  product_id?: string;
 }
 
 /** `POST /me/codes/validate`. */
