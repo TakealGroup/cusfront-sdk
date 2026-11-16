@@ -783,8 +783,10 @@ export class CardsResource {
    * `idempotencyKey` returns the same order.
    * Errors: 400 `unknown_product` / `method_not_available` / a limit of the
    * way of paying, 409 `holder_data_consent_required` (the product has
-   * `holder_data_required` and the user has not agreed to it), 503 no
-   * funding connector or no exchange rate.
+   * `holder_data_required` and the user has not agreed to it), 409
+   * `payments_on_hold` (a payment on this account was not accepted and new
+   * ones wait until support sorts it out: show the message and point the
+   * user to support), 503 no funding connector or no exchange rate.
    */
   async order(input: CardOrderInput & { idempotencyKey: string }): Promise<CardOrder> {
     const { idempotencyKey, ...order } = input;

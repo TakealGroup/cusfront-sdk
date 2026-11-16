@@ -339,6 +339,11 @@ export class DepositsResource {
     return this.http.post<FundingQuote>("/me/deposits/quotes", { body });
   }
 
+  /**
+   * Start a top-up. 409 `payments_on_hold`: a payment on this account was
+   * not accepted and new ones wait until support sorts it out. Show the
+   * message as it comes and point the user to support.
+   */
   async initiate(input: InitiateDepositInput): Promise<Deposit> {
     const { idempotencyKey, issue_card, ...rest } = input;
     const body: Record<string, unknown> = { ...rest };
