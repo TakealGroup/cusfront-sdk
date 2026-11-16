@@ -4,6 +4,30 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.13] — 2026-11-17
+
+### Added
+
+- `codes.validate` takes `product_id` for a card bought with a payment
+  (`cards.order`, or `deposits.initiate` with `issue_card`). The code is then
+  checked the way that purchase takes it: as a card issuance against the
+  product's price when the code works on issuing a card, as a top-up
+  otherwise. `discount.applies_to` says which, and `discount_value` is what
+  comes off the card's price.
+- `codes.validate` takes `paid_amount` and `paid_currency` for a top-up paid
+  in another currency than it is credited in. A code's minimum may be set in
+  either; with both amounts sent it is checked the way the top-up checks it.
+- `deposits.initiate` and `cards.order` may answer 409 `payments_on_hold`: a
+  payment on the account was not accepted and new ones wait until support
+  sorts it out. Show the message as it comes and point the user to support.
+
+### Changed
+
+- A card in `pending_payment` is an order waiting for its payment, not a card
+  yet: `last4` and the expiry are null until it is paid for and issued, and
+  revealing, freezing, closing or renaming it answers 409 `card_pending`. Show
+  it as "waiting for payment", without a way into the card's page.
+
 ## [0.6.12] — 2026-11-16
 
 ### Added
