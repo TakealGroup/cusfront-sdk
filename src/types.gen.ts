@@ -5927,8 +5927,10 @@ export type paths = {
          * @description Every card product this deployment offers, in the order the storefront
          *     shows them; `is_default` marks the one you get when you don't choose.
          *     Each carries its product card (tagline, benefits, tile picture), its
-         *     artwork, the designs you may pick and what issuance costs you right now:
-         *     in your wallet currency, your subscription discount included.
+         *     artwork, the designs you may pick and what issuance costs you right now,
+         *     your subscription discount included: in the currency the operator set the
+         *     price in, as on the public catalog, and in `price.from_wallet` what it
+         *     costs from your wallet when that holds another currency.
          */
         get: operations["list_products"];
         put?: never;
@@ -8972,7 +8974,7 @@ export type components = {
              * @description One of the product's designs; omit for its default design.
              */
             design_id?: string | null;
-            /** @description Money to put on the card on top of its price, decimal string in the card's currency. Below the provider's minimum load the minimum is used. */
+            /** @description Money to put on the card on top of its price, decimal string in the card's currency. Below the provider's minimum load the minimum is used; a card that comes ready from the stock gets just this. */
             extra_load?: string | null;
             /** @description The funding connector to pay through; omit to use the first one that issues cards with a top-up and takes `method`. */
             funder_slug?: string | null;
@@ -8998,7 +9000,7 @@ export type components = {
         CardOrderView: {
             /** @description What the user pays, decimal string, in `currency`. */
             amount: string;
-            /** @description What the payment brings, decimal string, in `card_currency`: the card's price, its starting balance and `debt_withheld`. */
+            /** @description What the payment brings, decimal string, in `card_currency`: the card's price, what goes onto the card and `debt_withheld`. A payment in the price's own currency pays the price as it is set, and only the rest is converted. */
             card_amount: string;
             /** @description ISO 4217 code of the card. */
             card_currency: string;
@@ -13433,13 +13435,15 @@ export type components = {
             amount: string;
             /** @description The list price before the discount, decimal string, in the same currency. */
             base_amount: string;
-            /** @description ISO 4217 code of the price: the currency the buyer pays in. For a signed-in user this is their wallet currency, converted at the rate issuance will use. */
+            /** @description ISO 4217 code of the price: the currency the operator set it in, the same before and after sign-in. A card order paid in this currency costs exactly `amount`. */
             currency: string;
             /**
              * Format: int32
              * @description Discount applied, in basis points (1000 = 10%).
              */
             discount_bps: number;
+            /** @description What issuing costs when paid from the wallet, converted at the rate issuance will use. Only for a signed-in user whose wallet holds another currency than the price; null otherwise, and when there is no rate right now. */
+            from_wallet?: null | components["schemas"]["MoneyView"];
             /** @description Wording for the fee line, e.g. "Card issuance". */
             label: string;
         };

@@ -113,10 +113,10 @@ export interface CardProductPrice {
   /** What the user pays, decimal string, after their subscription discount. */
   amount: string;
   /**
-   * ISO 4217 code: the currency the buyer pays in. A signed-in user sees
-   * their wallet currency, converted the way issuance will charge it; the
-   * public catalog shows the currency the operator priced the card in. It
-   * is not necessarily the currency the card is held in (`CardProduct.currency`).
+   * ISO 4217 code: the currency the operator priced the card in, the same
+   * before and after sign-in. A card order paid in this currency costs
+   * exactly `amount`. It is not necessarily the currency the card is held
+   * in (`CardProduct.currency`).
    */
   currency: string;
   /** Wording for the fee line, e.g. "Card issuance". */
@@ -125,6 +125,12 @@ export interface CardProductPrice {
   base_amount: string;
   /** Discount applied, in basis points (1000 = 10%). */
   discount_bps: number;
+  /**
+   * What issuing costs when paid from the wallet, converted the way that
+   * purchase charges it. Only for a signed-in user whose wallet holds another
+   * currency than the price; absent otherwise, and when there is no rate.
+   */
+  from_wallet?: { amount: string; currency: string } | null;
 }
 
 /**
@@ -452,7 +458,7 @@ export interface CardOrder {
   /** What the user pays, decimal string, in `currency`. */
   amount: string;
   currency: string;
-  /** What the payment brings: the card's price, its starting balance and `debt_withheld`, in `card_currency`. */
+  /** What the payment brings: the card's price, what goes onto the card and `debt_withheld`, in `card_currency`. A payment in the price's own currency pays the price as it is set; only the rest is converted. */
   card_amount: string;
   card_currency: string;
   /**
@@ -791,7 +797,9 @@ export class CardsResource {
    * (`is_default` marks the one issued when none is chosen). Each item
    * carries its product card (name, tagline, benefits, tile picture),
    * artwork, and the issuance price after the caller's subscription
-   * discount, in the caller's wallet currency. Pass an item's `id` as
+   * discount, in the currency the operator set it in (`price.from_wallet`
+   * is the same price from the wallet, when that holds another currency).
+   * Pass an item's `id` as
    * `productId` to {@link create}.
    */
   async listProducts(): Promise<CardProduct[]> {

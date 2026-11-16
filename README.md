@@ -80,8 +80,9 @@ for (const p of products) {
   const img = client.assetUrl(p.tile_image_url ?? p.design.image_url);
 
   // Price after the user's subscription discount; `null` means free.
-  // `price.currency` is what the user pays in (their wallet currency once
-  // signed in), which need not be the currency the card is held in.
+  // `price.currency` is the currency the operator set the price in, the same
+  // before and after sign-in; it need not be the currency the card is held
+  // in. `price.from_wallet` is the price from the wallet, when that differs.
   const price = p.price
     ? p.price.discount_bps > 0
       ? `${p.price.amount} ${p.price.currency} (was ${p.price.base_amount}, ${p.price.discount_bps / 100}% off)`

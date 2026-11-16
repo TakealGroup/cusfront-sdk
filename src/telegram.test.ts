@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   parseInitData,
   assertWellFormed,
+  describeInitData,
   InitDataError,
   fromInitData,
   exchangeInitData,
@@ -113,6 +114,46 @@ describe("assertWellFormed", () => {
     expect(assertWellFormed(raw, { nowUnix: NOW + 10 * 86_400, maxAgeSeconds: 0 }).user?.id).toBe(
       777000,
     );
+  });
+});
+
+describe("describeInitData", () => {
+  it("lists field names and checks, never values", () => {
+    const raw = makeInitData(NOW) + "&signature=c2lnbmF0dXJl";
+    const d = describeInitData(raw, { nowUnix: NOW + 30 });
+    expect(d).toEqual({
+      type: "string",
+      length: raw.length,
+      fields: ["auth_date", "hash", "query_id", "signature", "user"],
+      hasHash: true,
+      hasSignature: true,
+      hasAuthDate: true,
+      authDateAgeSeconds: 30,
+      hasUserId: true,
+      reason: null,
+    });
+    const logged = JSON.stringify(d);
+    for (const secret of ["deadbeefcafe", "c2lnbmF0dXJl", "alice_tg", "777000", "AAHscript"]) {
+      expect(logged).not.toContain(secret);
+    }
+  });
+
+  it("names the check that fails", () => {
+    expect(describeInitData(makeInitData(NOW), { nowUnix: NOW + 2 * 86_400 }).reason).toBe("stale");
+    const noUser = new URLSearchParams({ auth_date: String(NOW), hash: "x" }).toString();
+    const d = describeInitData(noUser, { nowUnix: NOW });
+    expect(d.reason).toBe("bad_user");
+    expect(d.hasUserId).toBe(false);
+    expect(describeInitData("").reason).toBe("empty");
+  });
+
+  it("says when the value is not a string at all", () => {
+    expect(describeInitData(undefined)).toMatchObject({
+      type: "undefined",
+      length: 0,
+      reason: "not_a_string",
+    });
+    expect(describeInitData({ initData: "x" }).type).toBe("object");
   });
 });
 

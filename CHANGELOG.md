@@ -4,6 +4,25 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `describeInitData()` in `@takeal/cusfront-sdk/telegram` says what is wrong
+  with a Mini App's `initData` without showing it: the type and length, the
+  names of the fields present, whether `hash`, `signature`, `auth_date` and the
+  user id are there, how old `auth_date` is, and which check fails. Log it
+  where a sign-in from Telegram is refused. Values, signatures and user fields
+  never go into it.
+
+### Changed
+
+- The catalog shows a price in the currency the operator set it in, the same
+  before and after sign-in. A signed-in user whose wallet holds another
+  currency no longer sees it converted; `price.from_wallet` has what a
+  purchase from the wallet costs. A card order paid in the price's currency
+  costs exactly that price.
+
 ## [0.6.11] — 2026-11-13
 
 ### Added

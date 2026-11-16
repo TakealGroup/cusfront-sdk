@@ -118,6 +118,75 @@ export function assertWellFormed(initData: string, opts: WellFormedOptions = {})
   return parsed;
 }
 
+/** What can be logged about an `initData` value without logging it: no
+ *  values, no signatures, no user fields. Built by {@link describeInitData}. */
+export interface InitDataDiagnostics {
+  /** `typeof` of what was received (`"string"` for anything usable). */
+  type: string;
+  /** Length of the string, 0 for anything else. */
+  length: number;
+  /** Names of the fields present, sorted. Values are left out. */
+  fields: string[];
+  hasHash: boolean;
+  hasSignature: boolean;
+  /** `auth_date` is present and a unix timestamp. */
+  hasAuthDate: boolean;
+  /** Seconds since `auth_date`, when it parses. Negative means a clock ahead. */
+  authDateAgeSeconds?: number;
+  /** `user` is present and its `id` is a number. */
+  hasUserId: boolean;
+  /** Why {@link assertWellFormed} would refuse it, or `null` when it would not.
+   *  `"not_a_string"` when the value is not a string at all. */
+  reason: InitDataError["reason"] | "not_a_string" | null;
+}
+
+/**
+ * Describe an `initData` value for a log line, without the value itself.
+ * Use it where the payload is refused, so the log says which check failed:
+ *
+ *   console.warn("telegram sign-in refused", describeInitData(body.initData));
+ *
+ * The signature is checked only by the server; a payload this reports as
+ * well formed can still be refused there, with the reason in the 401.
+ */
+export function describeInitData(
+  initData: unknown,
+  opts: WellFormedOptions = {},
+): InitDataDiagnostics {
+  if (typeof initData !== "string") {
+    return {
+      type: typeof initData,
+      length: 0,
+      fields: [],
+      hasHash: false,
+      hasSignature: false,
+      hasAuthDate: false,
+      hasUserId: false,
+      reason: "not_a_string",
+    };
+  }
+  const parsed = parseInitData(initData);
+  const now = opts.nowUnix ?? Math.floor(Date.now() / 1000);
+  let reason: InitDataDiagnostics["reason"] = null;
+  try {
+    assertWellFormed(initData, opts);
+  } catch (e) {
+    if (e instanceof InitDataError) reason = e.reason;
+    else throw e;
+  }
+  return {
+    type: "string",
+    length: initData.length,
+    fields: Object.keys(parsed.params).sort(),
+    hasHash: parsed.hash !== undefined,
+    hasSignature: typeof parsed.params.signature === "string" && parsed.params.signature !== "",
+    hasAuthDate: parsed.auth_date !== undefined,
+    ...(parsed.auth_date !== undefined ? { authDateAgeSeconds: now - parsed.auth_date } : {}),
+    hasUserId: typeof parsed.user?.id === "number",
+    reason,
+  };
+}
+
 export interface FromInitDataOptions extends WellFormedOptions {
   /** Skip the client-side well-formedness check and let the server be the
    *  sole judge. Default false — the fail-fast check saves a round-trip on
