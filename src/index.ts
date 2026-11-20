@@ -242,7 +242,14 @@ export type {
   SupportRatingRequest,
   SupportResource,
 } from "./resources/support.js";
-export { anonymousKey, currentTouch } from "./resources/attribution.js";
+export {
+  analyticsIds,
+  anonymousKey,
+  currentTouch,
+  forgetAnalyticsIds,
+  rememberAnalyticsIds,
+  withAnalyticsIds,
+} from "./resources/attribution.js";
 export type {
   TouchFields,
   TouchInput,
@@ -251,6 +258,8 @@ export type {
   SurveyAnswer,
   AttributionStatus,
   AnonymousKeyOptions,
+  AnalyticsIds,
+  HandoffToken,
 } from "./resources/attribution.js";
 export {
   ANALYTICS_EVENTS,

@@ -18,6 +18,8 @@
  * ```
  */
 
+import { rememberAnalyticsIds } from "./resources/attribution.js";
+
 /** Where the page lives. Decides what is captured and what is masked. */
 export type AnalyticsZone = "public" | "cabinet" | "miniapp";
 
@@ -535,6 +537,11 @@ class MetrikaSink implements Sink {
       clickmap: false,
       trackLinks: false,
       accurateTrackBounce: true,
+    });
+    // The sink exists only once the visitor agreed to analytics: keep the
+    // ClientID for the server's conversions (TKL-329).
+    this.ym("getClientID", (id: unknown) => {
+      if (id !== undefined && id !== null) rememberAnalyticsIds({ metrika_client_id: String(id) });
     });
   }
 

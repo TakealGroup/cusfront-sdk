@@ -2,6 +2,7 @@ import type { HttpClient } from "../http.js";
 import type { CustomerInfo } from "../types/customer.js";
 import { cardRequestBody, type CreateCardInput } from "./cards.js";
 import type { DepositTarget, FunderMode } from "./funding-options.js";
+import { analyticsIds, type AnalyticsIds } from "./attribution.js";
 
 /**
  * Deposits resource — `client.deposits.*`.
@@ -286,6 +287,9 @@ export interface InitiateDepositInput {
    * checks it first.
    */
   promo_code?: string;
+  /** The visitor's analytics ids for the payment's server-side conversions.
+   *  Leave out to send the ones this browser holds (see `analyticsIds`). */
+  analytics_ids?: AnalyticsIds;
 }
 
 export interface CreateDepositRefundInput {
@@ -348,6 +352,8 @@ export class DepositsResource {
     const { idempotencyKey, issue_card, ...rest } = input;
     const body: Record<string, unknown> = { ...rest };
     if (issue_card !== undefined) body["issue_card"] = cardRequestBody(issue_card);
+    const ids = input.analytics_ids ?? analyticsIds();
+    if (ids !== undefined) body["analytics_ids"] = ids;
     return this.http.post<Deposit>("/me/deposits", {
       body,
       idempotencyKey,

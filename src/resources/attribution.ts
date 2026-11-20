@@ -68,6 +68,26 @@ export interface SignupAttribution {
 export type SurveyAnswer =
   "friend" | "telegram_channel" | "search" | "ads" | "review" | "other" | "skipped";
 
+/**
+ * The visitor's ids at the analytics platforms (TKL-329). The SDK keeps
+ * them from the moment the visitor agreed to analytics cookies and sends
+ * them with an order, a top-up and a sign-in, so the server can report the
+ * payment and the issued card to the platforms after the person has left
+ * for the bank or Telegram. See {@link analyticsIds}.
+ */
+export interface AnalyticsIds {
+  /** Yandex Metrica's ClientID, from `getClientID`. A string: it does not fit a number. */
+  metrika_client_id?: string;
+  /** Google Analytics' client id, from the `_ga` cookie: `1234567890.1700000000`. */
+  ga_client_id?: string;
+}
+
+export interface HandoffToken {
+  /** Goes into the Mini App link's `startapp` after two underscores. */
+  token: string;
+  expires_at: string;
+}
+
 export interface AttributionStatus {
   /** `true` while the app should ask "how did you hear about us". */
   survey_pending: boolean;
@@ -81,6 +101,45 @@ export class AttributionResource {
   /** Record a visit. No session needed; safe to call on every page load. */
   async touch(input: TouchInput): Promise<TouchResult> {
     return this.http.post<TouchResult>("/attribution/touches", { body: input, skipAuth: true });
+  }
+
+  /** A one-day token that carries the visitor's analytics ids into the
+   *  Telegram Mini App, whose sign-in reads it back. Most callers want
+   *  {@link AttributionResource.telegramStartParam}. Errors: 400 when none of
+   *  the ids is valid. */
+  async handoff(ids: AnalyticsIds): Promise<HandoffToken> {
+    return this.http.post<HandoffToken>("/attribution/handoff", { body: ids, skipAuth: true });
+  }
+
+  /**
+   * The `startapp` value for a link from the site to the Mini App: the code
+   * as it is, followed by `__<token>` when the visitor has analytics ids, so
+   * a payment made in Telegram is still credited to the visit it came from.
+   * Without ids, or when the token can't be had, just the code.
+   *
+   * ```ts
+   * const start = await client.attribution.telegramStartParam("SPRING");
+   * location.href = `https://t.me/our_bot/app?startapp=${start}`;
+   * ```
+   */
+  async telegramStartParam(code = ""): Promise<string> {
+    const ids = analyticsIds();
+    if (!ids) return code;
+    try {
+      const { token } = await this.handoff(ids);
+      return `${code}__${token}`;
+    } catch {
+      return code;
+    }
+  }
+
+  /** Send the visitor's analytics ids for the signed-in account, e.g. right
+   *  after they agreed to analytics cookies in the cabinet. Without an
+   *  argument the ids this browser holds are sent; nothing is sent when it
+   *  holds none. */
+  async sendAnalyticsIds(ids: AnalyticsIds | undefined = analyticsIds()): Promise<void> {
+    if (!ids) return;
+    await this.http.post<void>("/me/analytics/ids", { body: ids });
   }
 
   /** Whether to ask the signed-in user how they heard about us. */
@@ -181,4 +240,88 @@ export function currentTouch(): TouchFields {
   const ga = readCookie("_ga")?.split(".").slice(-2).join(".");
   if (ga) out.ga_client_id = ga;
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Analytics ids (TKL-329)
+// ---------------------------------------------------------------------------
+
+const IDS_KEY = "takeal_analytics_ids";
+
+function storage(): Storage | undefined {
+  try {
+    return (globalThis as { localStorage?: Storage }).localStorage;
+  } catch {
+    return undefined;
+  }
+}
+
+function stored(): AnalyticsIds {
+  try {
+    const raw = storage()?.getItem(IDS_KEY);
+    const v = raw ? (JSON.parse(raw) as AnalyticsIds) : {};
+    return typeof v === "object" && v !== null ? v : {};
+  } catch {
+    return {};
+  }
+}
+
+function clean(ids: AnalyticsIds): AnalyticsIds | undefined {
+  const out: AnalyticsIds = {};
+  const ym = ids.metrika_client_id?.trim();
+  if (ym && /^\d{1,32}$/.test(ym)) out.metrika_client_id = ym;
+  const ga = ids.ga_client_id?.trim();
+  if (ga && /^\d+\.\d+$/.test(ga) && ga.length <= 64) out.ga_client_id = ga;
+  return out.metrika_client_id || out.ga_client_id ? out : undefined;
+}
+
+/**
+ * Keep analytics ids for this browser, on top of the ones kept before. The
+ * Metrica sink of `initAnalytics` calls it with `getClientID`'s answer once
+ * the visitor agreed to analytics; call it yourself for another platform.
+ */
+export function rememberAnalyticsIds(ids: AnalyticsIds): void {
+  const merged = clean({ ...stored(), ...ids });
+  if (!merged) return;
+  try {
+    storage()?.setItem(IDS_KEY, JSON.stringify(merged));
+  } catch {
+    // Storage full or blocked: the cookies still hold them.
+  }
+}
+
+/** Forget the kept analytics ids: the visitor declined analytics. */
+export function forgetAnalyticsIds(): void {
+  try {
+    storage()?.removeItem(IDS_KEY);
+  } catch {
+    // Nothing kept, or nothing to reach.
+  }
+}
+
+/**
+ * The visitor's analytics ids: the ones kept by {@link rememberAnalyticsIds},
+ * and failing those the platforms' own cookies (`_ym_uid`, `_ga`), which
+ * exist only once the visitor agreed to analytics. `undefined` when there
+ * are none. The site and the cabinet share them when they share the origin.
+ */
+export function analyticsIds(): AnalyticsIds | undefined {
+  const kept = stored();
+  return clean({
+    metrika_client_id: kept.metrika_client_id ?? readCookie("_ym_uid"),
+    ga_client_id: kept.ga_client_id ?? readCookie("_ga")?.split(".").slice(-2).join("."),
+  });
+}
+
+/** `attribution` with the visitor's analytics ids filled in where it has none. */
+export function withAnalyticsIds(
+  attribution: SignupAttribution | undefined,
+): SignupAttribution | undefined {
+  const ids = analyticsIds();
+  if (!ids) return attribution;
+  return {
+    ...attribution,
+    metrika_client_id: attribution?.metrika_client_id ?? ids.metrika_client_id,
+    ga_client_id: attribution?.ga_client_id ?? ids.ga_client_id,
+  };
 }

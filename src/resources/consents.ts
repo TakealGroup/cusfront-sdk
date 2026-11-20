@@ -1,5 +1,5 @@
 import type { HttpClient } from "../http.js";
-import { anonymousKey } from "./attribution.js";
+import { anonymousKey, forgetAnalyticsIds } from "./attribution.js";
 
 /**
  * Consents resource — `client.consents.*`: what the user agreed to.
@@ -176,6 +176,7 @@ export class ConsentsResource {
     const key = input.anonymousKey ?? anonymousKey();
     if (key !== undefined) body.anonymous_key = key;
     if (input.channel !== undefined) body.channel = input.channel;
+    if (!input.analytics) forgetAnalyticsIds();
     return this.http.post<{ recorded: boolean }>("/consents/cookies", { body });
   }
 }

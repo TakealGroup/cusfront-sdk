@@ -2,7 +2,7 @@ import type { ConsentChannel, ConsentKind } from "./consents.js";
 import type { HttpClient } from "../http.js";
 import type { TokenStore } from "../token-store.js";
 import { isApiError } from "../error.js";
-import type { SignupAttribution } from "./attribution.js";
+import { withAnalyticsIds, type SignupAttribution } from "./attribution.js";
 import type { CodeResult } from "./codes.js";
 import {
   cardOrderBody,
@@ -366,8 +366,13 @@ export class AuthResource {
   /** Password-auth entry. May resolve to a JWT, or to a step-up
    *  challenge that needs `verifyTotp` / `verifyOtp` next. */
   async login(input: LoginInput): Promise<LoginResponse> {
+    const body: Record<string, unknown> = withRemember(input);
+    // The analytics ids go with a sign-in too: the server reports the
+    // account's later payments with them.
+    const attribution = withAnalyticsIds(undefined);
+    if (attribution !== undefined) body["attribution"] = attribution;
     const resp = await this.http.post<LoginResponse>("/auth/login", {
-      body: withRemember(input),
+      body,
       skipAuth: true,
     });
     if (resp.stage === "jwt") {
@@ -407,6 +412,8 @@ export class AuthResource {
   async register(input: RegisterInput): Promise<Session> {
     const { cardOrder, ...rest } = input;
     const body: Record<string, unknown> = withRemember(rest);
+    const attribution = withAnalyticsIds(rest.attribution);
+    if (attribution !== undefined) body["attribution"] = attribution;
     if (cardOrder !== undefined) body["card_order"] = cardOrderBody(cardOrder);
     const resp = await this.http.post<Session>("/auth/register", {
       body,
@@ -444,7 +451,8 @@ export class AuthResource {
     };
     if (input.remember) body["remember_me"] = true;
     if (input.walletCurrency !== undefined) body["wallet_currency"] = input.walletCurrency;
-    if (input.attribution !== undefined) body["attribution"] = input.attribution;
+    const attribution = withAnalyticsIds(input.attribution);
+    if (attribution !== undefined) body["attribution"] = attribution;
     if (input.promoCode !== undefined) body["promo_code"] = input.promoCode;
     if (input.consents !== undefined) body["consents"] = input.consents;
     if (input.consentChannel !== undefined) body["consent_channel"] = input.consentChannel;
@@ -519,7 +527,8 @@ export class AuthResource {
       init_data: input.initData,
     };
     if (input.provision !== undefined) body.provision = input.provision;
-    if (input.attribution !== undefined) body.attribution = input.attribution;
+    const attribution = withAnalyticsIds(input.attribution);
+    if (attribution !== undefined) body.attribution = attribution;
     if (input.code !== undefined) body.code = input.code;
     if (input.consents !== undefined) body.consents = input.consents;
     if (input.consentChannel !== undefined) body.consent_channel = input.consentChannel;

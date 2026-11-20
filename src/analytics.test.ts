@@ -14,6 +14,7 @@ import {
   type AnalyticsOptions,
   type PostHogLike,
 } from "./analytics.js";
+import { analyticsIds, forgetAnalyticsIds } from "./resources/attribution.js";
 
 /**
  * The analytics layer. PostHog is a fake handed in through `load` (or put
@@ -265,7 +266,18 @@ describe("zones", () => {
     expect(w.ym).toBeUndefined();
     setAnalyticsZone("public");
     track("signup_started");
-    expect(ymCalls().map((c) => c[1])).toEqual(["init", "reachGoal"]);
+    expect(ymCalls().map((c) => c[1])).toEqual(["init", "getClientID", "reachGoal"]);
+  });
+
+  it("keeps Metrica's ClientID for the server's conversions", async () => {
+    forgetAnalyticsIds();
+    await start({ zone: "public" });
+    const ask = ymCalls().find((c) => c[1] === "getClientID");
+    expect(ask).toBeDefined();
+    (ask?.[2] as (id: unknown) => void)(1700000000123456789n.toString());
+    expect(analyticsIds()?.metrika_client_id).toBe("1700000000123456789");
+    forgetAnalyticsIds();
+    expect(analyticsIds()?.metrika_client_id).toBeUndefined();
   });
 });
 

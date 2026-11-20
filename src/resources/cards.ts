@@ -3,6 +3,7 @@ import type { ConsentChannel, ConsentKind } from "./consents.js";
 import type { HttpClient } from "../http.js";
 import type { CustomerInfo } from "../types/customer.js";
 import type { Deposit, DepositMethod } from "./deposits.js";
+import { analyticsIds, type AnalyticsIds } from "./attribution.js";
 
 /**
  * Cards resource — `client.cards.*`.
@@ -451,6 +452,9 @@ export interface CardOrderInput {
   consentChannel?: ConsentChannel;
   /** Passed to the payment provider; `return_url` is where the payment page sends the user back. */
   metadata?: Record<string, string>;
+  /** The visitor's analytics ids for the order's server-side conversions.
+   *  Leave out to send the ones this browser holds (see `analyticsIds`). */
+  analyticsIds?: AnalyticsIds;
 }
 
 /** What {@link CardsResource.order} returns: the top-up to pay and its price. */
@@ -493,6 +497,8 @@ export function cardOrderBody(input: CardOrderInput): Record<string, unknown> {
   if (input.consents !== undefined) body["consents"] = input.consents;
   if (input.consentChannel !== undefined) body["consent_channel"] = input.consentChannel;
   if (input.metadata !== undefined) body["metadata"] = input.metadata;
+  const ids = input.analyticsIds ?? analyticsIds();
+  if (ids !== undefined) body["analytics_ids"] = ids;
   return body;
 }
 
