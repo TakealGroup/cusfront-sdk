@@ -15,7 +15,7 @@ import { HttpClient, type FetchLike } from "./http.js";
 import { AuthResource } from "./resources/auth.js";
 import { DepositsResource } from "./resources/deposits.js";
 import { CardsResource } from "./resources/cards.js";
-export { revealState } from "./resources/cards.js";
+export { revealState, priceChangedQuote } from "./resources/cards.js";
 import { BalanceResource } from "./resources/balance.js";
 import { BonusResource } from "./resources/bonus.js";
 import { DebtResource } from "./resources/debt.js";
@@ -121,6 +121,10 @@ export type {
   CardOrderInput,
   CardOrder,
   CardOrderError,
+  CardOrderQuoteInput,
+  CardOrderQuote,
+  PromoCodeQuote,
+  PromoCodeStatus,
   CardTariff,
 } from "./resources/cards.js";
 export type { Debt, DebtAmount, DebtLine, CardFeeKind } from "./resources/debt.js";

@@ -333,6 +333,57 @@ signed in gets the same with `client.cards.order({ productId, method,
 idempotencyKey })`. The card shows as `pending_payment` until the payment is
 confirmed and is issued after that.
 
+## The price before the payment
+
+The form can show what the card costs with the promo code before the user
+signs in. `cards.quotePublic` takes the same fields as the order and no
+e-mail, and answers with the price, the discount and the amount to pay:
+
+```ts
+const q = await client.cards.quotePublic({ productId, method: "sbp", promoCode });
+// q.price "1949", q.discount "500", q.amount "1449", q.currency "RUB"
+// q.promo_code.status: "applied" | "conditional" | "rejected" | "unavailable"
+if (q.preliminary) {
+  // A code with a condition only checked after sign-in, such as first card
+  // only: show q.amount as provisional, next to q.promo_code.message.
+}
+```
+
+A quote reserves nothing. Drop a `rejected` code from the order: an order
+that keeps it is refused.
+
+Send the amount the user saw with the order. If the order comes to something
+else (the code was for first cards only and this user has one, or the rate
+moved), no payment is opened and the new quote comes back:
+
+```ts
+import { priceChangedQuote } from "@takeal/cusfront-sdk";
+
+const session = await client.auth.verifyEmailCode({
+  challengeId: challenge_id,
+  code,
+  consents: ["terms", "personal_data"],
+  cardOrder: { productId, method: "sbp", promoCode, expectedAmount: q.amount, expectedCurrency: q.currency },
+});
+const changed = priceChangedQuote(session.card_order_error);
+if (changed) {
+  // Show changed.amount. Once the user agrees:
+  await client.cards.order({
+    productId,
+    method: "sbp",
+    promoCode: changed.promo_code?.status === "rejected" ? undefined : promoCode,
+    expectedAmount: changed.amount,
+    expectedCurrency: changed.currency,
+    idempotencyKey,
+  });
+}
+```
+
+A signed-in user gets the confirmed amount from `cards.quote`, with their
+bonuses and anything they owe. `cards.order` with an `expectedAmount` that no
+longer holds throws 409 `price_changed`, and `priceChangedQuote(error)` reads
+the new quote from it. Without `expectedAmount` an order works as before.
+
 ## Topping up by SBP
 
 A rouble top-up through Russia's instant payments goes like this: the user

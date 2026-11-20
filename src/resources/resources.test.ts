@@ -4,8 +4,10 @@ import { inMemoryStore } from "../token-store.js";
 import { DepositsResource, type Deposit, type FundingQuote, type Refund } from "./deposits.js";
 import {
   CardsResource,
+  priceChangedQuote,
   revealState,
   type Card,
+  type CardOrderQuote,
   type CardBalance,
   type CardProduct,
 } from "./cards.js";
@@ -305,6 +307,102 @@ describe("CardsResource", () => {
       consents: ["terms"],
       consent_channel: "site",
     });
+  });
+
+  const QUOTE: CardOrderQuote = {
+    amount: "1449",
+    currency: "RUB",
+    price: "1949",
+    discount: "500",
+    card_amount: "14.49",
+    card_currency: "USD",
+    debt_withheld: "0",
+    bonus_units: null,
+    preliminary: true,
+    promo_code: {
+      code: "FIRST500",
+      status: "conditional",
+      reason: null,
+      conditions: ["not_first_operation"],
+      message: "This code only works on your first card.",
+      discount: {
+        kind: "fixed",
+        bps: null,
+        amount: "500",
+        currency: "RUB",
+        applies_to: "card_issuance",
+      },
+      effects: [],
+      from_sign_up: false,
+    },
+  };
+
+  it("order sends the expected amount the user saw", async () => {
+    const { captured, http } = rig({ deposit: { id: "dep_1" }, amount: "1449", currency: "RUB" });
+    await new CardsResource(http).order({
+      productId: "prod_1",
+      method: "sbp",
+      promoCode: "FIRST500",
+      expectedAmount: "1449",
+      expectedCurrency: "RUB",
+      idempotencyKey: "key-2",
+    });
+    expect(bodyOf(captured[0]!)).toEqual({
+      product_id: "prod_1",
+      method: "sbp",
+      promo_code: "FIRST500",
+      expected_amount: "1449",
+      expected_currency: "RUB",
+    });
+  });
+
+  it("quote POSTs /me/card-orders/quote; quotePublic the public one, without the token", async () => {
+    const { captured, http } = rig(QUOTE);
+    const q = await new CardsResource(http).quote({
+      productId: "prod_1",
+      method: "sbp",
+      promoCode: "FIRST500",
+      extraLoad: "5",
+      useBonus: false,
+    });
+    expect(q).toEqual(QUOTE);
+    expect(captured[0]!.url).toBe("https://api.test/v1/me/card-orders/quote");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(bodyOf(captured[0]!)).toEqual({
+      product_id: "prod_1",
+      method: "sbp",
+      promo_code: "FIRST500",
+      extra_load: "5",
+      use_bonus: false,
+    });
+
+    const { captured: c2, http: h2, tokens } = rig(QUOTE);
+    await tokens.set("jwt-1");
+    await new CardsResource(h2).quotePublic({ productId: "prod_1", method: "sbp", promoCode: "X" });
+    expect(c2[0]!.url).toBe("https://api.test/v1/card-orders/quote");
+    expect(headersOf(c2[0]!)["Authorization"]).toBeUndefined();
+    expect(bodyOf(c2[0]!)).toEqual({ product_id: "prod_1", method: "sbp", promo_code: "X" });
+  });
+
+  it("priceChangedQuote reads the new quote from a 409 and from a sign-in's card_order_error", async () => {
+    const changed = { code: "price_changed", message: "The price changed.", quote: QUOTE };
+    const { http } = rig(changed, 409);
+    let thrown: unknown;
+    try {
+      await new CardsResource(http).order({
+        productId: "prod_1",
+        method: "sbp",
+        expectedAmount: "1",
+        idempotencyKey: "key-3",
+      });
+    } catch (e) {
+      thrown = e;
+    }
+    expect(isApiError(thrown) && thrown.code).toBe("price_changed");
+    expect(priceChangedQuote(thrown)).toEqual(QUOTE);
+    expect(priceChangedQuote(changed)).toEqual(QUOTE);
+    expect(priceChangedQuote({ code: "payments_on_hold", message: "x" })).toBeUndefined();
+    expect(priceChangedQuote(undefined)).toBeUndefined();
   });
 
   it("listProducts / getProduct GET /me/card-products[/{id}]", async () => {

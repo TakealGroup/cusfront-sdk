@@ -1,9 +1,11 @@
 import type { Claim } from "./claims.js";
+import type { CodeDiscount, CodeEffect, CodeRejection } from "./codes.js";
 import type { ConsentChannel, ConsentKind } from "./consents.js";
 import type { HttpClient } from "../http.js";
 import type { CustomerInfo } from "../types/customer.js";
 import type { Deposit, DepositMethod } from "./deposits.js";
 import { analyticsIds, type AnalyticsIds } from "./attribution.js";
+import { isApiError } from "../error.js";
 
 /**
  * Cards resource — `client.cards.*`.
@@ -455,6 +457,96 @@ export interface CardOrderInput {
   /** The visitor's analytics ids for the order's server-side conversions.
    *  Leave out to send the ones this browser holds (see `analyticsIds`). */
   analyticsIds?: AnalyticsIds;
+  /**
+   * The amount the user was shown and agreed to pay: `amount` of the
+   * quote. If the order comes to anything else, no payment is opened and
+   * the API answers 409 `price_changed` with the new quote (see
+   * {@link priceChangedQuote}). Leave it out and the payment opens for
+   * whatever the order comes to. Sent as `expected_amount`.
+   */
+  expectedAmount?: string;
+  /** `currency` of the same quote. Sent as `expected_currency`. */
+  expectedCurrency?: string;
+}
+
+/**
+ * A card order to price with {@link CardsResource.quote} or
+ * {@link CardsResource.quotePublic}: the same fields as the order.
+ */
+export interface CardOrderQuoteInput {
+  /** Sent as `product_id`. */
+  productId: string;
+  /** Sent as `design_id`. */
+  designId?: string;
+  method: DepositMethod;
+  /** Sent as `funder_slug`. */
+  funderSlug?: string;
+  currency?: string;
+  /** Sent as `extra_load`. */
+  extraLoad?: string;
+  /** The code the user typed. Sent as `promo_code`. */
+  promoCode?: string;
+  /** Signed in only: pay part of the price with bonuses, on by default. Sent as `use_bonus`. */
+  useBonus?: boolean;
+}
+
+/**
+ * Where a promo code stands in a quote. `applied`: its discount is in the
+ * amount. `conditional` (before sign-in only): it works for someone who
+ * meets `conditions`, which are checked after sign-in, and the amount is
+ * provisional. `rejected`: it can't be used, for `reason`; an order that
+ * keeps the code is refused, so drop it from the order. `unavailable`: it
+ * couldn't be checked right now; the amount is without it.
+ */
+export type PromoCodeStatus = "applied" | "conditional" | "rejected" | "unavailable";
+
+/** What a promo code does to a card order. */
+export interface PromoCodeQuote {
+  /** The code as stored, or as typed when it wasn't found. */
+  code: string;
+  status: PromoCodeStatus;
+  /** For `rejected`. */
+  reason: CodeRejection | null;
+  /**
+   * For `conditional`: `not_first_operation` (first card only) or
+   * `own_code` (not for the person it belongs to).
+   */
+  conditions: CodeRejection[];
+  /** A sentence to show next to the code, in English. Null when the discount says it all. */
+  message: string | null;
+  /**
+   * The discount and what it comes off: `card_issuance` (the card's price,
+   * in `discount` of the quote) or `funding_commission` (the payment's
+   * commission: the amount stays the same and more goes onto the card).
+   */
+  discount: CodeDiscount | null;
+  /** What else the code gives, once the card is issued. */
+  effects: CodeEffect[];
+  /** The code the user signed up with, applied without being typed. */
+  from_sign_up: boolean;
+}
+
+/** What a card order would cost now, from {@link CardsResource.quote} or {@link CardsResource.quotePublic}. */
+export interface CardOrderQuote {
+  /** What the user pays, decimal string, in `currency`. Pass it to the order as `expectedAmount`. */
+  amount: string;
+  /** Pass it to the order as `expectedCurrency`. */
+  currency: string;
+  /** The same order without the promo code, decimal string, in `currency`. */
+  price: string;
+  /** `price` less `amount`: what the code takes off. `"0"` without one. */
+  discount: string;
+  /** What the payment brings, in `card_currency`, as in {@link CardOrder}. */
+  card_amount: string;
+  card_currency: string;
+  /** Card fees owed, in `card_currency`, included in `card_amount`. Always `"0"` before sign-in. */
+  debt_withheld: string;
+  /** Bonuses that pay part of the price; null before sign-in. */
+  bonus_units: string | null;
+  /** The amount may still change after sign-in: show it as provisional. */
+  preliminary: boolean;
+  /** Null when no code was typed and none applies by itself. */
+  promo_code: PromoCodeQuote | null;
 }
 
 /** What {@link CardsResource.order} returns: the top-up to pay and its price. */
@@ -479,6 +571,38 @@ export interface CardOrder {
 export interface CardOrderError {
   code: string;
   message: string;
+  /** With `code: "price_changed"`: what the card costs now. */
+  quote?: CardOrderQuote;
+}
+
+/**
+ * The new quote of an order that opened no payment because its price
+ * changed (`price_changed`), from either a thrown {@link ApiError} of
+ * {@link CardsResource.order} or the `card_order_error` of a sign-in.
+ * Show its amount; once the user agrees, send the order again with
+ * `expectedAmount` set to it. `undefined` for any other error.
+ */
+export function priceChangedQuote(error: unknown): CardOrderQuote | undefined {
+  const body = isApiError(error) ? error.body : error;
+  if (typeof body !== "object" || body === null) return undefined;
+  const { code, quote } = body as { code?: unknown; quote?: unknown };
+  if (code !== "price_changed" || typeof quote !== "object" || quote === null) return undefined;
+  return quote as CardOrderQuote;
+}
+
+/** Build the API body of a card order quote. */
+export function cardOrderQuoteBody(input: CardOrderQuoteInput): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    product_id: input.productId,
+    method: input.method,
+  };
+  if (input.designId !== undefined) body["design_id"] = input.designId;
+  if (input.funderSlug !== undefined) body["funder_slug"] = input.funderSlug;
+  if (input.currency !== undefined) body["currency"] = input.currency;
+  if (input.extraLoad !== undefined) body["extra_load"] = input.extraLoad;
+  if (input.promoCode !== undefined) body["promo_code"] = input.promoCode;
+  if (input.useBonus !== undefined) body["use_bonus"] = input.useBonus;
+  return body;
 }
 
 /** Build the API body of a card order. */
@@ -499,6 +623,8 @@ export function cardOrderBody(input: CardOrderInput): Record<string, unknown> {
   if (input.metadata !== undefined) body["metadata"] = input.metadata;
   const ids = input.analyticsIds ?? analyticsIds();
   if (ids !== undefined) body["analytics_ids"] = ids;
+  if (input.expectedAmount !== undefined) body["expected_amount"] = input.expectedAmount;
+  if (input.expectedCurrency !== undefined) body["expected_currency"] = input.expectedCurrency;
   return body;
 }
 
@@ -792,13 +918,45 @@ export class CardsResource {
    * `holder_data_required` and the user has not agreed to it), 409
    * `payments_on_hold` (a payment on this account was not accepted and new
    * ones wait until support sorts it out: show the message and point the
-   * user to support), 503 no funding connector or no exchange rate.
+   * user to support), 409 `price_changed` (the order came to another amount
+   * than `expectedAmount`; no payment was opened, and
+   * {@link priceChangedQuote} gives the new quote), 503 no funding connector
+   * or no exchange rate.
    */
   async order(input: CardOrderInput & { idempotencyKey: string }): Promise<CardOrder> {
     const { idempotencyKey, ...order } = input;
     return this.http.post<CardOrder>("/me/card-orders", {
       body: cardOrderBody(order),
       idempotencyKey,
+    });
+  }
+
+  /**
+   * What an order of this card would cost the signed-in user now, with the
+   * promo code: the same calculation {@link order} makes, with every
+   * condition of the code checked. Nothing is reserved or used up. Pass
+   * `amount` and `currency` to the order as `expectedAmount` and
+   * `expectedCurrency`.
+   */
+  async quote(input: CardOrderQuoteInput): Promise<CardOrderQuote> {
+    return this.http.post<CardOrderQuote>("/me/card-orders/quote", {
+      body: cardOrderQuoteBody(input),
+    });
+  }
+
+  /**
+   * The same quote before sign-in, for a landing page or the purchase form
+   * before the e-mail code. Prices are list prices, and a code whose
+   * conditions depend on the person (first card only, say) comes back
+   * `conditional`, with `preliminary` set. Send `expectedAmount` with the
+   * order placed at sign-in: if the price turns out different, no payment
+   * is opened and `card_order_error` carries the new quote. The API limits
+   * how often one address can ask (429 `too_many_requests`).
+   */
+  async quotePublic(input: Omit<CardOrderQuoteInput, "useBonus">): Promise<CardOrderQuote> {
+    return this.http.post<CardOrderQuote>("/card-orders/quote", {
+      body: cardOrderQuoteBody(input),
+      skipAuth: true,
     });
   }
 

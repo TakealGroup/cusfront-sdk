@@ -241,7 +241,12 @@ export interface VerifyEmailCodeInput {
   /** Buy this card right after signing in, as `cards.order` would, with
    *  the consents above. The result carries `card_order` (send the user to
    *  its `deposit.redirect_url`) or `card_order_error` when no payment was
-   *  opened; the sign-in stands either way. */
+   *  opened; the sign-in stands either way. Set `expectedAmount` and
+   *  `expectedCurrency` from `cards.quotePublic`: when the price after
+   *  sign-in differs (a code for first cards only, say),
+   *  `card_order_error.code` is `price_changed` and its `quote` holds the
+   *  new price. Show it, and once the user agrees, order with
+   *  `cards.order` and the new `expectedAmount`. */
   cardOrder?: Omit<CardOrderInput, "consents" | "consentChannel">;
 }
 
