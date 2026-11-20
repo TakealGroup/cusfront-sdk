@@ -80,12 +80,12 @@ describe("client.ready()", () => {
   it("is compatible when the platform version is in range", async () => {
     const { client } = clientAnswering(200, {
       status: "ready",
-      ops: { version: "0.6.8", platform_version: "0.7.6" },
+      ops: { version: "0.6.8", platform_version: "0.8.0" },
     });
     const r = await client.ready();
     expect(r).toMatchObject({
       compatible: true,
-      platformVersion: "0.7.6",
+      platformVersion: "0.8.0",
       supportedMeister: SUPPORTED_MEISTER,
       healthy: true,
       status: "ready",
@@ -116,7 +116,7 @@ describe("client.ready()", () => {
   it("returns the body of a degraded platform instead of throwing", async () => {
     const { client } = clientAnswering(503, {
       status: "degraded",
-      ops: { platform_version: "0.7.6" },
+      ops: { platform_version: "0.8.0" },
     });
     const r = await client.ready();
     expect(r).toMatchObject({ compatible: true, healthy: false, status: "degraded" });
@@ -131,8 +131,8 @@ describe("client.ready()", () => {
 describe("SUPPORTED_MEISTER", () => {
   it("is a range CI can read and the helper can parse", () => {
     expect(SUPPORTED_MEISTER).toMatch(/^[<>=]{1,2}\d+\.\d+\.\d+(, [<>=]{1,2}\d+\.\d+\.\d+)*$/);
-    expect(satisfies("0.7.5", SUPPORTED_MEISTER)).toBe(false);
-    expect(satisfies("0.7.6", SUPPORTED_MEISTER)).toBe(true);
+    expect(satisfies("0.7.11", SUPPORTED_MEISTER)).toBe(false);
+    expect(satisfies("0.8.0", SUPPORTED_MEISTER)).toBe(true);
     expect(satisfies("0.9.0", SUPPORTED_MEISTER)).toBe(true);
     expect(satisfies("1.0.0", SUPPORTED_MEISTER)).toBe(false);
   });

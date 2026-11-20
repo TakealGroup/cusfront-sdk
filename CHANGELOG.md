@@ -4,6 +4,30 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-11-21
+
+The SDK now carries the same minor version as the platform it targets.
+
+### Added
+
+- `cards.quotePublic(input)` prices a card order before sign-in: product,
+  payment method, currency, an extra load and a promo code go in; the price,
+  the discount, the amount to pay and what the code does come back. Nothing
+  is reserved and the code isn't used up. `cards.quote(input)` does the same
+  for a signed-in person, with every condition of the code checked and bonus
+  points counted.
+- `expectedAmount` / `expectedCurrency` on a card order, in `cards.order`
+  and in the `cardOrder` of a sign-in or sign-up. If the price changed since
+  the person saw it, no payment is opened: the call fails with
+  `price_changed`, and `priceChangedQuote(error)` returns the new price to
+  show before they confirm again.
+
+### Changed
+
+- Works with platform (TKL) 0.8.0 and newer. `client.ready()` reports an
+  older platform as incompatible.
+- Types regenerated from platform 0.8.0.
+
 ## [0.6.14] — 2026-11-20
 
 ### Added

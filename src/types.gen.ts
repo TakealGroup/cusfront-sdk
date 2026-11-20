@@ -100,7 +100,9 @@ export type paths = {
          * Check that every dependency is reachable
          * @description Round-trips each critical dependency and returns 200 when all of them
          *     answer, 503 when any of them fails. The body is the same in both cases:
-         *     per-dependency results, connector counts, support info and license state.
+         *     per-dependency results, connector counts and support info. With the
+         *     bearer token of an operator it also carries the license state; no token
+         *     is needed for the rest.
          */
         get: operations["ready"];
         put?: never;
@@ -405,6 +407,28 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/business-calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Show the business calendar
+         * @description The calendar as the settings define it now: the timezone, today's date
+         *     there, which of the next four weeks' days are business days, and when a
+         *     decision would be due on a card suspended right now.
+         */
+        get: operations["business_calendar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/campaigns": {
         parameters: {
             query?: never;
@@ -447,8 +471,9 @@ export type paths = {
         head?: never;
         /**
          * Edit a campaign
-         * @description Changes the description or the channel. The code itself stays: links
-         *     with it are already out. Audited.
+         * @description Changes the description or the channel, and with `marketing.spend.write`
+         *     the spend source and the id in its ad account. The code itself stays:
+         *     links with it are already out. Audited.
          */
         patch: operations["update_campaign"];
         trace?: never;
@@ -704,6 +729,73 @@ export type paths = {
          *     bound to a holder can be voided.
          */
         post: operations["void_stock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/card-suspensions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List suspended cards
+         * @description Cards the risk rules suspended, open cases first with the nearest
+         *     deadline on top. `status` is `open` (default), `closed` or `all`;
+         *     `overdue=true` keeps open cases past their deadline.
+         */
+        get: operations["list_suspensions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/card-suspensions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a suspended card's case
+         * @description The case, the operation the rule fired on, the hold on the card and
+         *     every decision taken so far.
+         */
+        get: operations["get_suspension"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/card-suspensions/{id}/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide on a suspended card
+         * @description `extend` keeps the card suspended with a new deadline (by default the end
+         *     of the next business day). `lift` removes the hold, unfreezes the card at
+         *     the issuer unless something else froze it, and tells the holder. `close`
+         *     closes the card the way the card page does. A comment is required every
+         *     time, and every decision stays in the case's history. Audited.
+         */
+        post: operations["decide"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1759,7 +1851,9 @@ export type paths = {
          * List a funding connector's method pricing
          * @description One entry per method the operator priced. A method without an entry
          *     works on the deployment-wide terms: `rates.spread_bps` off the credited
-         *     side and `funding.commission_bps` on confirmed deposits.
+         *     side and `funding.commission_bps` on confirmed deposits, or
+         *     `funding.card_commission_bps` on top-ups paid straight onto a card when
+         *     that is set.
          */
         get: operations["list_deposit_pricing"];
         put?: never;
@@ -1903,6 +1997,29 @@ export type paths = {
          *     support connector the messages people wrote, with no amount. Operator-only.
          */
         get: operations["connector_stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/conversions/destinations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Server-side conversion destinations
+         * @description Every platform conversions can go to from the server, whether it is on,
+         *     which of its settings are missing, and how it did last: when a
+         *     conversion last went out, and the last error. Settings themselves are
+         *     read and written through `/admin/settings`.
+         */
+        get: operations["destinations"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2098,10 +2215,10 @@ export type paths = {
         get?: never;
         put?: never;
         /**
-         * Return a waiting card load to the wallet
-         * @description The issuer has had the load for too long and the operator gives up
-         *     waiting: the money goes from the card's transit account to the holder's
-         *     wallet, and the holder is told. Refused (`no_wallet`) where the holder
+         * Return an unfinished card load to the wallet
+         * @description The issuer has had the load for too long, or the load failed, and the
+         *     operator stops waiting: the money goes from the card's transit account
+         *     to the holder's wallet, and the holder is told. Refused (`no_wallet`) where the holder
          *     has no wallet, that is when no active funding connector tops one up:
          *     send the payment back instead.
          */
@@ -2122,10 +2239,11 @@ export type paths = {
         get?: never;
         put?: never;
         /**
-         * Write a waiting card load off
-         * @description The issuer kept the money and will not load the card: the operator takes
-         *     the amount off the card's transit account onto the platform's adjustments
-         *     account, with a note. The deposit's load ends `failed`.
+         * Write an unfinished card load off
+         * @description The card will not get the money: the issuer kept the load, or the load
+         *     failed. The operator takes the amount off the card's transit account
+         *     onto the platform's adjustments account, with a note. The deposit's load
+         *     ends `failed`.
          */
         post: operations["write_off_card_load"];
         delete?: never;
@@ -2826,6 +2944,361 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/marketing/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Spend loads
+         * @description For every source loaded from an ad account: when its spend was last
+         *     updated, how far back it goes and which days no load has covered, the
+         *     latest load with its error if it failed, the account's campaigns no
+         *     campaign in the directory claims, and the last twenty loads.
+         */
+        get: operations["list_imports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/marketing/imports/{source}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Load spend now
+         * @description Starts a load of the source from its ad account and answers at once;
+         *     the result goes to the journal. Without days it loads what the nightly
+         *     load would. Audited.
+         */
+        post: operations["run_import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/marketing/margin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Revenue and costs per customer
+         * @description When revenue and costs per customer were last worked out, through which
+         *     day, and the last twenty runs with their errors.
+         */
+        get: operations["margin_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/marketing/margin/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Work revenue and costs out again now
+         * @description Starts working out revenue and costs per customer for the days given
+         *     (the nightly window when left out) and answers at once; the result goes
+         *     to the list of runs. Audited.
+         */
+        post: operations["run_margin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/marketing/margin/totals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Revenue and costs over a period
+         * @description The period's totals over all customers in the report's currency, and the
+         *     same revenue by the ledger's revenue account in the currency it was
+         *     booked in, to check against the ledger.
+         */
+        get: operations["margin_totals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/marketing/report/campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Acquisition by campaign
+         * @description The campaigns of a source (of every source when none is given) with
+         *     their figures and a day-by-day series, and a line for spend and people
+         *     no campaign claims. The lines add up to the source's figures.
+         */
+        get: operations["report_campaigns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/marketing/report/campaigns/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One campaign's acquisition
+         * @description One campaign of the directory: its figures, funnel and day-by-day series.
+         */
+        get: operations["report_campaign"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/marketing/report/funnel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Acquisition funnel
+         * @description Clicks in the ad account, visits, sign-ups, first payment, first card
+         *     and first purchase with it, over the period and day by day. Each stage
+         *     says what it counts and which stage its conversion is taken from.
+         */
+        get: operations["report_funnel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/marketing/report/payback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Payback of an acquisition
+         * @description When the margin of the people who signed up in the period covers the
+         *     spend, counted by their days of life: a fact once the observed return
+         *     curve reaches the spend, a forecast with its range when enough mature
+         *     groups of earlier customers show how margin grows, otherwise beyond the
+         *     horizon, insufficient data or no spend. With the coverage so far, what is
+         *     left to cover, the observed and forecast parts, the curve, the
+         *     computation date and the ages of the groups. Only by acquisition; the
+         *     funnel's horizon doesn't change it.
+         */
+        get: operations["report_payback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/marketing/report/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Acquisition by source
+         * @description Every source with its figures and a day-by-day series for a small
+         *     chart, and a line for spend and people no source claims. The lines add
+         *     up to the total.
+         */
+        get: operations["report_sources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/marketing/report/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Acquisition summary
+         * @description Spend, sign-ups, new payers, the price of a payer, the margin and how
+         *     much of the spend it covers, for the period. By acquisition (the people
+         *     who signed up in the period, over the horizon) or by events (what
+         *     happened on those days). The answer names the period, source, campaign,
+         *     mode, horizon, currency, time zone and attribution rule, and says when
+         *     young groups are not final yet.
+         */
+        get: operations["report_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/marketing/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List spend sources
+         * @description Every source with its campaigns, the adapters a source can be loaded
+         *     with, and the report's currency and time zone.
+         */
+        get: operations["list_sources"];
+        put?: never;
+        /**
+         * Add a spend source
+         * @description A source of spend and traffic: an ad account, a blogger, a channel, a
+         *     partner. A source loaded by an adapter takes no spend entered by hand.
+         *     Audited.
+         */
+        post: operations["create_source"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/marketing/sources/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a spend source
+         * @description Renames it, or changes the adapter that loads it while it has no spend
+         *     yet. The code stays. Audited.
+         */
+        patch: operations["update_source"];
+        trace?: never;
+    };
+    "/v1/admin/marketing/spend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List spend
+         * @description Spend between two days, thirty by default: entries made by hand that
+         *     touch the range, and what each campaign of an ad account cost inside it,
+         *     with totals per currency. Spend no campaign claims has a null campaign.
+         */
+        get: operations["list_spend"];
+        put?: never;
+        /**
+         * Enter spend by hand
+         * @description A placement on one day or over a period, for a source filled by hand.
+         *     The amount and the fees are spread evenly over the days, to the cent;
+         *     cents that don't divide go to the first days. A campaign takes one entry
+         *     per day, and a campaign that gets its spend from an ad account takes
+         *     none. Audited.
+         */
+        post: operations["create_spend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/marketing/spend/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a spend entry
+         * @description One entry made by hand, with its days.
+         */
+        get: operations["get_spend"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a spend entry
+         * @description Removes the entry and all its days. Audited with what it was.
+         */
+        delete: operations["delete_spend"];
+        options?: never;
+        head?: never;
+        /**
+         * Correct a spend entry
+         * @description Changes any field; the days are spread again. The audit log keeps what
+         *     the entry was and what it became, with who changed it and when.
+         */
+        patch: operations["update_spend"];
+        trace?: never;
+    };
     "/v1/admin/me": {
         parameters: {
             query?: never;
@@ -2847,10 +3320,12 @@ export type paths = {
         head?: never;
         /**
          * Change your profile
-         * @description Sets the language of the console and of your notifications. It is saved
-         *     on the account, so every browser you sign in from picks it up. Send
-         *     `"locale": null` to go back to the browser's language. A field you leave
-         *     out keeps its value. The response is the same as for `GET /admin/me`.
+         * @description Sets your name and the language of the console and of your
+         *     notifications. Both are saved on the account, so every browser you sign
+         *     in from picks them up. Send `"locale": null` to go back to the browser's
+         *     language and `"name": null` (or an empty string) to remove your name. A
+         *     field you leave out keeps its value. The response is the same as for
+         *     `GET /admin/me`.
          */
         patch: operations["update_my_profile"];
         trace?: never;
@@ -4539,7 +5014,8 @@ export type paths = {
         /**
          * List users
          * @description Returns end-user accounts newest first, optionally filtered by email or
-         *     narrowed to accounts that still lack a real email. Operator-only.
+         *     name, or narrowed to accounts that still lack a real email.
+         *     Operator-only.
          */
         get: operations["admin_list_users"];
         put?: never;
@@ -4568,7 +5044,12 @@ export type paths = {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Change a user's profile
+         * @description Sets or removes the user's name. A field you leave out keeps its value.
+         *     Every change goes to the audit log. Returns the updated user.
+         */
+        patch: operations["patch_user"];
         trace?: never;
     };
     "/v1/admin/users/{id}/activate": {
@@ -5309,7 +5790,9 @@ export type paths = {
          *     With `card_order`, the card is ordered for that account right away. The
          *     response carries `card_order` (send the user to its deposit's
          *     `redirect_url`) or `card_order_error` with the reason no payment was
-         *     opened.
+         *     opened. When `card_order.expected_amount` no longer matches the price,
+         *     the error is `price_changed` with the new `quote`: show it, and after
+         *     the person confirms, place the order with `POST /me/card-orders`.
          *
          *     A wrong code answers 401 `invalid_code`; after five checks the code stops
          *     working and a new one is needed. Accounts with operator permissions can't
@@ -5687,6 +6170,33 @@ export type paths = {
         get: operations["blog_get_post"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/card-orders/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Price a card order before sign-in
+         * @description What an order of this card would cost, with the promo code, for a person
+         *     who hasn't signed in yet: the same calculation the order makes, at the
+         *     list price. A code whose conditions depend on the person, such as
+         *     "first card only", comes back `conditional` with its discount in the
+         *     amount, which is then provisional (`preliminary`). After sign-in,
+         *     `POST /me/card-orders/quote` gives the confirmed amount. Nothing is
+         *     reserved or used up. No e-mail is taken, so the answer is the same
+         *     whoever asks. Requests are limited per IP address.
+         */
+        post: operations["quote_card_order"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6107,8 +6617,38 @@ export type paths = {
          *     and is issued once the payment is confirmed, or fails with it. The
          *     `Idempotency-Key` header is required: the same key returns the same
          *     order.
+         *
+         *     Send `expected_amount` and `expected_currency` from the quote the person
+         *     saw. If the order comes to a different amount, no payment is opened and
+         *     nothing is held: the answer is 409 `price_changed` with the new quote in
+         *     `quote`. Show the new amount and send the order again with it.
          */
         post: operations["create_card_order"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/card-orders/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Price a card order
+         * @description What an order of this card would cost the signed-in person now, with the
+         *     promo code: the same calculation the order makes, with every condition
+         *     of the code checked. Nothing is reserved, held or used up. Send the
+         *     `amount` and `currency` back as `expected_amount` and
+         *     `expected_currency` with the order: it then opens no payment for any
+         *     other amount.
+         */
+        post: operations["quote_my_card_order"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7896,6 +8436,16 @@ export type paths = {
 export type webhooks = Record<string, never>;
 export type components = {
     schemas: {
+        /** @description What one revenue account of the ledger got in a period, in its currency. */
+        AccountTotal: {
+            /** @description The ledger account: `takeal:revenue:funding`, `takeal:revenue:fx_spread`, … */
+            account: string;
+            currency: string;
+            /** @description What came back out to customers. */
+            refunds: string;
+            /** @description What went in. */
+            revenue: string;
+        };
         ActivateStockBody: {
             customer?: null | components["schemas"]["CustomerInfo"];
             /** @description The holder's name for the card. */
@@ -8348,6 +8898,16 @@ export type components = {
              * @description The holder the plastic goes to. Null takes an existing binding off.
              */
             user_id?: string | null;
+        };
+        /** @description The rule that tied people to sources. */
+        Attribution: {
+            /** @description `last_non_direct_touch_before_signup`. */
+            rule: string;
+            /**
+             * Format: int64
+             * @description How many days before sign-up a visit still counts.
+             */
+            window_days: number;
         };
         AttributionView: {
             /** @description The latest id per click-id name before sign-up. */
@@ -8898,6 +9458,28 @@ export type components = {
             /** @description Members that were added or re-activated. */
             invited: components["schemas"]["MemberView"][];
         };
+        /** @description One day of the calendar. */
+        CalendarDay: {
+            business: boolean;
+            /** Format: date */
+            date: string;
+        };
+        CalendarView: {
+            /** @description The next four weeks, today first. */
+            days: components["schemas"]["CalendarDay"][];
+            /**
+             * Format: date-time
+             * @description When a decision would be due on a card suspended now.
+             */
+            suspension_deadline: string;
+            /** @description The installation's timezone. */
+            timezone: string;
+            /**
+             * Format: date
+             * @description Today there.
+             */
+            today: string;
+        };
         Campaign: {
             /** @description Where the link was placed: telegram, blogger, yandex_direct, article. */
             channel: string;
@@ -8909,16 +9491,29 @@ export type components = {
             created_by_email?: string | null;
             /** @description What this is: "post in our channel on 7 September", "placement with a blogger". */
             description: string;
+            /** @description The campaign's id in the source's ad account, for a source loaded from one. */
+            external_id?: string | null;
             /**
              * Format: int64
              * @description Users whose first or last touch before sign-up carried this code.
              */
             signups: number;
+            /** @description The spend source the campaign belongs to; null until it has one. */
+            source?: string | null;
             /**
              * Format: int64
              * @description Visits recorded with this code.
              */
             touches: number;
+        };
+        /** @description A campaign of the directory. */
+        CampaignInfo: {
+            code: string;
+            description: string;
+            /** @description The campaign's id in the ad account, for a loaded source. */
+            external_id?: string | null;
+            source?: string | null;
+            source_name?: string | null;
         };
         CampaignList: {
             campaigns: components["schemas"]["Campaign"][];
@@ -8926,6 +9521,17 @@ export type components = {
         CampaignPatch: {
             channel?: string | null;
             description?: string | null;
+            /** @description Id in the source's ad account; an empty string clears it. Needs `marketing.spend.write`. */
+            external_id?: string | null;
+            /** @description Spend source; an empty string unties the campaign. Needs `marketing.spend.write`. */
+            source?: string | null;
+        };
+        CampaignReport: {
+            campaign: components["schemas"]["CampaignInfo"];
+            meta: components["schemas"]["ReportMeta"];
+            series: components["schemas"]["Point"][];
+            stages: components["schemas"]["Stage"][];
+            totals: components["schemas"]["Metrics"];
         };
         /** @description What cancelling did. */
         CancelledSubscription: {
@@ -9161,6 +9767,8 @@ export type components = {
              * @description The operator who put the hold; null when the platform put it.
              */
             set_by?: string | null;
+            /** @description `operator`, or `risk` when a risk rule suspended the card. */
+            source: string;
         };
         /**
          * @description A card to buy and how to pay for it.
@@ -9169,11 +9777,14 @@ export type components = {
          *         "terms",
          *         "personal_data"
          *       ],
+         *       "expected_amount": "1449.00",
+         *       "expected_currency": "RUB",
          *       "metadata": {
          *         "return_url": "https://example.com/cabinet"
          *       },
          *       "method": "sbp",
-         *       "product_id": "6c1c0a3e-1b7e-4b0e-9d9e-2f0f6f9a1234"
+         *       "product_id": "6c1c0a3e-1b7e-4b0e-9d9e-2f0f6f9a1234",
+         *       "promo_code": "SPRING"
          *     }
          */
         CardOrderBody: {
@@ -9189,6 +9800,10 @@ export type components = {
              * @description One of the product's designs; omit for its default design.
              */
             design_id?: string | null;
+            /** @description The amount the person was shown and agreed to pay: `amount` of the quote, decimal string. If the order comes to anything else, no payment is opened and the answer is 409 `price_changed` with the new quote. Leave it out and the payment opens for whatever the order comes to. */
+            expected_amount?: string | null;
+            /** @description ISO 4217 code of `expected_amount`: `currency` of the quote. Checked together with `expected_amount`. */
+            expected_currency?: string | null;
             /** @description Money to put on the card on top of its price, decimal string in the card's currency. Below the provider's minimum load the minimum is used. A card whose starting balance is already in the price (see `starting_balance` in the catalog) gets just this on top. */
             extra_load?: string | null;
             /** @description The funding connector to pay through; omit to use the first one that issues cards with a top-up and takes `method`. */
@@ -9206,9 +9821,63 @@ export type components = {
              * @description The card product, from `GET /card-products` or `GET /me/card-products`.
              */
             product_id: string;
-            /** @description A promo code for the order. One that works on issuing a card lowers the card's price; one that works on top-ups lowers the commission of the payment. `POST /me/codes/validate` with `product_id` shows which, before the order is placed. */
+            /** @description A promo code for the order. One that works on issuing a card lowers the card's price; one that works on top-ups lowers the commission of the payment. `POST /me/card-orders/quote` shows what it does to the amount before the order is placed. */
             promo_code?: string | null;
             /** @description Pay part of the card's price with bonuses. On by default whenever there are bonuses. */
+            use_bonus?: boolean | null;
+        };
+        /** @description What a card order would cost now, with its promo code. */
+        CardOrderQuote: {
+            /** @description What the person pays, decimal string, in `currency`: the card's price less the promo code's discount, plus what goes onto the card and, once signed in, card fees owed. Send it back as `expected_amount` with the order. */
+            amount: string;
+            /** @description Bonuses that pay part of the card's price, decimal string, when the person has them and uses them. Null before sign-in. */
+            bonus_units?: string | null;
+            /** @description What the payment brings, decimal string, in `card_currency`, as in the order. */
+            card_amount: string;
+            /** @description ISO 4217 code of the card. */
+            card_currency: string;
+            /** @description ISO 4217 code of the payment. */
+            currency: string;
+            /** @description What the person owes in card fees, decimal string, in `card_currency`, included in `card_amount`. Always zero before sign-in. */
+            debt_withheld: string;
+            /** @description What the promo code takes off, decimal string, in `currency`: `price` less `amount`. Zero without a code, or with one that doesn't lower the price. */
+            discount: string;
+            /** @description True when the amount can still change after sign-in, because the promo code has a condition that is only checked for a signed-in person (`promo_code.status` is `conditional`). Show the amount as provisional. */
+            preliminary: boolean;
+            /** @description What the same order costs without the promo code, decimal string, in `currency`. */
+            price: string;
+            promo_code?: null | components["schemas"]["PromoCodeQuote"];
+        };
+        /**
+         * @description A card order to price: the product, how it is paid and the promo code.
+         * @example {
+         *       "method": "sbp",
+         *       "product_id": "6c1c0a3e-1b7e-4b0e-9d9e-2f0f6f9a1234",
+         *       "promo_code": "SPRING"
+         *     }
+         */
+        CardOrderQuoteBody: {
+            /** @description ISO 4217 code of the payment, as in the order. */
+            currency?: string | null;
+            /**
+             * Format: uuid
+             * @description One of the product's designs; omit for its default design.
+             */
+            design_id?: string | null;
+            /** @description Money to put on the card on top of its price, decimal string in the card's currency, as in the order. */
+            extra_load?: string | null;
+            /** @description The funding connector to pay through; omit to use the one an order would use. */
+            funder_slug?: string | null;
+            /** @description How the person pays: `card`, `crypto`, `bank_transfer` or `sbp`. */
+            method: components["schemas"]["DepositMethod"];
+            /**
+             * Format: uuid
+             * @description The card product, from `GET /card-products` or `GET /me/card-products`.
+             */
+            product_id: string;
+            /** @description The promo code the person typed. */
+            promo_code?: string | null;
+            /** @description Signed in only: pay part of the card's price with bonuses, as in the order. On by default. */
             use_bonus?: boolean | null;
         };
         /** @description The order placed: the deposit to pay and what it is priced at. */
@@ -10196,6 +10865,11 @@ export type components = {
              */
             withdrawn_at?: string | null;
         };
+        ConversionsView: {
+            destinations: components["schemas"]["DestinationView"][];
+            /** @description The settings that name each conversion for every destination. */
+            goals: string[];
+        };
         /**
          * @example {
          *       "analytics": false,
@@ -10475,6 +11149,23 @@ export type components = {
             /** @description Optional wallet currency for a new account, ISO 4217; must be one this deployment offers. Defaults to the deployment currency. Ignored on login. */
             wallet_currency?: string | null;
         };
+        /** @description One day of the return curve. */
+        CurvePoint: {
+            /** @description Margin over spend: 1.00 is the spend covered. Null without spend. */
+            coverage?: string | null;
+            coverage_high?: string | null;
+            /** @description The scenarios' range of coverage on forecast days. */
+            coverage_low?: string | null;
+            /**
+             * Format: int64
+             * @description Day of life, the sign-up day being day 1.
+             */
+            day: number;
+            /** @description Not every daily group has lived this long: forecast, not observed. */
+            forecast: boolean;
+            /** @description Cumulative margin of the selection by this day of life. */
+            margin: string;
+        };
         /** @description Full per-merchant customer row. */
         Customer: {
             /** @description Billing address line 1. */
@@ -10726,6 +11417,13 @@ export type components = {
             /** @description Total spend that day, decimal string. */
             spend: string;
         };
+        /** @description A run of days, both ends included. */
+        Days: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+        };
         DeadLetter: {
             /** Format: int32 */
             attempts: number;
@@ -10854,10 +11552,33 @@ export type components = {
             /** @description `deposit` (withheld from a top-up), `card_topup` (from a card top-up out of the wallet), `card` (taken off a card by support), `card_close` (from what a closed card gave back), `wallet` or `fee_return` (the fee itself was given back). */
             source: string;
         };
+        /**
+         * @example {
+         *       "comment": "Holder confirmed the payment by phone",
+         *       "decision": "lift"
+         *     }
+         */
+        DecideBody: {
+            /** @description Why. Required; kept in the case's history and the audit log. */
+            comment: string;
+            decision: components["schemas"]["DecisionKind"];
+            /** @description For `close`: ask the issuer even when it is expected to refuse, as on the card page. */
+            force?: boolean;
+            /**
+             * Format: date-time
+             * @description For `extend`: the new deadline. Defaults to the end of the next business day.
+             */
+            until?: string | null;
+        };
         DecisionBody: {
             /** @description Why, for whoever reads the queue later: what the holder said, a ticket number. */
             note?: string | null;
         };
+        /**
+         * @description An operator's decision on a case.
+         * @enum {string}
+         */
+        DecisionKind: "extend" | "lift" | "close";
         DeclineCounts: {
             /** Format: int64 */
             issuer_fault: number;
@@ -11028,6 +11749,11 @@ export type components = {
             status: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        /** @description A platform conversions can go to. */
+        DestinationView: components["schemas"]["LaneView"] & {
+            /** @description Older ways of sending to the same platform, set up on their own. */
+            extras: components["schemas"]["LaneView"][];
         };
         /** @description A device that can receive push notifications, or a Mini App marker. */
         DeviceView: {
@@ -11702,6 +12428,29 @@ export type components = {
             /** @description Where a top-up through it may land: `wallet`, `card`, or both. */
             targets: components["schemas"]["DepositTarget"][];
         };
+        /** @description One day of the funnel. */
+        FunnelDay: {
+            /** Format: int64 */
+            cards: number;
+            /** Format: int64 */
+            clicks?: number | null;
+            complete: boolean;
+            /** Format: date */
+            day: string;
+            /** Format: int64 */
+            first_card_purchases: number;
+            /** Format: int64 */
+            first_payments: number;
+            /** Format: int64 */
+            registrations: number;
+            /** Format: int64 */
+            visits: number;
+        };
+        FunnelReport: {
+            days: components["schemas"]["FunnelDay"][];
+            meta: components["schemas"]["ReportMeta"];
+            stages: components["schemas"]["Stage"][];
+        };
         FxProbeResult: {
             /** @description Currency converted into, ISO 4217 code. */
             dst: string;
@@ -11740,6 +12489,26 @@ export type components = {
             program_code?: string | null;
             /** @description State or region within the country, e.g. `CA` or `US-CA`. Wins over the program's. */
             state?: string | null;
+        };
+        /** @description How old the selection's daily groups are. */
+        GroupAges: {
+            /**
+             * Format: int64
+             * @description Daily groups with people (sign-up days).
+             */
+            groups: number;
+            /**
+             * Format: int64
+             * @description Days the oldest group has been observed.
+             */
+            oldest_days: number;
+            /** Format: int64 */
+            people: number;
+            /**
+             * Format: int64
+             * @description Days the youngest group has been observed: the curve is a fact up to here.
+             */
+            youngest_days: number;
         };
         GroupSpend: {
             /**
@@ -11855,6 +12624,75 @@ export type components = {
         ImageView: components["schemas"]["ImageMeta"] & {
             /** @description Public URL to use in document bodies. */
             url: string;
+        };
+        ImportList: {
+            imports: components["schemas"]["ImportStatus"][];
+        };
+        /** @description One load. */
+        ImportRun: {
+            amount?: string | null;
+            /** Format: int32 */
+            campaigns?: number | null;
+            currency?: string | null;
+            /** @description Why it failed. */
+            error?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** Format: uuid */
+            id: string;
+            importer: string;
+            /** Format: date */
+            period_from: string;
+            /** Format: date */
+            period_to: string;
+            requested_by_email?: string | null;
+            /**
+             * Format: int32
+             * @description Campaign-days loaded.
+             */
+            rows?: number | null;
+            source: string;
+            /** Format: date-time */
+            started_at: string;
+            /** @description `running`, `succeeded` or `failed`. */
+            status: string;
+            /** @description `schedule` (the nightly load) or `manual`. */
+            trigger: string;
+            /**
+             * Format: int32
+             * @description Campaigns of the ad account no campaign in the directory claims.
+             */
+            unattributed?: number | null;
+        };
+        /** @description The loads of one source. */
+        ImportStatus: {
+            /** @description The adapter's settings let it run (its token is set). */
+            configured: boolean;
+            /** @description The latest load failed: its error is in `last`. */
+            failing: boolean;
+            /** @description Days between them that no load has covered. */
+            gaps: components["schemas"]["Days"][];
+            importer: string;
+            last?: null | components["schemas"]["ImportRun"];
+            /**
+             * Format: date
+             * @description First and last day loads have covered: how deep the history goes.
+             */
+            loaded_from?: string | null;
+            /** Format: date */
+            loaded_to?: string | null;
+            /** @description The nightly load is on. */
+            nightly: boolean;
+            /** @description The last twenty loads, newest first. */
+            recent: components["schemas"]["ImportRun"][];
+            source: string;
+            source_name: string;
+            unattributed: components["schemas"]["Unattributed"][];
+            /**
+             * Format: date-time
+             * @description When a load last succeeded.
+             */
+            updated_at?: string | null;
         };
         ImportStockBody: {
             /** @description Your name for the batch, e.g. the shipment number. */
@@ -12130,6 +12968,39 @@ export type components = {
             /** @description Postmark stream, when the provider is Postmark. */
             stream?: string | null;
         };
+        /** @description One way conversions reach a platform. */
+        LaneView: {
+            /** @description Whether it is switched on. */
+            enabled: boolean;
+            /** @description The last error the platform answered, or why it could not be reached. */
+            last_error?: string | null;
+            /** Format: date-time */
+            last_error_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When a conversion last went out.
+             */
+            last_sent_at?: string | null;
+            /** @description Settings it can't send without that are empty. */
+            missing: string[];
+            /** @description The name deliveries carry: `yandex_metrica`, `google_analytics`, `microsoft_ads`, `vk_ads`, `yandex_metrica_offline`. */
+            name: string;
+            /** @description What it knows the person by: an analytics id or an ad click id. */
+            needs: string;
+            /** @description Its other settings, in the order to fill them in. Their values, kinds and descriptions are in `GET /admin/settings`. */
+            settings: string[];
+            /** @description `off`; `incomplete`, switched on without everything it needs, so it skips every conversion; or `on`. */
+            state: string;
+            /** @description The setting that switches it on (`true` or `false`). */
+            switch: string;
+            /** @description The platform's name, as its owner writes it. */
+            title: string;
+            /**
+             * Format: int64
+             * @description How old a conversion it still takes, in hours.
+             */
+            window_hours: number;
+        };
         LayoutPreviewBody: {
             lane?: null | components["schemas"]["Lane"];
             layout?: null | components["schemas"]["MailLayout"];
@@ -12209,6 +13080,13 @@ export type components = {
         LifecycleReasonBody: {
             /** @description Free-text reason, kept in the audit log. */
             reason?: string | null;
+        };
+        ListReport: {
+            meta: components["schemas"]["ReportMeta"];
+            /** @description The lines, most spend first; the unattributed line last. */
+            rows: components["schemas"]["ReportRow"][];
+            /** @description All lines together. */
+            total: components["schemas"]["Metrics"];
         };
         LoginRequest: {
             /** @description Email address of the organization user. */
@@ -12305,6 +13183,122 @@ export type components = {
             paid_on: string;
             /** @description The transfer's reference: the payment order's number, the bank's reference. At least 3 characters. */
             reference: string;
+        };
+        /** @description The parts of a margin, in the report's currency. */
+        MarginParts: {
+            /** @description What payment providers charge for top-ups. */
+            acquiring_costs: string;
+            /** @description Bonuses actually spent. */
+            bonuses: string;
+            /** @description Fees by the card product's tariff. */
+            card_fees: string;
+            /** @description Card prices. */
+            card_issue_fees: string;
+            /** @description The four above together. */
+            direct_costs: string;
+            /** @description Top-up commissions. */
+            funding_fees: string;
+            /** @description What conversions kept over the provider's rate. */
+            fx_markup: string;
+            /** @description What card issuers charge per operation. */
+            issuer_costs: string;
+            /** @description What cards cost to issue. */
+            issuing_costs: string;
+            /** @description Own revenue less direct costs and refunds. */
+            margin: string;
+            /** @description The five above together. */
+            own_revenue: string;
+            /** @description Revenue given back, on the day of what it gave back. */
+            refunds: string;
+            subscriptions: string;
+            /**
+             * @description What customers paid in: confirmed top-ups.
+             * @example 12500.00
+             */
+            turnover: string;
+        };
+        /** @description One computation of the table. */
+        MarginRun: {
+            currency: string;
+            error?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: date */
+            period_from: string;
+            /** Format: date */
+            period_to: string;
+            /** @description Days with no official list of their own; the latest earlier list was used. */
+            rates_missing: string[];
+            requested_by_email?: string | null;
+            /**
+             * Format: int32
+             * @description Customer-days written.
+             */
+            rows?: number | null;
+            /** Format: date-time */
+            started_at: string;
+            /** @description `running`, `succeeded` or `failed`. */
+            status: string;
+            timezone: string;
+            /** @description `schedule` (the nightly run) or `manual`. */
+            trigger: string;
+            /**
+             * Format: int32
+             * @description Amounts left out because their currency had no official rate.
+             */
+            unconverted?: number | null;
+        };
+        /** @description The table's state. */
+        MarginStatus: {
+            /**
+             * Format: date
+             * @description The data runs through this day.
+             */
+            computed_through?: string | null;
+            /** @description The report's currency and time zone, the ones the table is in. */
+            currency: string;
+            last?: null | components["schemas"]["MarginRun"];
+            /** @description The last twenty runs, newest first. */
+            recent: components["schemas"]["MarginRun"][];
+            timezone: string;
+            /**
+             * Format: int64
+             * @description Days computed again every night.
+             */
+            window_days: number;
+        };
+        /** @description A period's totals over all customers. */
+        MarginTotals: {
+            /**
+             * @description The same revenue by the ledger's revenue account, in the currency it
+             *     was booked in, read from the journals now. Sums of the ledger's
+             *     postings to these accounts over the same days should match.
+             */
+            by_account: components["schemas"]["AccountTotal"][];
+            /**
+             * Format: date
+             * @description The table's data runs through this day; later days are not in the totals.
+             */
+            computed_through?: string | null;
+            currency: string;
+            /**
+             * Format: int64
+             * @description Customers with anything on these days.
+             */
+            customers: number;
+            /** Format: date */
+            from: string;
+            timezone: string;
+            /** Format: date */
+            to: string;
+            totals: components["schemas"]["MarginParts"];
+            /**
+             * Format: int64
+             * @description Amounts left out for want of an official rate.
+             */
+            unconverted: number;
         };
         MarkFailedBody: {
             /** @description Why the settlement failed, in plain words. Stored on the cycle and in the audit log. */
@@ -12447,6 +13441,66 @@ export type components = {
             source_currency?: string | null;
         };
         /**
+         * @description The figures of a group, and the ratios between them. A ratio is null,
+         *     not zero, when its base is missing: no payers, no price per payer; no
+         *     spend, no ratio to spend.
+         */
+        Metrics: {
+            /**
+             * Format: int64
+             * @description People who got their first card.
+             */
+            cards: number;
+            /**
+             * Format: int64
+             * @description Clicks the ad accounts counted; null when none of this spend says.
+             */
+            clicks?: number | null;
+            direct_costs: string;
+            /**
+             * Format: int64
+             * @description People who first bought with a card.
+             */
+            first_purchases: number;
+            /** @description Own revenue less direct costs and refunds. */
+            margin: string;
+            /**
+             * Format: int64
+             * @description People whose first successful payment came: within the horizon by
+             *     acquisition, on these days by events.
+             */
+            new_payers: number;
+            own_revenue: string;
+            /** @description Spend per new payer; null without spend or payers. */
+            payer_price?: string | null;
+            refunds: string;
+            /** @description Spend per sign-up; null without spend or sign-ups. */
+            registration_price?: string | null;
+            /**
+             * Format: int64
+             * @description People who signed up.
+             */
+            registrations: number;
+            /**
+             * @description Spend with fees, in the report's currency.
+             * @example 1520.40
+             */
+            spend: string;
+            /** @description Margin per unit of spend: 1.00 is spend earned back. Null without spend. */
+            spend_coverage?: string | null;
+            turnover: string;
+            /**
+             * Format: int64
+             * @description Amounts left out for want of an official rate.
+             */
+            unconverted: number;
+            /**
+             * Format: int64
+             * @description Visits that brought something new (a tag, a referrer, a first visit).
+             */
+            visits: number;
+        };
+        /**
          * @example {
          *       "source_currency": "RUB"
          *     }
@@ -12505,6 +13559,11 @@ export type components = {
             /** @description Plaintext secret, sent as `X-Organization-Secret`. Shown only once. */
             secret: string;
         };
+        /**
+         * @description How the report counts.
+         * @enum {string}
+         */
+        Mode: "acquisition" | "events";
         ModerationState: {
             moderation?: null | components["schemas"]["CardModeration"];
         };
@@ -12518,6 +13577,8 @@ export type components = {
             email: string;
             /** @description Language picked for the console and notifications: `en`, `ru`, `de`, `es`, `fr`, `pt-BR` or `zh-Hans`. `null` means automatic, which follows the browser. */
             locale?: string | null;
+            /** @description Your name as you entered it, or `null` when you haven't given one. */
+            name?: string | null;
             /** @description Every permission key the role grants, `*` for all of them. Empty for an end-user account. */
             permissions: string[];
             /** @description Role name. */
@@ -12550,6 +13611,22 @@ export type components = {
             items: components["schemas"]["DebtLine"][];
             /** @description What is owed, per currency; empty when nothing is. */
             total: components["schemas"]["DebtAmount"][];
+        };
+        /**
+         * @description A change to your profile on `PATCH /admin/me`. Every field is optional;
+         *     one you leave out keeps its value.
+         */
+        MyProfileBody: {
+            /**
+             * @description Language of the console and your notifications: `en`, `ru`, `de`, `es`, `fr`, `pt-BR` or `zh-Hans`. `null` switches back to automatic, which follows the browser.
+             * @example de
+             */
+            locale?: string | null;
+            /**
+             * @description Your name, one line of up to 100 characters, e.g. `Egor Gorbunov`. Spaces at either end are dropped. An empty string or `null` removes it.
+             * @example Egor Gorbunov
+             */
+            name?: string | null;
         };
         /** @description A referrer's own view. */
         MyReferral: {
@@ -12609,6 +13686,10 @@ export type components = {
             /** @description Up to 32 Latin letters, digits and dashes. Case doesn't matter: `Spring-Promo` and `spring-promo` are the same code. */
             code: string;
             description: string;
+            /** @description The campaign's id in the source's ad account. Needs `marketing.spend.write`. */
+            external_id?: string | null;
+            /** @description Spend source the campaign belongs to. Needs `marketing.spend.write`. */
+            source?: string | null;
         };
         NewCodeBody: {
             /** @description Letters, digits and dashes, up to 32; case doesn't matter. Leave it out to get a random one. */
@@ -12708,6 +13789,59 @@ export type components = {
             /** @description Display name. */
             name: string;
         };
+        /**
+         * @example {
+         *       "code": "bloggers",
+         *       "name": "Bloggers"
+         *     }
+         */
+        NewSource: {
+            /** @description Up to 32 Latin lower-case letters, digits, `_` and `-`. Can't be changed later. */
+            code: string;
+            /** @description The adapter that loads this source's spend; leave it out for spend entered by hand. */
+            importer?: string | null;
+            name: string;
+        };
+        /**
+         * @example {
+         *       "amount": "30000",
+         *       "campaign": "anna-1111",
+         *       "currency": "RUB",
+         *       "fees": "1500",
+         *       "from": "2026-11-11",
+         *       "source": "bloggers",
+         *       "title": "Post at Anna's, 11–17 November",
+         *       "to": "2026-11-17"
+         *     }
+         */
+        NewSpend: {
+            /**
+             * @description Decimal string, two decimal places at most.
+             * @example 30000.00
+             */
+            amount: string;
+            /** @description Campaign code from the directory; leave it out for spend no campaign claims. */
+            campaign?: string | null;
+            /** @description ISO 4217 code; the report's currency when left out. */
+            currency?: string | null;
+            /** @example 0 */
+            fees?: string | null;
+            /**
+             * Format: date
+             * @description The day of the placement, or the first day of its period.
+             */
+            from: string;
+            note?: string | null;
+            /** @description Source code. It must be one filled by hand. */
+            source: string;
+            /** @description What was bought, up to 200 characters. */
+            title: string;
+            /**
+             * Format: date
+             * @description The last day of the period; leave it out for one day.
+             */
+            to?: string | null;
+        };
         NewSupportMessage: {
             /** @description Up to 10 files. */
             attachments?: components["schemas"]["NewAttachment"][];
@@ -12779,11 +13913,13 @@ export type components = {
             /** @description Bonuses added on top, and what they added. */
             bonus_units?: string | null;
             bonus_value?: string | null;
+            /** @description Whether the issuer accepted the load and has not finished it, so an operator may ask it again. False for a load that failed. */
+            can_recheck: boolean;
             /** @description Whether an operator may retry the card load now. */
             can_retry: boolean;
-            /** @description Whether the money of a waiting load may go to the holder's wallet. False where the holder has no wallet: no active funding connector tops one up. */
+            /** @description Whether the money of an unfinished load may go to the holder's wallet. False where the holder has no wallet: no active funding connector tops one up. */
             can_return_to_wallet: boolean;
-            /** @description Whether the load waits for the issuer's answer: an operator may check again, return the money or write it off. */
+            /** @description Whether the money of the load still waits on the card's transit account: the issuer has not finished the load, or it failed and nobody has settled it since. An operator may send the payment back, return the money to the wallet or write it off. */
             can_settle: boolean;
             /** @description What went towards the card, in its currency, bonuses included. */
             card_amount?: string | null;
@@ -13450,6 +14586,13 @@ export type components = {
              */
             tryout_window_days?: number | null;
         };
+        PatchUserBody: {
+            /**
+             * @description The person's name, one line of up to 100 characters, e.g. `Egor Gorbunov`. Spaces at either end are dropped. An empty string or `null` removes it. Leave the field out to keep the name as it is.
+             * @example Egor Gorbunov
+             */
+            name?: string | null;
+        };
         /** @description One step of a breadcrumb trail. */
         PathStep: {
             /** Format: uuid */
@@ -13457,6 +14600,63 @@ export type components = {
             key: string;
             title: string;
         };
+        /** @description The payback of a selection. */
+        Payback: components["schemas"]["PaybackCell"] & {
+            /**
+             * Format: date
+             * @description The computation date: revenue is counted through this day. Null
+             *     before the first nightly run.
+             */
+            as_of?: string | null;
+            /** @description `margin_to_date` over spend; null without spend. */
+            coverage?: string | null;
+            /** @description Observed days first, then forecast days up to the horizon. */
+            curve: components["schemas"]["CurvePoint"][];
+            /**
+             * @description Margin still expected from the same people by the horizon, apart
+             *     from what is observed; null without a forecast.
+             */
+            forecast_margin?: string | null;
+            groups: components["schemas"]["GroupAges"];
+            /** @description Margin the selection's people have brought so far, at whatever age. */
+            margin_to_date: string;
+            reference: components["schemas"]["ReferenceInfo"];
+            /** @description Spend not covered yet; 0 once covered, null without spend. */
+            remaining?: string | null;
+            spend: string;
+        };
+        /** @description The payback of a line of a list. */
+        PaybackCell: {
+            /**
+             * Format: int64
+             * @description Days of life until the margin covers the spend: observed for a fact,
+             *     expected for a forecast. Null in every other state.
+             */
+            days?: number | null;
+            /** Format: int64 */
+            high_days?: number | null;
+            /**
+             * Format: int64
+             * @description How far the forecast reaches, in days of life; null without one.
+             */
+            horizon_days?: number | null;
+            /**
+             * Format: int64
+             * @description The forecast's range; `high_days` null when some mature groups'
+             *     pattern doesn't get there within the horizon.
+             */
+            low_days?: number | null;
+            state: components["schemas"]["PaybackState"];
+        };
+        PaybackReport: {
+            meta: components["schemas"]["ReportMeta"];
+            payback: components["schemas"]["Payback"];
+        };
+        /**
+         * @description Where the payback stands.
+         * @enum {string}
+         */
+        PaybackState: "fact" | "forecast" | "beyond_horizon" | "insufficient_data" | "no_spend";
         /** @description One account a payer has paid for. */
         PayerAccount: {
             /** @description An operator allowed this payer on the account. */
@@ -13649,6 +14849,19 @@ export type components = {
         Placeholder: {
             description: string;
             name: string;
+        };
+        /** @description One day of a mini-series. */
+        Point: {
+            /** @description The day's figures are final. */
+            complete: boolean;
+            /** Format: date */
+            day: string;
+            margin: string;
+            /** Format: int64 */
+            new_payers: number;
+            /** Format: int64 */
+            registrations: number;
+            spend: string;
         };
         /** @description A holder of the pool, as operators see it. */
         PoolHolderView: components["schemas"]["CardholderView"] & {
@@ -13999,6 +15212,28 @@ export type components = {
             /** @description False keeps the program for operator and business issuance only. */
             visible_to_users: boolean;
         };
+        /** @description What a promo code does to a card order. */
+        PromoCodeQuote: {
+            /** @description The code as it is stored, or as it was sent when it wasn't found. */
+            code: string;
+            /** @description For `conditional`, what is checked after sign-in: `not_first_operation` (the code only works on a person's first card) or `own_code` (it doesn't work for the person it belongs to). */
+            conditions: components["schemas"]["Rejection"][];
+            discount?: null | components["schemas"]["DiscountView"];
+            /** @description What else the code gives: bonuses, a gift subscription, a referral code of your own. It arrives once the card is issued. */
+            effects: Record<string, never>[];
+            /** @description The code the person signed up with, applied without being sent. */
+            from_sign_up: boolean;
+            /** @description A sentence to show next to the code: why it was refused, its conditions, or what it does when it doesn't lower the price. Null when the discount says it all. */
+            message?: string | null;
+            reason?: null | components["schemas"]["Rejection"];
+            /** @description `applied`, `conditional`, `rejected` or `unavailable`. */
+            status: components["schemas"]["PromoCodeStatus"];
+        };
+        /**
+         * @description Where a promo code stands in a quote.
+         * @enum {string}
+         */
+        PromoCodeStatus: "applied" | "conditional" | "rejected" | "unavailable";
         /** @description One thing the provider reported about the platform's wallet with it. */
         ProviderEventRow: {
             /** @description Decimal string. A fee is what left the wallet, a credit what came onto it. */
@@ -14224,8 +15459,8 @@ export type components = {
             checks: components["schemas"]["ReadinessChecks"];
             /** @description Number of configured connectors per role. */
             counts: components["schemas"]["ConnectorCounts"];
-            /** @description License state for the console's status bar: `mode` (`active`, `grace`, `refusing` or `disabled`; `grace` also carries `until`, `refusing` carries `reason`), the lease's `status`, `exp` (also as `valid_until`), `banner`, `last_check_at`, `last_good_at` and `last_error`. Operators see the full picture at `GET /v1/admin/license`. Does not affect the HTTP status of this endpoint. */
-            license: Record<string, never>;
+            /** @description License state for the console's status bar: `mode` (`active`, `grace`, `refusing` or `disabled`; `grace` also carries `until`, `refusing` carries `reason`), the lease's `status`, `exp` (also as `valid_until`), `banner`, `last_check_at`, `last_good_at` and `last_error`. Present only when the request carries the bearer token of an account with the `operator` role; left out otherwise. Operators see the full picture at `GET /v1/admin/license`. Does not affect the HTTP status of this endpoint. */
+            license?: Record<string, never> | null;
             /** @description Support channels and build info, fixed for the lifetime of the process. */
             ops: components["schemas"]["OpsInfoView"];
             /** @description `ready` when every dependency check passed, `degraded` otherwise; the HTTP status is 200 or 503 to match. */
@@ -14321,6 +15556,36 @@ export type components = {
             user_email?: string | null;
             /** Format: uuid */
             user_id: string;
+        };
+        /** @description The mature groups the forecast stands on. */
+        ReferenceInfo: {
+            /**
+             * Format: int64
+             * @description Sign-up days per group (`marketing.payback.group_days`).
+             */
+            group_days: number;
+            /** Format: int64 */
+            mature_groups: number;
+            /**
+             * Format: int64
+             * @description Days a group has to be observed (`marketing.payback.min_age_days`).
+             */
+            min_age_days: number;
+            /**
+             * Format: int64
+             * @description Mature groups a forecast needs (`marketing.payback.min_groups`).
+             */
+            min_groups: number;
+            /**
+             * Format: int64
+             * @description Payers a group needs (`marketing.payback.min_payers`).
+             */
+            min_payers: number;
+            /**
+             * Format: int64
+             * @description Days the oldest mature group has been observed; null without any.
+             */
+            oldest_days?: number | null;
         };
         /** @description Who invited a user. */
         ReferredBy: {
@@ -14534,6 +15799,63 @@ export type components = {
             /** @description `lost` or `stolen`. */
             kind: components["schemas"]["ClaimKind"];
         };
+        /** @description What a report was asked and what its data covers. */
+        ReportMeta: {
+            attribution: components["schemas"]["Attribution"];
+            campaign?: string | null;
+            /**
+             * Format: date
+             * @description The last day whose figures are final: by acquisition, the last
+             *     sign-up day whose whole horizon is observed; by events, `data_through`.
+             */
+            complete_through?: string | null;
+            currency: string;
+            /**
+             * Format: date
+             * @description Revenue and costs run through this day.
+             */
+            data_through?: string | null;
+            /** Format: date */
+            from: string;
+            /**
+             * Format: int64
+             * @description By acquisition: days after sign-up that count. Null by events.
+             */
+            horizon_days?: number | null;
+            /**
+             * @description Some days of the period are not final yet: young groups by
+             *     acquisition, days not computed yet by events.
+             */
+            incomplete: boolean;
+            mode: components["schemas"]["Mode"];
+            /**
+             * Format: date-time
+             * @description When people and their first payments, cards and purchases were last brought up to date.
+             */
+            people_refreshed_at?: string | null;
+            source?: string | null;
+            timezone: string;
+            /** Format: date */
+            to: string;
+        };
+        /** @description A line of a list: one source or campaign, or what none claims. */
+        ReportRow: {
+            /** @description Campaign code; null on a source's line and on the line of what no campaign claims. */
+            campaign?: string | null;
+            campaign_name?: string | null;
+            metrics: components["schemas"]["Metrics"];
+            payback?: null | components["schemas"]["PaybackCell"];
+            /** @description One point per day of the period. */
+            series: components["schemas"]["Point"][];
+            /** @description Null on the line of what no source claims. */
+            source?: string | null;
+            source_name?: string | null;
+            /**
+             * @description The line of spend and people no source (in the source list) or no
+             *     campaign (in the campaign list) claims.
+             */
+            unattributed: boolean;
+        };
         /**
          * @example {
          *       "email": "new@example.com"
@@ -14681,6 +16003,30 @@ export type components = {
             email: string;
             /** @description What went wrong. */
             error: string;
+        };
+        RunImport: {
+            /**
+             * Format: date
+             * @description First day; as the nightly load would choose when left out.
+             */
+            from?: string | null;
+            /**
+             * Format: date
+             * @description Last day; yesterday when left out.
+             */
+            to?: string | null;
+        };
+        RunMargin: {
+            /**
+             * Format: date
+             * @description First day; the nightly window's when left out.
+             */
+            from?: string | null;
+            /**
+             * Format: date
+             * @description Last day; yesterday when left out.
+             */
+            to?: string | null;
         };
         /**
          * @description Who may read or edit a document. Ordered: each level includes the ones
@@ -14902,6 +16248,184 @@ export type components = {
             metrika_client_id?: string | null;
             /** @description PostHog distinct id, so a report can open the session recording. */
             posthog_distinct_id?: string | null;
+        };
+        Source: {
+            /** @description The directory's campaigns tied to this source. */
+            campaigns: components["schemas"]["SourceCampaign"][];
+            /** @description Short key: Latin lower-case letters, digits, `_` and `-`. */
+            code: string;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * @description The adapter that loads this source's spend from its ad account; null
+             *     when spend is entered by hand.
+             */
+            importer?: string | null;
+            name: string;
+            /**
+             * Format: int64
+             * @description Days of spend recorded for this source.
+             */
+            spend_days: number;
+        };
+        /** @description A campaign of the directory, as a source sees it. */
+        SourceCampaign: {
+            code: string;
+            description: string;
+            /** @description The campaign's id in the ad account, for a loaded source. */
+            external_id?: string | null;
+        };
+        SourceList: {
+            /** @description The report's currency, which a new spend entry starts with. */
+            currency: string;
+            /**
+             * @description Campaigns of the directory that belong to no source yet. Spend
+             *     entered for one ties it to that spend's source.
+             */
+            free_campaigns: components["schemas"]["SourceCampaign"][];
+            /** @description Adapters a source can be loaded with. */
+            importers: string[];
+            sources: components["schemas"]["Source"][];
+            /** @description The report's time zone. */
+            timezone: string;
+        };
+        SourcePatch: {
+            /**
+             * @description The adapter that loads this source; an empty string for spend entered
+             *     by hand. Only while the source has no spend.
+             */
+            importer?: string | null;
+            name?: string | null;
+        };
+        /** @description One day of an entry. */
+        SpendDay: {
+            /** @example 4285.72 */
+            amount: string;
+            /** Format: date */
+            day: string;
+            /** @example 0.00 */
+            fees: string;
+        };
+        /** @description Spend entered by hand: one placement over a day or a period. */
+        SpendEntry: {
+            /**
+             * @description What the placement cost, over the whole period.
+             * @example 30000.00
+             */
+            amount: string;
+            /** @description The directory's campaign; null for spend no campaign claims. */
+            campaign?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            created_by_email?: string | null;
+            /** @description ISO 4217 code of what was paid. */
+            currency: string;
+            /** @description The amount and the fees spread evenly over the days, to the cent. */
+            days: components["schemas"]["SpendDay"][];
+            /**
+             * @description What was paid on top: an agency's or a platform's fee.
+             * @example 0.00
+             */
+            fees: string;
+            /** Format: date */
+            from: string;
+            /** Format: uuid */
+            id: string;
+            note?: string | null;
+            source: string;
+            source_name: string;
+            /** @description What was bought: "Post at a blogger's, 12 November". */
+            title: string;
+            /** Format: date */
+            to: string;
+            /** Format: date-time */
+            updated_at: string;
+            updated_by_email?: string | null;
+        };
+        /**
+         * @description A line of the spend list: an entry made by hand, or what one campaign of
+         *     an ad account cost over the days asked for.
+         */
+        SpendItem: {
+            amount: string;
+            /** @description The directory's campaign; null when no campaign claims the spend. */
+            campaign?: string | null;
+            currency: string;
+            /** Format: int64 */
+            days: number;
+            /** @description The campaign's id in the ad account, for loaded spend. */
+            external_campaign_id?: string | null;
+            fees: string;
+            /**
+             * Format: date
+             * @description An entry's period, or the first and last loaded day in the range.
+             */
+            from: string;
+            /**
+             * Format: uuid
+             * @description The entry, for spend entered by hand.
+             */
+            id?: string | null;
+            note?: string | null;
+            /** @description `manual` or `import`. */
+            origin: string;
+            source: string;
+            source_name: string;
+            /** @description What was bought, or the campaign's name in the ad account. */
+            title: string;
+            /** Format: date */
+            to: string;
+            /** Format: date-time */
+            updated_at: string;
+            updated_by_email?: string | null;
+        };
+        SpendList: {
+            /** Format: date */
+            from: string;
+            items: components["schemas"]["SpendItem"][];
+            /** Format: date */
+            to: string;
+            /** @description Days inside the range only, per currency. */
+            totals: components["schemas"]["SpendTotal"][];
+        };
+        /**
+         * @description Fields to change; what is left out stays. An empty `campaign` or `note`
+         *     clears it.
+         */
+        SpendPatch: {
+            amount?: string | null;
+            campaign?: string | null;
+            currency?: string | null;
+            fees?: string | null;
+            /** Format: date */
+            from?: string | null;
+            note?: string | null;
+            source?: string | null;
+            title?: string | null;
+            /** Format: date */
+            to?: string | null;
+        };
+        /** @description Spend inside the range in one currency. */
+        SpendTotal: {
+            amount: string;
+            currency: string;
+            fees: string;
+        };
+        /** @description One stage of the funnel. */
+        Stage: {
+            /** @description The stage the conversion is taken from. */
+            base?: string | null;
+            /** @description `value` over the base's value; null without a base or when it is empty. */
+            conversion?: string | null;
+            /** @description `clicks`, `visits`, `registrations`, `first_payment`, `card_received`, `first_card_purchase`. */
+            key: string;
+            /** @description What is counted: `clicks`, `visits` or `people`. */
+            unit: string;
+            /**
+             * Format: int64
+             * @description Null when nothing in scope says (clicks of spend entered by hand).
+             */
+            value?: number | null;
         };
         StatBucket: {
             /**
@@ -15164,6 +16688,10 @@ export type components = {
              */
             webhooks: number;
         };
+        SummaryReport: {
+            meta: components["schemas"]["ReportMeta"];
+            totals: components["schemas"]["Metrics"];
+        };
         /** @description A file attached to a message. */
         SupportAttachment: {
             content_type: string;
@@ -15240,6 +16768,109 @@ export type components = {
             answer: string;
             /** @description The user's own words for `other`, up to 500 characters. Ignored for the other answers. */
             other_text?: string | null;
+        };
+        /** @description The operation a rule fired on. */
+        SuspendedOperation: {
+            /** @description Decimal string, signed: negative is a spend. */
+            amount: string;
+            currency: string;
+            /** Format: uuid */
+            id: string;
+            merchant_country?: string | null;
+            merchant_mcc?: string | null;
+            merchant_name?: string | null;
+            merchant_ref?: string | null;
+            /** Format: date-time */
+            occurred_at: string;
+            status: string;
+        };
+        /** @description A card the risk rules suspended, and where its case stands. */
+        Suspension: {
+            /** Format: uuid */
+            card_id: string;
+            /** Format: date-time */
+            closed_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When a decision is due.
+             */
+            decide_by: string;
+            /** @description What exactly matched, for operators. */
+            details: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            opened_at: string;
+            /** @description `lifted` or `closed` once decided; null while open. */
+            outcome?: string | null;
+            /** @description Open and past its deadline. */
+            overdue: boolean;
+            /**
+             * Format: date-time
+             * @description When the operators were told the deadline had passed.
+             */
+            overdue_alerted_at?: string | null;
+            /** @description What the holder was told: `unusual_activity`, `unusual_location` or `restricted_merchant`. */
+            reason_category: string;
+            /** @description The rule that fired: `card_mcc`, `card_decline_streak`, `card_country` or `card_merchant`. */
+            rule: string;
+            /**
+             * Format: uuid
+             * @description The card operation the rule fired on.
+             */
+            transaction_id?: string | null;
+        };
+        /** @description One decision in a case's history. */
+        SuspensionDecision: {
+            comment: string;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description The new deadline, for an extension.
+             */
+            decide_by_after?: string | null;
+            /**
+             * Format: date-time
+             * @description The deadline before the decision.
+             */
+            decide_by_before: string;
+            /**
+             * Format: uuid
+             * @description The operator who decided.
+             */
+            decided_by?: string | null;
+            decided_by_email?: string | null;
+            /** @description `extend`, `lift` or `close`. */
+            decision: string;
+            /** Format: uuid */
+            id: string;
+        };
+        SuspensionDetail: components["schemas"]["SuspensionItem"] & {
+            /** @description Every decision on the case, oldest first. */
+            history: components["schemas"]["SuspensionDecision"][];
+            moderation?: null | components["schemas"]["CardModeration"];
+            operation?: null | components["schemas"]["SuspendedOperation"];
+        };
+        /** @description A line of the queue: the case, its card and its holder. */
+        SuspensionItem: components["schemas"]["Suspension"] & {
+            card_last4?: string | null;
+            /** @description The card's status at the issuer, as the platform knows it. */
+            card_status: string;
+            connector_slug: string;
+            /**
+             * Format: int64
+             * @description Decisions taken so far.
+             */
+            decisions: number;
+            user_email?: string | null;
+            /** Format: uuid */
+            user_id: string;
+        };
+        SuspensionList: {
+            items: components["schemas"]["SuspensionItem"][];
+            /** Format: int64 */
+            total: number;
         };
         SwitchBody: {
             /** @description The `challenge_token` from the `totp_required` login response. Always send that original token, also when switching again; a token from an earlier switch is not accepted. */
@@ -15685,6 +17316,17 @@ export type components = {
             /** Format: date-time */
             updated_at: string;
         };
+        /** @description A campaign of the ad account no campaign in the directory claims. */
+        Unattributed: {
+            amount: string;
+            currency: string;
+            /** Format: int64 */
+            days: number;
+            external_campaign_id: string;
+            /** Format: date */
+            last_day: string;
+            name?: string | null;
+        };
         /**
          * @description A message that never reached the platform, as the operator console lists it. No text:
          *     operators read conversations on the platform, not in the operator console.
@@ -15927,6 +17569,8 @@ export type components = {
             id: string;
             /** @description False when the account has been deactivated. */
             is_active: boolean;
+            /** @description The person's name as they or an operator entered it, or null when there is none. */
+            name?: string | null;
             /** @description Role name. */
             role: string;
             telegram?: null | components["schemas"]["TelegramLink"];
@@ -15977,6 +17621,8 @@ export type components = {
             id: string;
             /** @description False when the account has been deactivated. */
             is_active: boolean;
+            /** @description The person's name, or null when there is none. */
+            name?: string | null;
             /** @description Role name. */
             role: string;
         };
@@ -17114,6 +18760,33 @@ export interface operations {
             };
         };
     };
+    business_calendar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The calendar */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarView"];
+                };
+            };
+            /** @description Not allowed to read settings */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_campaigns: {
         parameters: {
             query?: never;
@@ -17175,7 +18848,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The code is taken (`campaign_exists`) */
+            /** @description The code is taken (`campaign_exists`), or another campaign has that id in the ad account (`external_id_taken`) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -17217,6 +18890,13 @@ export interface operations {
             };
             /** @description No such code */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The campaign has spend that ties it to its source (`campaign_has_spend`), or another campaign has that id (`external_id_taken`) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -17815,6 +19495,139 @@ export interface operations {
             };
             /** @description No such stock entry */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_suspensions: {
+        parameters: {
+            query?: {
+                /** @description `open` (default), `closed` or `all`. */
+                status?: string | null;
+                /** @description Only open cases past their deadline. */
+                overdue?: boolean;
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the queue */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuspensionList"];
+                };
+            };
+            /** @description Unknown status */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not allowed to read cards */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_suspension: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Suspension UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The case */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuspensionDetail"];
+                };
+            };
+            /** @description Not allowed to read cards */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such suspension */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Suspension UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecideBody"];
+            };
+        };
+        responses: {
+            /** @description The case after the decision */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuspensionDetail"];
+                };
+            };
+            /** @description `comment_required` or `deadline_in_past` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not allowed to change cards */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such suspension */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `suspension_closed`: decided already; or the issuer refused to close the card */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -20620,6 +22433,33 @@ export interface operations {
             };
         };
     };
+    destinations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every destination */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversionsView"];
+                };
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_decline_reasons: {
         parameters: {
             query?: {
@@ -21010,7 +22850,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description `not_settleable`: no card load waits for the issuer; `no_wallet`: the holder has no wallet to return it to */
+            /** @description `not_settleable`: the card load is finished; `no_wallet`: the holder has no wallet to return it to */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -21058,7 +22898,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description `not_settleable`: no card load waits for the issuer */
+            /** @description `not_settleable`: the card load is finished */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -22495,6 +24335,844 @@ export interface operations {
             };
         };
     };
+    list_imports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportList"];
+                };
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    run_import: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Source code */
+                source: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunImport"];
+            };
+        };
+        responses: {
+            /** @description The load started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportRun"];
+                };
+            };
+            /** @description The days are not valid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such source loaded from an ad account */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A load of it is running (`import_running`), or the adapter's token is not set (`importer_not_configured`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    margin_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarginStatus"];
+                };
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    run_margin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunMargin"];
+            };
+        };
+        responses: {
+            /** @description The count started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarginRun"];
+                };
+            };
+            /** @description The days are not valid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A count is running already (`margin_running`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    margin_totals: {
+        parameters: {
+            query: {
+                /** @description First day, in the report's time zone. */
+                from: string;
+                /** @description Last day; at most 93 days after the first. */
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarginTotals"];
+                };
+            };
+            /** @description The period is not valid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    report_campaigns: {
+        parameters: {
+            query?: {
+                /** @description First day, in the report's time zone; 30 days before `to` when left out. */
+                from?: string;
+                /** @description Last day; yesterday when left out. At most 366 days after `from`. */
+                to?: string;
+                /** @description `acquisition` (the default) or `events`. */
+                mode?: components["schemas"]["Mode"];
+                /**
+                 * @description By acquisition: how many days after sign-up count, sign-up day
+                 *     included. 30 when left out.
+                 */
+                horizon?: number;
+                /** @description Only this source. */
+                source?: string;
+                /** @description Only this campaign of the directory. */
+                campaign?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListReport"];
+                };
+            };
+            /** @description The period or the horizon is not valid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    report_campaign: {
+        parameters: {
+            query?: {
+                /** @description First day, in the report's time zone; 30 days before `to` when left out. */
+                from?: string;
+                /** @description Last day; yesterday when left out. At most 366 days after `from`. */
+                to?: string;
+                /** @description `acquisition` (the default) or `events`. */
+                mode?: components["schemas"]["Mode"];
+                /**
+                 * @description By acquisition: how many days after sign-up count, sign-up day
+                 *     included. 30 when left out.
+                 */
+                horizon?: number;
+                /** @description Only this source. */
+                source?: string;
+                /** @description Only this campaign of the directory. */
+                campaign?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Campaign code */
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignReport"];
+                };
+            };
+            /** @description The period or the horizon is not valid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such campaign in the directory */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    report_funnel: {
+        parameters: {
+            query?: {
+                /** @description First day, in the report's time zone; 30 days before `to` when left out. */
+                from?: string;
+                /** @description Last day; yesterday when left out. At most 366 days after `from`. */
+                to?: string;
+                /** @description `acquisition` (the default) or `events`. */
+                mode?: components["schemas"]["Mode"];
+                /**
+                 * @description By acquisition: how many days after sign-up count, sign-up day
+                 *     included. 30 when left out.
+                 */
+                horizon?: number;
+                /** @description Only this source. */
+                source?: string;
+                /** @description Only this campaign of the directory. */
+                campaign?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FunnelReport"];
+                };
+            };
+            /** @description The period or the horizon is not valid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    report_payback: {
+        parameters: {
+            query?: {
+                /** @description First day, in the report's time zone; 30 days before `to` when left out. */
+                from?: string;
+                /** @description Last day; yesterday when left out. At most 366 days after `from`. */
+                to?: string;
+                /** @description `acquisition` (the default) or `events`. */
+                mode?: components["schemas"]["Mode"];
+                /**
+                 * @description By acquisition: how many days after sign-up count, sign-up day
+                 *     included. 30 when left out.
+                 */
+                horizon?: number;
+                /** @description Only this source. */
+                source?: string;
+                /** @description Only this campaign of the directory. */
+                campaign?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaybackReport"];
+                };
+            };
+            /** @description The period is not valid, or the report is by events */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    report_sources: {
+        parameters: {
+            query?: {
+                /** @description First day, in the report's time zone; 30 days before `to` when left out. */
+                from?: string;
+                /** @description Last day; yesterday when left out. At most 366 days after `from`. */
+                to?: string;
+                /** @description `acquisition` (the default) or `events`. */
+                mode?: components["schemas"]["Mode"];
+                /**
+                 * @description By acquisition: how many days after sign-up count, sign-up day
+                 *     included. 30 when left out.
+                 */
+                horizon?: number;
+                /** @description Only this source. */
+                source?: string;
+                /** @description Only this campaign of the directory. */
+                campaign?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListReport"];
+                };
+            };
+            /** @description The period or the horizon is not valid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    report_summary: {
+        parameters: {
+            query?: {
+                /** @description First day, in the report's time zone; 30 days before `to` when left out. */
+                from?: string;
+                /** @description Last day; yesterday when left out. At most 366 days after `from`. */
+                to?: string;
+                /** @description `acquisition` (the default) or `events`. */
+                mode?: components["schemas"]["Mode"];
+                /**
+                 * @description By acquisition: how many days after sign-up count, sign-up day
+                 *     included. 30 when left out.
+                 */
+                horizon?: number;
+                /** @description Only this source. */
+                source?: string;
+                /** @description Only this campaign of the directory. */
+                campaign?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SummaryReport"];
+                };
+            };
+            /** @description The period or the horizon is not valid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_sources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceList"];
+                };
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_source: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSource"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Source"];
+                };
+            };
+            /** @description The code or a field is not valid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The code is taken, or another source uses that adapter (`source_exists`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_source: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Source code */
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourcePatch"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Source"];
+                };
+            };
+            /** @description A field is not valid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such source */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The source has spend already (`source_has_spend`), or the adapter is taken (`source_exists`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_spend: {
+        parameters: {
+            query?: {
+                /** @description First day, included. Thirty days before `to` when left out. */
+                from?: string | null;
+                /** @description Last day, included. Today when left out. */
+                to?: string | null;
+                /** @description Only this source. */
+                source?: string | null;
+                /** @description Only this campaign. `-` for spend no campaign claims. */
+                campaign?: string | null;
+                /** @description `manual` or `import`; both when left out. */
+                origin?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendList"];
+                };
+            };
+            /** @description The range or a filter is not valid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_spend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSpend"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendEntry"];
+                };
+            };
+            /** @description A field, the period or the amount is not valid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such source or campaign */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Spend here comes from an ad account (`spend_imported`), the campaign belongs to another source (`campaign_other_source`), or it has spend on one of these days already (`spend_overlaps`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_spend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The entry */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendEntry"];
+                };
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such entry */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_spend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The entry */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such entry */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_spend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The entry */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpendPatch"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendEntry"];
+                };
+            };
+            /** @description A field, the period or the amount is not valid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such entry, source or campaign */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description As when entering spend */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     my_access: {
         parameters: {
             query?: never;
@@ -22523,7 +25201,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ProfileBody"];
+                "application/json": components["schemas"]["MyProfileBody"];
             };
         };
         responses: {
@@ -22535,7 +25213,7 @@ export interface operations {
                     "application/json": components["schemas"]["MyAccess"];
                 };
             };
-            /** @description Unknown language (`validation`) */
+            /** @description Unknown language, or a name longer than 100 characters or on more than one line (`validation`) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -26127,7 +28805,7 @@ export interface operations {
     admin_list_users: {
         parameters: {
             query?: {
-                /** @description Case-insensitive substring to match against the email. An erased account is also found by the address it had. Omit for no filter. */
+                /** @description Case-insensitive substring to match against the email or the name. An erased account is also found by the address it had. Omit for no filter. */
                 q?: string | null;
                 /** @description Maximum number of rows to return. Default 100, max 500. */
                 limit?: number | null;
@@ -26187,6 +28865,60 @@ export interface operations {
             };
             /** @description No such user */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patch_user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchUserBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetail"];
+                };
+            };
+            /** @description A name longer than 100 characters or on more than one line (`validation`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the users.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The user's data was erased (`user_erased`) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -28100,6 +30832,51 @@ export interface operations {
             };
         };
     };
+    quote_card_order: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardOrderQuoteBody"];
+            };
+        };
+        responses: {
+            /** @description The price, the amount to pay and what the promo code does */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardOrderQuote"];
+                };
+            };
+            /** @description Unknown product, a way of paying no funding connector takes for cards, or the amount outside the method's limits */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `too_many_requests`: too many quotes from this address; the message says when to try again */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No funding connector or no exchange rate available */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_public_products: {
         parameters: {
             query?: never;
@@ -28701,8 +31478,53 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description `holder_data_consent_required`: the product sends the holder's real details to the card issuer and the `holder_data_transfer` consent was neither sent nor given before. `payments_on_hold`: a payment on this account was not accepted and new ones wait until support sorts it out */
+            /** @description `price_changed`: the order comes to a different amount than `expected_amount`; no payment was opened, and `quote` holds the new price in the shape `POST /me/card-orders/quote` returns. `holder_data_consent_required`: the product sends the holder's real details to the card issuer and the `holder_data_transfer` consent was neither sent nor given before. `payments_on_hold`: a payment on this account was not accepted and new ones wait until support sorts it out */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No funding connector or no exchange rate available */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    quote_my_card_order: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardOrderQuoteBody"];
+            };
+        };
+        responses: {
+            /** @description The price, the amount to pay and what the promo code does */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardOrderQuote"];
+                };
+            };
+            /** @description Unknown product, a way of paying no funding connector takes for cards, or the amount outside the method's limits */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid token */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
