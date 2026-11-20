@@ -515,8 +515,9 @@ export type paths = {
         /**
          * Set the basis of a close
          * @description Only an operator says on what basis a card is closed; the holder's own
-         *     request (`user_request`, 9.2) is the default. A 9.3 basis refunds at the
-         *     card's average top-up rate, adds the issue fee's unexpired share (`b`)
+         *     request (`user_request`, 9.2) is the default. A 9.3 basis refunds the
+         *     card's balance at its average top-up rate, but never below the official
+         *     rate a 9.2 refund would use, adds the issue fee's unexpired share (`b`)
          *     or the issue and delivery fee (`d`), and sends what the platform owes on
          *     top of the card's balance at once, without waiting for the issuer. An
          *     issue fee the holder paid from their account goes back to that account,
@@ -1141,6 +1142,30 @@ export type paths = {
          *     Safe to repeat. The full card number is never returned. Audited.
          */
         post: operations["refresh_card_from_connector"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cards/{id}/refund-advance/write-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write off what a card kept of refunded top-ups
+         * @description When a top-up that is already on a card is refunded, the payer is paid
+         *     and the money stays on the card: `refund_advance` on the card is what
+         *     the platform is out. Closing the card takes it back out of what the
+         *     issuer returns. This gives up whatever is still open, when the money is
+         *     gone from the card and will not come back. It can't be undone. Audited.
+         */
+        post: operations["write_off_refund_advance"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2015,8 +2040,15 @@ export type paths = {
          *     (`succeeded`), later (`pending`, finished by its event) or refuse
          *     (`failed`). The `Idempotency-Key` header is required.
          *
-         *     A top-up paid straight to a card goes back only while the card never got
-         *     it (`card_refund` on the deposit is set), and only as a whole: leave
+         *     A top-up that is already on its card (`card_refund: loaded`) goes back
+         *     with the money staying on the card: nothing is taken off it, the payer
+         *     is paid from the platform's side, and `card_refund_stays` is what the
+         *     platform is out until the card is closed (the issuer's return covers it
+         *     first) or the sum is written off on the card. The price of a card the
+         *     payment issued stays with the card. Leave `amount` out.
+         *
+         *     A top-up paid straight to a card that the card never got goes back
+         *     (`card_refund` is `whole`, `top_up` or `choose`) only as a whole: leave
          *     `amount` out. Everything the payer paid goes back, the commission and
          *     the exchange fee included, except the price of a card the payment issued
          *     that works and stays. A card it issued that never worked is closed and
@@ -3760,6 +3792,98 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/payer-refusals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Payments refused for their payer
+         * @description A payment onto a card is not accepted when its payer has already paid
+         *     for another account: the money goes back to the payer and the refusal
+         *     is listed here, with every account that payer has paid for. While a
+         *     refusal waits, the account's new payments are on hold. Newest first.
+         */
+        get: operations["list_payer_refusals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payer-refusals/{id}/allow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Allow a payer on an account
+         * @description The payer of this refused payment may pay for this account from now on:
+         *     a family paying from one phone, someone paying for another person. The
+         *     account's payments are no longer on hold. The refunded payment does not
+         *     come back; the holder pays again. A promo code for a first operation
+         *     stays unavailable to a payer who has used one on another account.
+         */
+        post: operations["allow_payer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payer-refusals/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close a refusal without allowing the payer
+         * @description Takes the account's payments off hold and leaves the rule as it is: the
+         *     next payment from the same payer is refused again, a payment from
+         *     another payer goes through.
+         */
+        post: operations["dismiss_payer_refusal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payers/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Find accounts by a payer's phone number
+         * @description For support: a holder says which phone they paid from, and this shows
+         *     the accounts that phone has paid for and the payments refused for it.
+         *     The number is hashed for the lookup and kept nowhere; the search itself
+         *     is written to the audit log without it.
+         */
+        post: operations["search_payers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/payments": {
         parameters: {
             query?: never;
@@ -4138,6 +4262,28 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/storefront/products/{id}/holder-pool/{holder_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a pool holder
+         * @description Sets the holder's id at the provider, its identity document, nationality
+         *     and note. The provider gets a new document with the next card on the
+         *     holder, if it has not accepted one yet.
+         */
+        patch: operations["update_holder"];
+        trace?: never;
+    };
     "/v1/admin/storefront/products/{id}/holder-pool/{holder_id}/retire": {
         parameters: {
             query?: never;
@@ -4201,6 +4347,14 @@ export type paths = {
          *     With `holder_data_required` on, a card on the program is issued only to
          *     a holder who consented to their details going to the issuer; every
          *     issuance without that consent is refused, the operator's included.
+         *
+         *     With `platform_pays_start_load` on, an order paid at checkout costs the
+         *     product's price alone and the platform puts the provider's minimum on
+         *     the card. Orders already placed keep the terms they were placed on.
+         *
+         *     `stock_min_balance` keeps a stock card that holds less in the stock
+         *     until it is topped up and the provider reports the new balance. Left
+         *     unset, the starting balance the platform puts on a card is that least.
          */
         put: operations["put_issuance"];
         post?: never;
@@ -5062,6 +5216,30 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/attribution/handoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Carry the visitor's analytics ids into the Telegram Mini App
+         * @description The Mini App runs without the site's analytics, so a person who goes
+         *     from the site to Telegram would lose the visit their payment belongs
+         *     to. Put the token into the Mini App link (`startapp=<code>__<token>`);
+         *     the Mini App's sign-in reads it back and keeps the ids for the account.
+         *     A token works for a day.
+         */
+        post: operations["create_handoff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/attribution/touches": {
         parameters: {
             query?: never;
@@ -5770,6 +5948,28 @@ export type paths = {
          *     notifications are not affected. Pressing it twice is harmless.
          */
         post: operations["unsubscribe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/analytics/ids": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remember the visitor's analytics ids
+         * @description For a person who agreed to analytics cookies while signed in: the
+         *     server sends the conversions it confirms later (a payment, an issued
+         *     card) with these ids. Ignored once they have declined analytics.
+         */
+        post: operations["set_ids"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7725,8 +7925,11 @@ export type components = {
         /** @description A holder to add to the pool. */
         AddPoolHolderBody: {
             customer?: null | components["schemas"]["CustomerInfo"];
+            document?: null | components["schemas"]["DocumentBody"];
             /** @description The holder's e-mail at the provider. It has to be on the deployment's holder mail domain (`cardholder.email_domain`) so the provider's codes reach the platform. Leave it out to give the holder a new mailbox there. */
             email?: string | null;
+            /** @description The holder's nationality, a two-letter country code. */
+            nationality?: string | null;
             /** @description A note for other operators. */
             note?: string | null;
             /** @description The provider's id for the holder. */
@@ -8036,6 +8239,16 @@ export type components = {
             /** @description Decimal string. */
             amount: string;
             currency: string;
+        };
+        /**
+         * @description The visitor's ids at the analytics platforms, as the browser has them.
+         *     Each is optional; send the ones the visitor agreed to.
+         */
+        AnalyticsIds: {
+            /** @description Google Analytics' client id: the last two parts of the `_ga` cookie, `1234567890.1700000000`. */
+            ga_client_id?: string | null;
+            /** @description Yandex Metrica's ClientID, from `ym(<counter>, 'getClientID', cb)`, as a string. */
+            metrika_client_id?: string | null;
         };
         AnnouncementPage: {
             items: components["schemas"]["FailedAnnouncement"][];
@@ -8874,6 +9087,7 @@ export type components = {
             cardholder?: null | components["schemas"]["CardholderView"];
             closure?: null | components["schemas"]["CardClosureView"];
             live_balance?: null | components["schemas"]["CardBalance"];
+            refund_advance?: null | components["schemas"]["CardBalance"];
         };
         /** @description One fee charged on a card. */
         CardFeeView: {
@@ -8963,6 +9177,7 @@ export type components = {
          *     }
          */
         CardOrderBody: {
+            analytics_ids?: null | components["schemas"]["AnalyticsIds"];
             /** @description Where the consents were given: `site`, `cabinet`, `miniapp` or `bot`. Read from the client header when omitted. */
             consent_channel?: string | null;
             /** @description Consents given with the order (`terms`, `personal_data`, `marketing`, `holder_data_transfer`). A product with `holder_data_required` is ordered only with `holder_data_transfer` here or given before; otherwise 409 `holder_data_consent_required`. With `POST /auth/register` and `POST /auth/email-code/verify` the consents of the request itself are used and these are ignored. */
@@ -8974,7 +9189,7 @@ export type components = {
              * @description One of the product's designs; omit for its default design.
              */
             design_id?: string | null;
-            /** @description Money to put on the card on top of its price, decimal string in the card's currency. Below the provider's minimum load the minimum is used; a card that comes ready from the stock gets just this. */
+            /** @description Money to put on the card on top of its price, decimal string in the card's currency. Below the provider's minimum load the minimum is used. A card whose starting balance is already in the price (see `starting_balance` in the catalog) gets just this on top. */
             extra_load?: string | null;
             /** @description The funding connector to pay through; omit to use the first one that issues cards with a top-up and takes `method`. */
             funder_slug?: string | null;
@@ -8991,7 +9206,7 @@ export type components = {
              * @description The card product, from `GET /card-products` or `GET /me/card-products`.
              */
             product_id: string;
-            /** @description A promo code for the payment. */
+            /** @description A promo code for the order. One that works on issuing a card lowers the card's price; one that works on top-ups lowers the commission of the payment. `POST /me/codes/validate` with `product_id` shows which, before the order is placed. */
             promo_code?: string | null;
             /** @description Pay part of the card's price with bonuses. On by default whenever there are bonuses. */
             use_bonus?: boolean | null;
@@ -9903,6 +10118,8 @@ export type components = {
             funder_mode: string;
             /** @description URL the platform calls the connector on. */
             grpc_url: string;
+            /** @description Card connectors only: where a new card comes from first. `stock_first` (the default): a card from the stock of cards issued ahead of time, and a new one from the provider only when the stock has none. `live_first`: a new card from the provider, and one from the stock only when the provider fails to issue it. Every order follows it, from the API and from the console alike. Always `stock_first` for other roles. */
+            issue_order: string;
             /**
              * Format: date-time
              * @description When the connector last delivered an event that passed its signature check. Null if it never has.
@@ -10087,6 +10304,7 @@ export type components = {
              * @example 100.00
              */
             amount: string;
+            analytics_ids?: null | components["schemas"]["AnalyticsIds"];
             /** @description The most bonuses to add; leave it out to add as many as allowed. `POST /me/bonus/preview` shows the numbers first. */
             bonus_amount?: string | null;
             /**
@@ -10106,7 +10324,7 @@ export type components = {
             };
             /** @description One of `card`, `crypto`, `bank_transfer`, `sbp`. */
             method: components["schemas"]["DepositMethod"];
-            /** @description A promo code for this top-up, to the wallet or to a card. Its discount comes off the commission; bonuses or a gift that come with the code arrive once the top-up is confirmed. A code that can't be used answers 400 `promo_code_*` with the reason. `POST /me/codes/validate` checks it first. */
+            /** @description A promo code for this top-up, to the wallet or to a card. Its discount comes off the commission; bonuses or a gift that come with the code arrive once the top-up is confirmed. With `issue_card`, a code that works on issuing a card lowers the card's price instead and is used up when the card is issued. A code that can't be used answers 400 `promo_code_*` with the reason. `POST /me/codes/validate` checks it first. */
             promo_code?: string | null;
             /**
              * Format: uuid
@@ -10636,6 +10854,10 @@ export type components = {
             /** @description `deposit` (withheld from a top-up), `card_topup` (from a card top-up out of the wallet), `card` (taken off a card by support), `card_close` (from what a closed card gave back), `wallet` or `fee_return` (the fee itself was given back). */
             source: string;
         };
+        DecisionBody: {
+            /** @description Why, for whoever reads the queue later: what the holder said, a ticket number. */
+            note?: string | null;
+        };
         DeclineCounts: {
             /** Format: int64 */
             issuer_fault: number;
@@ -10916,6 +11138,16 @@ export type components = {
             updated_by?: string | null;
             /** @description Who may edit: `staff` or `operators`. */
             write_scope: string;
+        };
+        /** @description A holder's identity document. */
+        DocumentBody: {
+            /** @description A link to a photo of the back, for an ID card or a driver's licence. */
+            back_url?: string | null;
+            /** @description A link the provider can fetch a photo of the document's front from. */
+            front_url?: string | null;
+            number: string;
+            /** @description `passport`, `national_id` or `driver_license`. */
+            type: string;
         };
         /** @description A document with its text, history and announcement state. */
         DocumentDetail: components["schemas"]["Document"] & {
@@ -11520,6 +11752,15 @@ export type components = {
             /** @description Total spend in the group, decimal string. */
             spend: string;
         };
+        HandoffView: {
+            /** Format: date-time */
+            expires_at: string;
+            /**
+             * @description Add it to the Mini App link's `startapp` after two underscores:
+             *     `startapp=<code>__<token>`, or `startapp=__<token>` without a code.
+             */
+            token: string;
+        };
         Health: {
             /** @description Platform version (TKL): the version other services check their compatibility against. */
             platform_version: string;
@@ -11691,6 +11932,8 @@ export type components = {
             holder_data_required?: boolean | null;
             /** @description `generate` (a holder made for each user) or `pool` (holders from the program's pool, see `/admin/storefront/products/{id}/holder-pool`). */
             holder_source?: string | null;
+            /** @description The platform pays the provider's minimum starting balance of a card ordered with a payment at checkout; the buyer pays the price alone. */
+            platform_pays_start_load?: boolean | null;
             /**
              * Format: int32
              * @description Order in which this connector's programs are tried when the buyer does not choose. Lower first.
@@ -11698,6 +11941,8 @@ export type components = {
             priority?: number | null;
             /** @description `active` or `disabled`. */
             status?: string | null;
+            /** @description The least a stock card has to hold to be handed out, decimal string above zero in the card's currency. `null`: the starting balance the platform puts on a card. */
+            stock_min_balance?: string | null;
         };
         /** @description How bonuses changed the price of a new card. */
         IssuanceBonus: {
@@ -11750,6 +11995,8 @@ export type components = {
             last_failure?: null | components["schemas"]["IssueFailure"];
             /** @description Smallest starting balance the provider requires on a new card, decimal string; null when a card may start empty. The platform funds it, so price it in. */
             min_initial_amount?: string | null;
+            /** @description Who pays the provider's minimum starting balance when a card is ordered with a payment at checkout. On: the platform puts it on the card and the buyer pays the product's price alone, so price it in. Off: the buyer pays the minimum on top of the price and gets it on the card. A card bought from the wallet and a card from the stock always start with the minimum from the platform. */
+            platform_pays_start_load: boolean;
             /**
              * Format: int32
              * @description Order in which programs of this connector are tried when the buyer does not choose. Lower first. Has no effect on the storefront.
@@ -11763,6 +12010,10 @@ export type components = {
             starts_empty: boolean;
             /** @description `active` or `disabled`. A disabled program issues nothing and is not sold. */
             status: string;
+            /** @description The balance in force: `stock_min_balance` when set, else the starting balance the platform puts on a card. A stock card whose balance at the provider is below it stays in the stock until it is topped up and the provider reports the new balance. Null when the product has neither: no check. */
+            stock_floor?: string | null;
+            /** @description The least a stock card has to hold to be handed out, as the operator set it; decimal string in the card's currency. Null: not set, and `stock_floor` is the starting balance. */
+            stock_min_balance?: string | null;
         };
         /** @description An issuance the provider turned down. */
         IssueFailure: {
@@ -12560,9 +12811,12 @@ export type components = {
             card_load_written_off_at?: string | null;
             /** Format: date-time */
             card_loaded_at?: string | null;
-            /** @description How the payment of a top-up the card never got can go back to the payer: `whole`, `top_up` (all but the price of the card it issued, which works and stays) or `choose` (the card it issued is active but its details never showed: the operator says whether it works). Null when it can't be sent back. */
+            /** @description How the payment of a top-up onto a card can go back to the payer. For one the card never got: `whole`, `top_up` (all but the price of the card it issued, which works and stays) or `choose` (the card it issued is active but its details never showed: the operator says whether it works). For one that is on the card: `loaded` (the payer is paid and the money stays on the card). Null when it can't be sent back. */
             card_refund?: string | null;
-            /** @description What goes back when the card's price stays, in the deposit's currency. */
+            /** @description `card_refund: loaded` only: what the card got from this top-up and keeps after the refund, in `card_refund_stays_currency`. The platform is out this much until the card is closed or the sum is written off. */
+            card_refund_stays?: string | null;
+            card_refund_stays_currency?: string | null;
+            /** @description What goes back when the card's price stays, in the deposit's currency. For `loaded`: what goes back. */
             card_refund_top_up?: string | null;
             /** @description What goes back with the whole payment, in the deposit's currency. */
             card_refund_whole?: string | null;
@@ -13069,6 +13323,8 @@ export type components = {
             funder_mode?: string | null;
             /** @description New URL to call the connector on. Must start with `http://` or `https://`. */
             grpc_url?: string | null;
+            /** @description Card connectors only: `stock_first` or `live_first`, see the connector's `issue_order`. Takes effect on the next order. */
+            issue_order?: string | null;
             /**
              * Format: int32
              * @description Minutes without an event from the connector after which operators are told, once until events come back. `0` stops watching.
@@ -13201,6 +13457,91 @@ export type components = {
             key: string;
             title: string;
         };
+        /** @description One account a payer has paid for. */
+        PayerAccount: {
+            /** @description An operator allowed this payer on the account. */
+            allowed: boolean;
+            email?: string | null;
+            /**
+             * Format: date-time
+             * @description When this payer first paid for the account.
+             */
+            first_paid_at?: string | null;
+            /**
+             * Format: int64
+             * @description Payments from this payer that were accepted for the account.
+             */
+            payments: number;
+            /**
+             * Format: int64
+             * @description Payments from this payer that were refused for the account.
+             */
+            refused: number;
+            /**
+             * Format: date-time
+             * @description When the account was created.
+             */
+            registered_at?: string | null;
+            /** Format: uuid */
+            user_id: string;
+        };
+        PayerRefusalList: {
+            items: components["schemas"]["PayerRefusalView"][];
+            /**
+             * Format: int64
+             * @description Refusals that wait for a decision.
+             */
+            open: number;
+            /** Format: int64 */
+            total: number;
+        };
+        /** @description A payment refused for its payer. */
+        PayerRefusalView: {
+            /** @description Every account this payer has paid for, this one included. */
+            accounts: components["schemas"]["PayerAccount"][];
+            /** @description What was paid, decimal string. */
+            amount: string;
+            /** @description The payer's bank, as the provider names it. */
+            bank?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            currency: string;
+            /** Format: uuid */
+            deposit_id: string;
+            email?: string | null;
+            /** Format: uuid */
+            id: string;
+            note?: string | null;
+            /** @description The first characters of the payer's fingerprint: the same payer shows the same mark everywhere. */
+            payer_mark: string;
+            /** @description The promo code the payment carried. */
+            promo_code?: string | null;
+            /**
+             * @description `other_account`: the payer has already paid for another account.
+             *     `first_only_code`: the payer is allowed on this account but has
+             *     already used a first-operation promo code on another one.
+             */
+            reason: string;
+            /** @description How the money's way back stands: `pending`, `succeeded`, `failed`, or null when no refund was started (the payment waits for an operator in Transactions). */
+            refund_status?: string | null;
+            /** @description Null while the refusal waits for a decision. `allowed`: the payer may pay for this account now. `dismissed`: closed without that. `none_needed`: nothing to decide. */
+            resolution?: string | null;
+            /** Format: date-time */
+            resolved_at?: string | null;
+            resolved_by_email?: string | null;
+            /** Format: uuid */
+            user_id: string;
+        };
+        PayerSearchResult: {
+            /** @description The accounts this payer has paid for. */
+            accounts: components["schemas"]["PayerAccount"][];
+            /** @description Whether any payment from this payer is known. */
+            known: boolean;
+            /** @description The first characters of the payer's fingerprint, as the queue shows it. */
+            payer_mark?: string | null;
+            /** @description The payments refused for this payer, newest first. */
+            refusals: components["schemas"]["PayerRefusalView"][];
+        };
         /** @description A payment that topped up the card, and what it can still give back. */
         PaymentView: {
             connector_slug: string;
@@ -13316,6 +13657,15 @@ export type components = {
              * @description Cards issued on the holder. A closed card keeps its place; a failed issuance gives it back.
              */
             cards_taken: number;
+            document_back_url?: string | null;
+            /** @description Links the provider fetches photos of the document from, if any. */
+            document_front_url?: string | null;
+            /** @description The document number with all but its last four characters hidden. */
+            document_number_masked?: string | null;
+            /** @description `passport`, `national_id` or `driver_license`; null when no document was entered. */
+            document_type?: string | null;
+            /** @description Two-letter country code. */
+            nationality?: string | null;
             note?: string | null;
             /** @description The provider's own id for the holder, as the operator entered it. */
             provider_ref?: string | null;
@@ -13442,7 +13792,6 @@ export type components = {
              * @description Discount applied, in basis points (1000 = 10%).
              */
             discount_bps: number;
-            /** @description What issuing costs when paid from the wallet, converted at the rate issuance will use. Only for a signed-in user whose wallet holds another currency than the price; null otherwise, and when there is no rate right now. */
             from_wallet?: null | components["schemas"]["MoneyView"];
             /** @description Wording for the fee line, e.g. "Card issuance". */
             label: string;
@@ -14339,6 +14688,11 @@ export type components = {
          * @enum {string}
          */
         Scope: "public" | "users" | "staff" | "operators";
+        /** @description The phone number a holder gave to support. No `Debug`: the number is in it. */
+        SearchBody: {
+            /** @description The payer's phone number, in any spelling. */
+            phone: string;
+        };
         SessionView: {
             /** @description `true` for the session making this request. */
             current: boolean;
@@ -15399,6 +15753,16 @@ export type components = {
             is_active?: boolean | null;
             role?: null | components["schemas"]["MerchantRole"];
         };
+        /** @description What an operator changes on a pool holder. Every field replaces the stored value; a field left out clears it. */
+        UpdatePoolHolderBody: {
+            document?: null | components["schemas"]["DocumentBody"];
+            /** @description Two-letter country code. */
+            nationality?: string | null;
+            /** @description A note for other operators. */
+            note?: string | null;
+            /** @description The provider's id for the holder. */
+            provider_ref?: string | null;
+        };
         UpdateUserBody: {
             /**
              * @description `false` blocks the user: they can't sign in and their open sessions stop
@@ -15493,7 +15857,7 @@ export type components = {
             in_transit?: null | components["schemas"]["CardInTransit"];
             /** @description The starting balance the card was issued with, decimal string; null or 0 for a card issued empty. */
             initial_amount?: string | null;
-            /** @description Last four digits of the card number. */
+            /** @description Last four digits of the card number. Null until the card is paid for and issued: a `pending_payment` card is an order waiting for its payment, show it as one. */
             last4?: string | null;
             /** @description The name the holder gave the card. */
             name?: string | null;
@@ -15690,8 +16054,20 @@ export type components = {
             code: string;
             /** @description ISO 4217 code of `amount`. For a top-up, the currency it is credited in (the wallet's or the card's) when that differs from what is paid. */
             currency?: string | null;
+            /** @description For a top-up: the funding connector, as `funder_slug` of `POST /me/deposits`. Without it, the one a top-up would go through. */
+            funder_slug?: string | null;
+            method?: null | components["schemas"]["DepositMethod"];
             /** @description `deposit`, `card_issuance`, `subscription` or `signup`. For `signup` a signed-in person always gets `already_registered`: send the code with the sign-up itself. */
             operation: components["schemas"]["Operation"];
+            /** @description For a top-up paid in another currency than it is credited in: what is paid, decimal string. A code's minimum may be set in either currency; with both amounts sent it is checked the way the top-up itself checks it. */
+            paid_amount?: string | null;
+            /** @description ISO 4217 code of `paid_amount`. */
+            paid_currency?: string | null;
+            /**
+             * Format: uuid
+             * @description For a card bought with a payment (`POST /me/card-orders`, or a top-up with `issue_card`): the product. The code is then checked the way that purchase takes it: as a card issuance, with the product's price, when the code works on issuing a card, and as a top-up otherwise. `discount.applies_to` says which. `operation` may be either of the two.
+             */
+            product_id?: string | null;
         };
         ValidateView: {
             /** @description The code as it is stored. */
@@ -15773,6 +16149,11 @@ export type components = {
         VirtualStock: {
             /** @description Newest first. */
             batches: components["schemas"]["StockBatch"][];
+            /**
+             * Format: int64
+             * @description Active stock cards that hold less than `min_balance`. They are not handed out; each becomes ready once it is topped up and the provider reports the new balance.
+             */
+            below_balance: number;
             /** @description What the provider charges to issue one card, as the operator entered it; decimal string. Null when not entered. */
             cost_per_card?: string | null;
             /** @description Card currency. */
@@ -15794,6 +16175,8 @@ export type components = {
             live_failed_at?: string | null;
             /** @description What the platform puts on each stock card: the provider's minimum, decimal string in `currency`. Null: the card starts empty. */
             load_per_card?: string | null;
+            /** @description The least a stock card has to hold to be handed out, decimal string in `currency`: the product's own setting, else the starting balance the platform puts on a card. Null when the product has neither: no check. */
+            min_balance?: string | null;
             /**
              * Format: int64
              * @description Cards ready to hand out.
@@ -15906,6 +16289,17 @@ export type components = {
             status: components["schemas"]["EndpointStatus"];
             /** @description URL that receives the events. */
             url: string;
+        };
+        /** @description Why the sum is given up. */
+        WriteOffAdvanceBody: {
+            /** @description Required; kept with the write-off and in the audit log. */
+            reason: string;
+        };
+        /** @description What was written off. */
+        WrittenOffAdvance: {
+            /** @description Decimal string, in `currency`. Zero when nothing was open. */
+            amount: string;
+            currency?: string | null;
         };
     };
     responses: never;
@@ -18361,6 +18755,54 @@ export interface operations {
             };
         };
     };
+    write_off_refund_advance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Card UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WriteOffAdvanceBody"];
+            };
+        };
+        responses: {
+            /** @description What was written off */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WrittenOffAdvance"];
+                };
+            };
+            /** @description No reason */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the cards.reconcile permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such card */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     reissue_card: {
         parameters: {
             query?: never;
@@ -18527,7 +18969,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The card never reached the issuer; send `force: true` to close it anyway */
+            /** @description `creation_pending`: the card never reached the issuer; send `force: true` to close it anyway. `first_purchase_required`: the issuer closes cards of this product only after their first purchase and would refuse; put a hold on the card instead, or send `force: true` to ask the issuer anyway. `provider_refused`: the issuer declined, the card is unchanged */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -24104,6 +24546,165 @@ export interface operations {
             };
         };
     };
+    list_payer_refusals: {
+        parameters: {
+            query?: {
+                /** @description `open` (default): refusals that wait for a decision. `all`: every refusal. */
+                status?: string | null;
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The refusals */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayerRefusalList"];
+                };
+            };
+            /** @description An unknown status */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the payers.review permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    allow_payer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The refusal */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionBody"];
+            };
+        };
+        responses: {
+            /** @description The refusal, decided */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayerRefusalView"];
+                };
+            };
+            /** @description Missing the payers.review permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such refusal */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    dismiss_payer_refusal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The refusal */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionBody"];
+            };
+        };
+        responses: {
+            /** @description The refusal, closed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayerRefusalView"];
+                };
+            };
+            /** @description Missing the payers.review permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such refusal */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    search_payers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchBody"];
+            };
+        };
+        responses: {
+            /** @description What is known about the payer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayerSearchResult"];
+                };
+            };
+            /** @description Not a phone number */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the payers.search permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_payments: {
         parameters: {
             query?: {
@@ -25010,6 +25611,56 @@ export interface operations {
             };
         };
     };
+    update_holder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Product id */
+                id: string;
+                /** @description Pool holder id */
+                holder_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePoolHolderBody"];
+            };
+        };
+        responses: {
+            /** @description The pool after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolderPool"];
+                };
+            };
+            /** @description A bad document or nationality */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the connectors.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such product or pool holder */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     retire_holder: {
         parameters: {
             query?: never;
@@ -25129,7 +25780,7 @@ export interface operations {
                     "application/json": components["schemas"]["StorefrontProduct"];
                 };
             };
-            /** @description Bad status */
+            /** @description Bad status, holder source, holder card cap or stock balance */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -26739,6 +27390,37 @@ export interface operations {
             };
         };
     };
+    create_handoff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalyticsIds"];
+            };
+        };
+        responses: {
+            /** @description The token */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HandoffView"];
+                };
+            };
+            /** @description None of the ids is valid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     post_touch: {
         parameters: {
             query?: never;
@@ -27803,6 +28485,42 @@ export interface operations {
             };
         };
     };
+    set_ids: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalyticsIds"];
+            };
+        };
+        responses: {
+            /** @description Kept, or ignored after analytics was declined */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description None of the ids is valid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     my_attribution: {
         parameters: {
             query?: never;
@@ -27983,7 +28701,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description `holder_data_consent_required`: the product sends the holder's real details to the card issuer and the `holder_data_transfer` consent was neither sent nor given before */
+            /** @description `holder_data_consent_required`: the product sends the holder's real details to the card issuer and the `holder_data_transfer` consent was neither sent nor given before. `payments_on_hold`: a payment on this account was not accepted and new ones wait until support sorts it out */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -28218,6 +28936,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description `card_pending`: the card is not paid for yet */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     get_card_balance: {
@@ -28335,6 +29060,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description `card_pending`: the card is not paid for yet */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description The connector does not support freezing */
             501: {
                 headers: {
@@ -28389,7 +29121,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description `card_locked`, or `provider_refused`: the issuer did not take the PIN */
+            /** @description `card_locked`, `card_pending` (the card is not paid for yet), or `provider_refused`: the issuer did not take the PIN */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -28493,7 +29225,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description `card_locked`: the card is frozen and only support can change it */
+            /** @description `card_pending`: the card is not paid for or not issued yet; `card_locked`: only support can change this card */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -28552,7 +29284,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description `first_purchase_required`: the card closes after its first purchase; `card_locked`: only support can close this card; `move_balance_first`: the card still holds money and you have another open card in the same currency, move it there with `POST /me/cards/{id}/transfer` first; `contact_support_to_close`: the card still holds money and there is no other card to move it to: ask for a close with a refund instead (`POST /me/cards/{id}/close-request`), and what is left goes back the way you paid; `provider_refused`: the issuer declined, the card is unchanged */
+            /** @description `first_purchase_required`: the card closes after its first purchase; `card_locked`: only support can close this card; `move_balance_first`: the card still holds money and you have another open card in the same currency, move it there with `POST /me/cards/{id}/transfer` first; `contact_support_to_close`: the card still holds money and there is no other card to move it to: ask for a close with a refund instead (`POST /me/cards/{id}/close-request`), and what is left goes back the way you paid; `provider_refused`: the issuer declined, the card is unchanged; `card_pending`: the card is not paid for yet */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -28785,7 +29517,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description `card_locked`: only support can unfreeze this card */
+            /** @description `card_locked`: only support can unfreeze this card; `card_pending`: the card is not paid for yet */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -29194,7 +29926,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Idempotency-Key reused with a different body */
+            /** @description Idempotency-Key reused with a different body. `payments_on_hold`: a payment on this account was not accepted and new ones wait until support sorts it out */
             409: {
                 headers: {
                     [name: string]: unknown;

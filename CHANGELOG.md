@@ -4,6 +4,36 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.14] — 2026-11-20
+
+### Added
+
+- The visitor's analytics ids travel with the payment, so the platform can
+  report a payment, an issued card or a sign-up to the ad and analytics
+  platforms after the person has left for the bank or Telegram. Once
+  Metrica is loaded on a public page (that is, after the visitor agreed to
+  analytics), `initAnalytics` asks it for the ClientID with `getClientID` and
+  keeps it; Google Analytics' client id is read from the `_ga` cookie.
+  `cards.order`, `deposits.initiate`, `auth.login`, `auth.register`,
+  `auth.verifyEmailCode` and `auth.exchangeTelegram` send them by
+  themselves; pass `analyticsIds` / `analytics_ids` to send others.
+- `attribution.telegramStartParam(code)` builds the `startapp` value for a
+  link from the site into the Mini App: the code, then `__` and a one-day
+  token that carries the analytics ids across. Without ids it is just the
+  code. `attribution.handoff(ids)` is the call underneath.
+- `attribution.sendAnalyticsIds()` sends the ids for the signed-in account,
+  for a visitor who agreed to analytics in the cabinet.
+- `analyticsIds()`, `rememberAnalyticsIds()`, `forgetAnalyticsIds()` and
+  `withAnalyticsIds()` for apps that handle the ids themselves.
+
+### Changed
+
+- `consents.setCookies({ analytics: false })` also forgets the analytics ids
+  this browser kept.
+
+Works with platform (TKL) 0.7.6 and newer, as before; the ids are used from
+0.7.11 on, and an older platform ignores them.
+
 ## [0.6.13] — 2026-11-17
 
 ### Added
