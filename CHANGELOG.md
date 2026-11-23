@@ -6,6 +6,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.2] — 2026-11-24
+
+### Added
+
+- `auth.requestPasswordSetup()` and `auth.confirmPasswordSetup({ challengeId,
+  code, newPassword })`: an account that signs in with an e-mail code sets its
+  first password. The first call sends a six-digit code to the account's
+  address, the second sets the password with it. `User.has_password` says
+  which form to show: "set a password" or "change the password". Needs
+  platform 0.8.2.
+
+### Changed
+
+- On platform 0.8.2 a few calls can answer in ways they did not before:
+  - `POST /me/cards/{id}/topup` and a card order paid from the wallet answer
+    409 `payments_on_hold` while the account's payments are on hold, like new
+    top-ups already do;
+  - a transfer from an organization's card, and closing such a card with money
+    on it, answer 409 `organization_card`;
+  - a transfer between cards can return `transfer.status: "pending"` with
+    HTTP 200: it finishes by itself, the money on the first card is set aside
+    meanwhile;
+  - a top-up quote made without `connector_slug` and `method` is refused when
+    the chosen method has a price of its own. Ask for the quote with both.
+    `metadata.expires_at` sent with a top-up is ignored.
+- The generated types follow the platform 0.8.2 contract. `Readiness` now has
+  the checks the platform has published since 0.8.1: `database`, `cache`,
+  `ledger`, `queue`.
+
 ## [0.8.1] — 2026-11-23
 
 ### Changed

@@ -76,9 +76,8 @@ export type paths = {
         };
         /**
          * Check that the process is alive
-         * @description Returns 200 whenever the process can answer. Dependencies are not
-         *     checked here; use `GET /ready` for that. The body carries the build
-         *     version.
+         * @description Returns 200 whenever the process can answer. Nothing else is checked
+         *     here; use `GET /ready` for that.
          */
         get: operations["health"];
         put?: never;
@@ -98,11 +97,10 @@ export type paths = {
         };
         /**
          * Check that every dependency is reachable
-         * @description Round-trips each critical dependency and returns 200 when all of them
-         *     answer, 503 when any of them fails. The body is the same in both cases:
-         *     per-dependency results, connector counts and support info. With the
-         *     bearer token of an operator it also carries the license state; no token
-         *     is needed for the rest.
+         * @description Runs every check and returns 200 when all of them pass, 503 when any
+         *     fails. The body is the same in both cases: the overall status, each
+         *     check, the support channels and the platform version. No token is
+         *     needed. Signed-in console accounts get more detail about each check.
          */
         get: operations["ready"];
         put?: never;
@@ -2174,6 +2172,31 @@ export type paths = {
          *     connector confirms; if it refuses, the load is `stalled` again.
          */
         post: operations["refund_deposit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/deposits/{id}/refunds/{refund_id}/settle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Settle a refund the provider never answered
+         * @description For a refund of a wallet top-up that is still `pending` because the
+         *     provider never said how it ended. Check the refund with the provider
+         *     first. `sent`: the payer got the money, so it stays off the wallet and
+         *     the refund is `succeeded`. `not_sent`: the money goes back on the wallet
+         *     and the refund is `failed`, so the holder can ask again. The task about
+         *     the refund in Failed tasks closes with it.
+         */
+        post: operations["settle_refund"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4276,7 +4299,7 @@ export type paths = {
         };
         /**
          * Payments refused for their payer
-         * @description A payment onto a card is not accepted when its payer has already paid
+         * @description A payment is not accepted when its payer has already paid
          *     for another account: the money goes back to the payer and the refusal
          *     is listed here, with every account that payer has paid for. While a
          *     refusal waits, the account's new payments are on hold. Newest first.
@@ -4440,7 +4463,8 @@ export type paths = {
          * Create a role
          * @description Creates a custom role with the given permissions. The built-in roles
          *     (user, customer, support, finance, operator) cannot be created here, and
-         *     the wildcard permission is reserved for the operator role.
+         *     the wildcard permission is reserved for the operator role. You can only
+         *     grant permissions your own role has.
          */
         post: operations["create_role"];
         delete?: never;
@@ -4465,7 +4489,8 @@ export type paths = {
         post?: never;
         /**
          * Delete a role
-         * @description Removes a custom role. Built-in roles cannot be deleted.
+         * @description Removes a custom role. Built-in roles cannot be deleted, and you can only
+         *     delete a role whose permissions your own role has.
          */
         delete: operations["delete_role"];
         options?: never;
@@ -4473,7 +4498,13 @@ export type paths = {
         /**
          * Update a role
          * @description Changes the description, the permissions, or both. The operator role's
-         *     permissions cannot be changed; its description can.
+         *     permissions cannot be changed; its description can. The user and customer
+         *     roles hold no permissions. You can't change the permissions of your own
+         *     role, and you can only edit a role whose permissions, before and after,
+         *     your own role has. When the role gains
+         *     a permission, everyone who holds it is signed out on every device (the
+         *     operator making the change keeps the session they are using), so the
+         *     new rights come with a fresh sign-in and its second factor.
          */
         patch: operations["patch_role"];
         trace?: never;
@@ -4507,9 +4538,12 @@ export type paths = {
             cookie?: never;
         };
         /**
-         * Reveal a setting
-         * @description Returns the full plaintext value of one setting, or its default when
-         *     nothing is set. Every call is written to the audit log.
+         * Read a setting
+         * @description Returns one setting with its value, or its default when nothing is set.
+         *     A secret setting is shown in full only to someone who may also change
+         *     settings. With read access alone, a secret comes back shortened the same
+         *     way as in the list, and `masked` is true. Every call is written to the
+         *     audit log.
          */
         get: operations["get_setting"];
         /**
@@ -5478,8 +5512,12 @@ export type paths = {
         head?: never;
         /**
          * Change a user's role
-         * @description Moves the user to another role. The role must already exist. Returns the
-         *     updated user. Audited.
+         * @description Moves the user to another role. The role must already exist. You can't
+         *     change your own role, and both the user's current role and the new one
+         *     must stay within the permissions of your own role. Returns the updated
+         *     user. Audited. When the role actually changes, every session of
+         *     the user ends, remembered sign-ins included, so the user signs in again
+         *     under the new role (with a second factor if it needs one).
          */
         patch: operations["patch_user_role"];
         trace?: never;
@@ -5619,8 +5657,9 @@ export type paths = {
         /**
          * Reset a user's two-factor authentication
          * @description Removes the user's authenticator enrolment so they set it up again on
-         *     their next login. Use it when someone has lost their phone. It also lifts
-         *     a lock from too many wrong codes. Safe to call for a user who is not
+         *     their next login. Use it when someone has lost their phone. The user is
+         *     signed out everywhere, remembered sign-ins included. It also lifts a lock
+         *     from too many wrong codes. Safe to call for a user who is not
          *     enrolled; the response then says `removed: false`. Always audited.
          */
         delete: operations["reset_totp"];
@@ -5823,6 +5862,13 @@ export type paths = {
          *     `totp_required` afterwards (call `POST /auth/login/totp`). A wrong
          *     password and an unknown email return the same 401.
          *
+         *     Wrong passwords are limited too. Ten attempts at one address in an hour
+         *     without the right password lock that address for 15 minutes, whether an
+         *     account has it or not, and one client address that sends too many wrong
+         *     passwords is refused for the rest of the hour. Both answer 429 with
+         *     `too_many_attempts` and a message that says when to try again; the
+         *     numbers are settings of the deployment.
+         *
          *     Five wrong codes in a row lock the account for 15 minutes. Each lock
          *     after that lasts twice as long as the previous one, up to 24 hours, until
          *     the user signs in successfully. While the account is locked, this
@@ -5892,10 +5938,13 @@ export type paths = {
         /**
          * Complete login with an authenticator code
          * @description Send the `challenge_token` from the `totp_required` response with the
-         *     6-digit code. A backup code in `XXXX-XXXX` form is accepted instead;
-         *     using one removes the authenticator enrolment, and the user enrols again
-         *     on the next login. Wrong codes count toward the lock described under
-         *     `POST /auth/login`; the fifth one in a row returns 429.
+         *     6-digit code. A backup code in `XXXX-XXXX` form is accepted instead:
+         *     it is used up and the answer is not a session but `stage:
+         *     "totp_setup_required"`, as at the first login. The user connects a new
+         *     authenticator and sends its first code to `POST /auth/login/totp-setup`,
+         *     which signs in and returns new backup codes. Until then the old
+         *     authenticator stays on the account. Wrong codes count toward the lock
+         *     described under `POST /auth/login`; the fifth one in a row returns 429.
          */
         post: operations["login_totp"];
         delete?: never;
@@ -6408,9 +6457,10 @@ export type paths = {
          * Get a document by address
          * @description The published document with this slug, if you may read it. Without `at`,
          *     the text in force now: a version whose effective date is still ahead is
-         *     not shown yet. With `at`, the text that was in force at that moment.
-         *     Unknown slugs, unpublished documents and documents above your level
-         *     return 404.
+         *     not shown yet. With `at`, the text that was in force at that moment; a
+         *     moment still ahead shows the text in force now. Unknown slugs,
+         *     unpublished documents and documents above your level return 404, and so
+         *     does a document whose first published text has not taken effect yet.
          */
         get: operations["documents_get_document"];
         put?: never;
@@ -6430,8 +6480,10 @@ export type paths = {
         };
         /**
          * List the versions of a document
-         * @description Every saved text of a published document you may read, newest first,
-         *     with the date each took effect. Open one with `GET /documents/{slug}/versions/{version}`.
+         * @description The texts of a published document you may read that have been in force,
+         *     newest first, with the date each took effect. Texts that were never
+         *     published, or that take effect later, are not listed. Open one with
+         *     `GET /documents/{slug}/versions/{version}`.
          */
         get: operations["list_versions"];
         put?: never;
@@ -6452,7 +6504,7 @@ export type paths = {
         /**
          * Get one version of a document
          * @description The document as it read in that version. Same access rules as the
-         *     document itself.
+         *     document itself, and only versions from the list of versions open.
          */
         get: operations["documents_get_version"];
         put?: never;
@@ -7033,6 +7085,9 @@ export type paths = {
          *     The money travels through your wallet, one leg at a time: if the second
          *     leg does not go through, the transfer comes back with the status
          *     `on_wallet` and the money is on your wallet, never between the two cards.
+         *     Until the first card's provider has let the money go, it is held aside and
+         *     can't be spent anywhere. A transfer that comes back `pending` is still
+         *     finishing: the money is held and arrives by itself within a few minutes.
          *     The `Idempotency-Key` header is required: the same key with the same body
          *     returns the first outcome, the same key with a different body returns 409.
          *     Someone else's card returns 404.
@@ -7391,13 +7446,12 @@ export type paths = {
         get?: never;
         put?: never;
         /**
-         * Set your first email address
-         * @description Accounts created through the Telegram Mini App start with a placeholder
-         *     address and `email_pending: true`; call this once the user has entered a
-         *     real one and the flag is cleared. An address already used by another
-         *     account returns 409. An account that already has a real address changes
-         *     it with a code sent to the new one: `POST /me/email/change`; here it
-         *     gets 409 `email_change_needs_code`.
+         * Set your first email address (replaced)
+         * @description Always answers 409 `email_change_needs_code`. An address is attached to
+         *     an account only after a code sent to it comes back: ask for the code
+         *     with `POST /me/email/change` and confirm it with
+         *     `POST /me/email/change/confirm`. This works for the first address of an
+         *     account created through the Telegram Mini App as well.
          */
         post: operations["set_email"];
         delete?: never;
@@ -8002,7 +8056,8 @@ export type paths = {
         put?: never;
         /**
          * Create an API key
-         * @description Returns the key and its secret. The secret is shown only once.
+         * @description Returns the key and its secret. The secret is shown only once. Only an
+         *     organization admin can do this.
          */
         post: operations["create_key"];
         delete?: never;
@@ -8023,7 +8078,7 @@ export type paths = {
         post?: never;
         /**
          * Revoke an API key
-         * @description The key stops working immediately.
+         * @description The key stops working immediately. Only an organization admin can do this.
          */
         delete: operations["delete_key"];
         options?: never;
@@ -8433,6 +8488,7 @@ export type paths = {
         /**
          * Create a webhook endpoint
          * @description Returns the endpoint and its signing secret. The secret is shown only once.
+         *     Only an organization admin can do this.
          */
         post: operations["create_webhook"];
         delete?: never;
@@ -8454,14 +8510,15 @@ export type paths = {
         /**
          * Archive a webhook endpoint
          * @description Stops deliveries to the endpoint. Archived endpoints are kept but no longer
-         *     receive events.
+         *     receive events. Only an organization admin can do this.
          */
         delete: operations["delete_webhook"];
         options?: never;
         head?: never;
         /**
          * Update a webhook endpoint
-         * @description Only the fields you send are changed.
+         * @description Only the fields you send are changed. Only an organization admin can do
+         *     this.
          */
         patch: operations["update_webhook"];
         trace?: never;
@@ -8478,7 +8535,7 @@ export type paths = {
         /**
          * Rotate a webhook signing secret
          * @description Generates a new signing secret and returns it once. Deliveries are signed
-         *     with the new secret from now on.
+         *     with the new secret from now on. Only an organization admin can do this.
          */
         post: operations["rotate_webhook"];
         delete?: never;
@@ -10163,7 +10220,8 @@ export type components = {
             /**
              * @description `pending`, `confirmed`, `on_wallet` or `failed`. `on_wallet` means the
              *     money came off the source card but could not be put on the
-             *     destination, so it is sitting on the wallet.
+             *     destination, so it is sitting on the wallet. `pending` means the
+             *     transfer is still finishing: the money is held and arrives by itself.
              */
             status: string;
             /** Format: uuid */
@@ -10457,13 +10515,9 @@ export type components = {
              */
             subscribers: number;
         };
-        CheckResult: {
-            /** @description Error text when the check failed. */
-            error?: string | null;
-            /** @description `true` when the dependency answered. */
+        CheckState: {
+            /** @description `true` when the check passed. */
             ok: boolean;
-            /** @description `true` when the dependency is not configured in this deployment and the check was skipped; `ok` stays `true` in that case. */
-            skipped?: boolean;
         };
         /**
          * @description What the claim is about.
@@ -10732,18 +10786,6 @@ export type components = {
              *     and a digit.
              */
             new_password: string;
-        };
-        ConnectorCounts: {
-            /** @description Payment connectors (merchant acquiring). */
-            acquirers: number;
-            /** @description Funding connectors (money in). */
-            funders: number;
-            /** @description Support inbox connectors. */
-            helpdesks: number;
-            /** @description Card connectors (user spending). */
-            issuers: number;
-            /** @description Settlement connectors (merchant payouts). */
-            settlers: number;
         };
         ConnectorEventPage: {
             items: components["schemas"]["FailedConnectorEvent"][];
@@ -12604,12 +12646,10 @@ export type components = {
             token: string;
         };
         Health: {
-            /** @description Platform version (TKL): the version other services check their compatibility against. */
+            /** @description The platform version: the one consoles and SDKs check their compatibility against. */
             platform_version: string;
             /** @description Always `ok`. */
             status: string;
-            /** @description Version of the running API build. */
-            version: string;
         };
         /** @description The card an entry is about. */
         HistoryCard: {
@@ -14143,24 +14183,12 @@ export type components = {
             updated_at: string;
         };
         OpsInfoView: {
-            /** @description Platform version (TKL), the one connectors, consoles and SDKs check their supported range against. Usually equal to `version`; `version` can carry a release-candidate suffix. */
+            /** @description The platform version: the one consoles and SDKs check their supported range against. */
             platform_version: string;
-            /**
-             * Format: date-time
-             * @description When the process started, UTC.
-             */
-            started_at: string;
             /** @description Support email address, when the deployment has one. */
             support_email?: string | null;
             /** @description Support page URL, when the deployment has one. */
             support_url?: string | null;
-            /**
-             * Format: int64
-             * @description Seconds since the process started.
-             */
-            uptime_seconds: number;
-            /** @description Version of the running API build. */
-            version: string;
         };
         OrderBatchBody: {
             /**
@@ -15527,24 +15555,24 @@ export type components = {
              */
             before?: string | null;
         };
+        /** @description The public answer of `GET /ready`. */
         Readiness: {
-            /** @description Result of each dependency check. */
+            /** @description Result of each check. */
             checks: components["schemas"]["ReadinessChecks"];
-            /** @description Number of configured connectors per role. */
-            counts: components["schemas"]["ConnectorCounts"];
-            /** @description License state for the console's status bar: `mode` (`active`, `grace`, `refusing` or `disabled`; `grace` also carries `until`, `refusing` carries `reason`), the lease's `status`, `exp` (also as `valid_until`), `banner`, `last_check_at`, `last_good_at` and `last_error`. Present only when the request carries the bearer token of an account with the `operator` role; left out otherwise. Operators see the full picture at `GET /v1/admin/license`. Does not affect the HTTP status of this endpoint. */
-            license?: Record<string, never> | null;
-            /** @description Support channels and build info, fixed for the lifetime of the process. */
+            /** @description Support channels and the platform version. */
             ops: components["schemas"]["OpsInfoView"];
-            /** @description `ready` when every dependency check passed, `degraded` otherwise; the HTTP status is 200 or 503 to match. */
+            /** @description `ready` when every check passed, `degraded` otherwise; the HTTP status is 200 or 503 to match. */
             status: string;
         };
         ReadinessChecks: {
-            formance: components["schemas"]["CheckResult"];
-            /** @description NATS check. When no message broker is configured this reports `{ ok: true, skipped: true }` rather than a failure. */
-            nats: components["schemas"]["CheckResult"];
-            postgres: components["schemas"]["CheckResult"];
-            redis: components["schemas"]["CheckResult"];
+            /** @description The cache. */
+            cache: components["schemas"]["CheckState"];
+            /** @description The main database. */
+            database: components["schemas"]["CheckState"];
+            /** @description The ledger that keeps the balances. */
+            ledger: components["schemas"]["CheckState"];
+            /** @description The message queue. Reports `ok` when the deployment runs without one. */
+            queue: components["schemas"]["CheckState"];
         };
         /** @description A receipt as the user sees it. */
         Receipt: {
@@ -15734,6 +15762,7 @@ export type components = {
             currency: string;
             /** Format: uuid */
             deposit_id?: string | null;
+            /** @description Why the part failed; on a `pending` part, why the provider's answer to the last send is missing. */
             failure_reason?: string | null;
             /** @description From the issue fee's revenue, in the card's currency; for a `wallet` part, its whole amount in its own currency. */
             fee_part: string;
@@ -15752,7 +15781,7 @@ export type components = {
             reference?: string | null;
             /** Format: uuid */
             refund_id?: string | null;
-            /** @description The failure was not the provider's answer; the payment is tried again. */
+            /** @description On a `failed` part: the failure was not the provider's answer, and the payment is tried again. On a `pending` part: the provider has not answered yet, and the same refund is sent again. */
             retryable: boolean;
             /** @description `pending`, `succeeded` or `failed`. */
             status: string;
@@ -16000,11 +16029,21 @@ export type components = {
             /** @description `plain` or `secret`. */
             kind: string;
             /**
+             * @description True when `value` is a shortened secret rather than the value itself.
+             *     Never send such a value back as a new one.
+             */
+            masked: boolean;
+            /**
              * Format: date-time
              * @description When the value was last set, if it has been.
              */
             updated_at?: string | null;
-            /** @description Full plaintext value, or the default when nothing is set. */
+            /**
+             * @description The value, or the default when nothing is set. A secret value is
+             *     shown in full only to a caller who may also change settings;
+             *     otherwise it is shortened the same way as in the list, and `masked`
+             *     is true.
+             */
             value?: string | null;
         };
         /**
@@ -16146,26 +16185,8 @@ export type components = {
          *     }
          */
         SetEmailBody: {
-            /** @description Email address to attach. Trimmed and lower-cased; must not be used by another account. */
+            /** @description Email address to attach. */
             email: string;
-        };
-        SetupRequested: {
-            /**
-             * Format: uuid
-             * @description Send it back with the code.
-             */
-            challenge_id: string;
-            /** @description Where the code went, partly hidden. */
-            destination_hint: string;
-            /** Format: date-time */
-            expires_at: string;
-        };
-        SetupResult: {
-            /**
-             * Format: int64
-             * @description Number of other sessions that were signed out.
-             */
-            revoked_sessions: number;
         };
         /**
          * @example {
@@ -16267,6 +16288,37 @@ export type components = {
             note: string;
         };
         /**
+         * @description What the provider said about a refund.
+         * @example {
+         *       "note": "The provider confirmed the payout in its dashboard",
+         *       "outcome": "sent"
+         *     }
+         */
+        SettleRefundBody: {
+            /** @description What was checked and where. Required; kept on the refund's task and in the audit log. */
+            note: string;
+            /** @description `sent` when the payer got the money, `not_sent` when they didn't and won't. */
+            outcome: string;
+        };
+        SetupRequested: {
+            /**
+             * Format: uuid
+             * @description Send it back with the code.
+             */
+            challenge_id: string;
+            /** @description Where the code went, partly hidden. */
+            destination_hint: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        SetupResult: {
+            /**
+             * Format: int64
+             * @description Number of other sessions that were signed out.
+             */
+            revoked_sessions: number;
+        };
+        /**
          * @description A shop: one brand or storefront under a merchant. API keys and webhook
          *     endpoints are tied to a shop.
          */
@@ -16363,7 +16415,7 @@ export type components = {
         SourceCampaign: {
             code: string;
             description: string;
-            /** @description The campaign's id in the ad account, for a loaded source. */
+            /** @description The campaign's id in the ad account, for a loaded source. A click on this account's ad finds the campaign by it, also when the campaign tag puts a name in front of the id: `{campaign_name}_{campaign_id}`. */
             external_id?: string | null;
         };
         SourceList: {
@@ -18156,7 +18208,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Every dependency answered */
+            /** @description Every check passed */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -18165,7 +18217,7 @@ export interface operations {
                     "application/json": components["schemas"]["Readiness"];
                 };
             };
-            /** @description At least one dependency failed; `checks` shows which */
+            /** @description At least one check failed; `checks` shows which */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -21650,6 +21702,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Too many wrong codes (`too_many_attempts`): the two-factor check is locked for a while, sign-in included; the message says when to try again */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     list_connectors: {
@@ -22020,6 +22079,13 @@ export interface operations {
             };
             /** @description `job_running`: a job on this connector has not finished */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many wrong codes (`too_many_attempts`): the two-factor check is locked for a while, sign-in included; the message says when to try again */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -22850,6 +22916,63 @@ export interface operations {
                 content?: never;
             };
             /** @description Idempotency-Key reused with a different body */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    settle_refund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deposit id */
+                id: string;
+                /** @description Refund id */
+                refund_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettleRefundBody"];
+            };
+        };
+        responses: {
+            /** @description The refund, settled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refund"];
+                };
+            };
+            /** @description No note, or the refund is not of a top-up to the wallet */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing deposits.refund permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such refund of this deposit */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The refund is already settled, or whether the wallet paid for it is still being checked */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -27623,7 +27746,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Not an operator */
+            /** @description Not an operator, or a permission your own role lacks (`permission_ceiling`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -27694,7 +27817,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Not an operator */
+            /** @description Not an operator, or the role has a permission your own role lacks (`permission_ceiling`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -27748,7 +27871,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Not an operator */
+            /** @description Not an operator; your own role (`own_role`); or a permission your own role lacks (`permission_ceiling`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -27762,7 +27885,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Operator-role permissions are locked */
+            /** @description Operator-role permissions are locked, and the user and customer roles hold none */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -27810,7 +27933,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Full plaintext value */
+            /** @description The setting. A secret is in full only for those who may change settings */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -29808,7 +29931,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Not an operator */
+            /** @description Not an operator; or your own account (`own_role`); or the user's current or new role has a permission your role lacks (`permission_ceiling`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -30401,7 +30524,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Locked after too many wrong codes; the message says when to try again */
+            /** @description Too many wrong passwords or, for staff, too many wrong codes (`too_many_attempts`); the message says when to try again */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -30505,7 +30628,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Signed in; returns the session token and user */
+            /** @description Signed in, returns the session token and user; after a backup code, `stage: "totp_setup_required"` with a new authenticator secret instead */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -30897,6 +31020,13 @@ export interface operations {
             };
             /** @description `telegram_already_linked_other` or `telegram_in_use` */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many wrong passwords for this address or from this client (`too_many_attempts`), counted together with `POST /auth/login`; the message says when to try again */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -31324,7 +31454,7 @@ export interface operations {
                     "application/json": components["schemas"]["PublicDocument"];
                 };
             };
-            /** @description No such document or version */
+            /** @description No such document, or no such version in its public history */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -31836,7 +31966,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Idempotency-Key reused with a different body; `cardholder_verification_required`: the product only issues to a verified person and no verified details were given; `holder_data_consent_required`: the product sends the holder's real details to the issuer and the `holder_data_transfer` consent was neither sent nor given before */
+            /** @description Idempotency-Key reused with a different body; `cardholder_verification_required`: the product only issues to a verified person and no verified details were given; `holder_data_consent_required`: the product sends the holder's real details to the issuer and the `holder_data_transfer` consent was neither sent nor given before; `payments_on_hold`: a payment on this account was not accepted, and until support sorts it out the wallet pays for no card */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -32281,7 +32411,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description `first_purchase_required`: the card closes after its first purchase; `card_locked`: only support can close this card; `move_balance_first`: the card still holds money and you have another open card in the same currency, move it there with `POST /me/cards/{id}/transfer` first; `contact_support_to_close`: the card still holds money and there is no other card to move it to: ask for a close with a refund instead (`POST /me/cards/{id}/close-request`), and what is left goes back the way you paid; `provider_refused`: the issuer declined, the card is unchanged; `card_pending`: the card is not paid for yet */
+            /** @description `first_purchase_required`: the card closes after its first purchase; `card_locked`: only support can close this card; `move_balance_first`: the card still holds money and you have another open card in the same currency, move it there with `POST /me/cards/{id}/transfer` first; `contact_support_to_close`: the card still holds money and there is no other card to move it to: ask for a close with a refund instead (`POST /me/cards/{id}/close-request`), and what is left goes back the way you paid; `organization_card`: the card still holds money and your organization gave it to you, so the organization closes it and its money goes back there; `provider_refused`: the issuer declined, the card is unchanged; `card_pending`: the card is not paid for yet */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -32380,7 +32510,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Card frozen, closed or still being issued (`card_not_active`, `card_pending`), or Idempotency-Key reused with a different amount */
+            /** @description Card frozen, closed or still being issued (`card_not_active`, `card_pending`), a payment on this account not accepted and the wallet tops up no card until support sorts it out (`payments_on_hold`), or Idempotency-Key reused with a different amount */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -32429,7 +32559,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Transfer finished, or stopped with the money on the wallet (`status: on_wallet`) */
+            /** @description Transfer finished, stopped with the money on the wallet (`status: on_wallet`), or still finishing with the money held (`status: pending`) */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -32459,7 +32589,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description A card is frozen, closed or still being issued, or Idempotency-Key reused with a different body */
+            /** @description A card is frozen, closed or still being issued, the money is on a card your organization gave you (`organization_card`: it stays there), or Idempotency-Key reused with a different body */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -33197,23 +33327,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Email attached; returns the updated user */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Invalid email */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Email already in use, or `email_change_needs_code`: the account has a real address already */
+            /** @description `email_change_needs_code`: attach the address with a code sent to it */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -34160,6 +34274,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Too many wrong passwords for this address or from this client (`too_many_attempts`), counted together with `POST /auth/login`; the message says when to try again */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Telegram sign-in is not enabled on this deployment */
             503: {
                 headers: {
@@ -34358,8 +34479,22 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The organization is suspended or closed (`organization_disabled`) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Email belongs to more than one organization; retry with organization_id */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many wrong passwords for this address or from this client (`too_many_attempts`); the message says when to try again */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -34516,6 +34651,13 @@ export interface operations {
             };
             /** @description The token no longer works (`remember_token_invalid`): sign in again */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The organization is suspended or closed (`organization_disabled`) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
