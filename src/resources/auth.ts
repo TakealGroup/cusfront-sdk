@@ -45,6 +45,13 @@ export interface User {
   /** The Telegram account linked to this user, or `null` when none is.
    *  Present on `GET /auth/me` and inside every `stage: "jwt"` envelope. */
   telegram?: TelegramLink | null;
+  /** Whether the account has a password. `false` for an account that signs
+   *  in with codes only: offer "set a password"
+   *  ({@link AuthResource.requestPasswordSetup}) instead of "change password"
+   *  ({@link AuthResource.changePassword}). Present on `GET /auth/me` and
+   *  inside every `stage: "jwt"` envelope from platform 0.8.2; absent on
+   *  older servers. */
+  has_password?: boolean;
 }
 
 /** A Telegram account attached to a user. One Telegram per account and one
@@ -284,6 +291,24 @@ export interface TotpSetupComplete extends Session {
   backup_codes: string[];
 }
 
+/** What `requestPasswordSetup` returns: send `challengeId` back with the
+ *  code and the new password. */
+export interface PasswordSetupRequested {
+  challenge_id: string;
+  /** Where the code went, partly hidden: `al***@example.com`. */
+  destination_hint: string;
+  expires_at: string;
+}
+
+export interface ConfirmPasswordSetupInput {
+  challengeId: string;
+  /** The six digits from the e-mail. */
+  code: string;
+  /** At least 12 characters with a lower-case letter, an upper-case letter
+   *  and a digit. */
+  newPassword: string;
+}
+
 export interface ChangePasswordInput {
   current_password: string;
   /** At least 12 characters with a lower-case letter, an upper-case letter
@@ -489,11 +514,43 @@ export class AuthResource {
 
   /** Change the signed-in user's password. Every other session of the
    *  account is signed out; this one stays valid.
-   *  Errors: 400 when the new password fails the policy, 401 when the
-   *  current one is wrong. */
+   *  Errors: 400 `weak_password` when the new password fails the policy,
+   *  400 `no_password` when the account has none yet (use
+   *  {@link requestPasswordSetup}), 401 when the current one is wrong. */
   async changePassword(input: ChangePasswordInput): Promise<{ revoked_sessions: number }> {
     return this.http.post<{ revoked_sessions: number }>("/auth/password", {
       body: input,
+    });
+  }
+
+  /** Step one of setting the first password of an account that has none
+   *  (`user.has_password === false`, e.g. made by signing in with an e-mail
+   *  code): a six-digit code goes to the account's address and works for 5
+   *  minutes. Nothing changes yet.
+   *  Errors: 409 `password_exists` (use {@link changePassword}),
+   *  `email_required` (a Telegram account with no address yet: attach one
+   *  with {@link requestEmailChange} first), `email_not_proven` (sign in
+   *  with an e-mail code first); 429 `too_many_requests` (five codes an
+   *  hour); 503 `delivery_failed`. Platform 0.8.2 and newer. */
+  async requestPasswordSetup(): Promise<PasswordSetupRequested> {
+    return this.http.post<PasswordSetupRequested>("/auth/password/setup", {});
+  }
+
+  /** Step two: the code from the e-mail and the new password set the
+   *  account's first password. Every other session of the account is signed
+   *  out; this one stays valid, and signing in with a code keeps working.
+   *  Errors: 400 `weak_password` (the code is not used up, fix the password
+   *  and send again), 401 `invalid_code` (after five wrong codes ask for a
+   *  new one), 409 `password_exists`. */
+  async confirmPasswordSetup(
+    input: ConfirmPasswordSetupInput,
+  ): Promise<{ revoked_sessions: number }> {
+    return this.http.post<{ revoked_sessions: number }>("/auth/password/setup/confirm", {
+      body: {
+        challenge_id: input.challengeId,
+        code: input.code,
+        new_password: input.newPassword,
+      },
     });
   }
 

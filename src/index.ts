@@ -198,6 +198,8 @@ export type {
   Session,
   TotpSetupComplete,
   ChangePasswordInput,
+  PasswordSetupRequested,
+  ConfirmPasswordSetupInput,
   TelegramLink,
   TelegramUnknown,
   ExchangeTelegramInput,

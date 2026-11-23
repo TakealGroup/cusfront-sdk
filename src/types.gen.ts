@@ -5959,7 +5959,9 @@ export type paths = {
         /**
          * Get the current user
          * @description Returns the account behind the bearer token, plus its `wallet_currency`
-         *     and `telegram` (`{ username, linked_at }` or `null`).
+         *     and `telegram` (`{ username, linked_at }` or `null`), and `has_password`:
+         *     `false` for an account that signs in with codes only and can set a
+         *     password with `POST /auth/password/setup`.
          *     Use it on app start to check whether a stored token is still valid; a
          *     401 means the token expired or was revoked and the user must log in
          *     again.
@@ -5986,9 +5988,62 @@ export type paths = {
          * Change your password
          * @description Needs the current password and a new one that passes the policy. Every
          *     other session of the account is signed out; the session making this call
-         *     stays valid.
+         *     stays valid. An account that has no password yet (`has_password: false`
+         *     in `GET /auth/me`) gets 400 `no_password` here and sets its first one
+         *     with `POST /auth/password/setup`.
          */
         post: operations["change_password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/password/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a code to set your first password
+         * @description For an account that has no password yet, for example one made by
+         *     signing in with a code from an e-mail. Sends a six-digit code to the
+         *     account's address; the password is set only when the code comes back
+         *     through `POST /auth/password/setup/confirm`. The code works for 5
+         *     minutes, five codes an hour at most. An account that already has a
+         *     password changes it with `POST /auth/password`. `GET /auth/me` tells the
+         *     two apart with `has_password`.
+         */
+        post: operations["request_setup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/password/setup/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set your first password
+         * @description The code from `POST /auth/password/setup` and the new password. Every
+         *     other session of the account is signed out, the session making this call
+         *     stays; signing in with a code keeps working. A password that breaks the
+         *     policy answers 400 `weak_password` and does not use up the code. A wrong
+         *     code answers 401 `invalid_code`; after five the code is gone and a new
+         *     one is needed.
+         */
+        post: operations["confirm_setup"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10659,6 +10714,24 @@ export type components = {
             challenge_id: string;
             /** @description The six digits from the e-mail. */
             code: string;
+        };
+        /**
+         * @example {
+         *       "challenge_id": "6f1c…",
+         *       "code": "042913",
+         *       "new_password": "Correct-Horse-Battery-9"
+         *     }
+         */
+        ConfirmSetupBody: {
+            /** Format: uuid */
+            challenge_id: string;
+            /** @description The six digits from the e-mail. */
+            code: string;
+            /**
+             * @description At least 12 characters with a lower-case letter, an upper-case letter
+             *     and a digit.
+             */
+            new_password: string;
         };
         ConnectorCounts: {
             /** @description Payment connectors (merchant acquiring). */
@@ -16075,6 +16148,24 @@ export type components = {
         SetEmailBody: {
             /** @description Email address to attach. Trimmed and lower-cased; must not be used by another account. */
             email: string;
+        };
+        SetupRequested: {
+            /**
+             * Format: uuid
+             * @description Send it back with the code.
+             */
+            challenge_id: string;
+            /** @description Where the code went, partly hidden. */
+            destination_hint: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        SetupResult: {
+            /**
+             * Format: int64
+             * @description Number of other sessions that were signed out.
+             */
+            revoked_sessions: number;
         };
         /**
          * @example {
@@ -30547,7 +30638,7 @@ export interface operations {
                     "application/json": components["schemas"]["ChangePasswordResult"];
                 };
             };
-            /** @description New password rejected by policy */
+            /** @description New password rejected by policy (`weak_password`), or the account has no password yet (`no_password`) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -30556,6 +30647,90 @@ export interface operations {
             };
             /** @description Current password is wrong */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    request_setup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupRequested"];
+                };
+            };
+            /** @description `password_exists`: the account has a password, change it instead; `email_required`: the account has no email address yet; `email_not_proven`: sign in with an email code first */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many codes asked for in the last hour (`too_many_requests`) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The code could not be sent (`delivery_failed`) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    confirm_setup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmSetupBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupResult"];
+                };
+            };
+            /** @description The password breaks the policy (`weak_password`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wrong, expired or used code (`invalid_code`) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The account has a password (`password_exists`): change it with the current one */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -1722,6 +1722,41 @@ describe("AuthResource (register, totp setup, password)", () => {
     expect(captured[0]!.url).toBe("https://api.test/v1/auth/password");
     expect(captured[0]!.init.method).toBe("POST");
   });
+
+  it("the first password is set in two steps with a code", async () => {
+    const a = rig({ challenge_id: "ch1", destination_hint: "al***@example.com", expires_at: "x" });
+    const r = await new AuthResource(a.http, inMemoryStore()).requestPasswordSetup();
+    expect(r.destination_hint).toBe("al***@example.com");
+    expect(a.captured[0]!.url).toBe("https://api.test/v1/auth/password/setup");
+    expect(a.captured[0]!.init.method).toBe("POST");
+    const b = rig({ revoked_sessions: 1 });
+    const out = await new AuthResource(b.http, inMemoryStore()).confirmPasswordSetup({
+      challengeId: "ch1",
+      code: "042913",
+      newPassword: "new-Password-2",
+    });
+    expect(out.revoked_sessions).toBe(1);
+    expect(b.captured[0]!.url).toBe("https://api.test/v1/auth/password/setup/confirm");
+    expect(bodyOf(b.captured[0]!)).toEqual({
+      challenge_id: "ch1",
+      code: "042913",
+      new_password: "new-Password-2",
+    });
+  });
+
+  it("me carries has_password", async () => {
+    const { http } = rig({ id: "u1", email: "a@example.com", has_password: false });
+    const me = await new AuthResource(http, inMemoryStore()).me();
+    expect(me.has_password).toBe(false);
+  });
+
+  it("the setup refusal for an account with a password keeps its code", async () => {
+    const { http } = rig({ code: "password_exists", message: "x" }, 409);
+    const err = await new AuthResource(http, inMemoryStore())
+      .requestPasswordSetup()
+      .catch((e: unknown) => e);
+    expect(isApiError(err) && err.code).toBe("password_exists");
+  });
 });
 
 describe("SessionsResource", () => {

@@ -916,6 +916,31 @@ const user = await client.auth.confirmEmailChange({ challengeId: challenge_id, c
 
 `linkEmail` is only for the first address of an account made in the Mini App.
 
+### Setting or changing the password
+
+An account made by signing in with a code from an e-mail has no password.
+`user.has_password` (from `auth.me()`) says which form to show. With a
+password, the user changes it with the current one. Without one, a code goes
+to the account's address first, so a session left open on someone else's
+device is not enough to set a password.
+
+```ts
+const user = await client.auth.me();
+if (user.has_password) {
+  await client.auth.changePassword({ current_password, new_password });
+} else {
+  const { challenge_id, destination_hint } = await client.auth.requestPasswordSetup();
+  // "We sent a code to al***@example.com"
+  await client.auth.confirmPasswordSetup({ challengeId: challenge_id, code, newPassword });
+}
+```
+
+Signing in with a code keeps working after a password is set. Errors to
+handle: `weak_password` (400, fix the password, the code still works),
+`invalid_code` (401), `too_many_requests` (429), `email_required` (409, a
+Telegram account adds an address first), `email_not_proven` (409, sign in
+with a code first).
+
 ### Receipts
 
 Every payment gets a numbered receipt within a minute: a wallet top-up, a
