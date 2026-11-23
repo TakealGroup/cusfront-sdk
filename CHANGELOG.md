@@ -4,6 +4,24 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Page views sent to Yandex Metrica and PostHog keep the ad tags as they
+  arrived. Before, a campaign or ad id of 9 digits or more in `utm_campaign`
+  or `utm_content` (`yd-123456789`, `{campaign_name}_{campaign_id}`) made the
+  whole tag disappear, and `yclid` was sent as `:id`. Now `utm_source`,
+  `utm_medium`, `utm_campaign`, `utm_content` and `utm_term` keep ids of any
+  length, and the click ids (`yclid`, `ysclid`, `gclid`, `gbraid`, `wbraid`,
+  `fbclid`, `ttclid`, `msclkid`, `rb_clickid`) go out exactly as they came,
+  a 20-digit `yclid` included.
+- A tag is still left out when it holds an e-mail address, a phone number
+  written as one (`+7 900 …`, `8 (900) 123-45-67`), a card number or
+  something that looks like a token, and a click id is left out when it has
+  characters a click id never has. Every other parameter is filtered as
+  before.
+
 ## [0.8.0] — 2026-11-21
 
 The SDK now carries the same minor version as the platform it targets.

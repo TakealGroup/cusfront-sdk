@@ -253,6 +253,112 @@ function redactText(v: string): string {
     .replace(DIGIT_RUN, (m) => (digitCount(m) >= 9 && digitCount(m) <= 19 ? "[number]" : m));
 }
 
+// ---------------------------------------------------------------------------
+// Advertising fields: campaign tags and click ids
+// ---------------------------------------------------------------------------
+
+/** Campaign tags. Their values are ids and names an ad account fills in
+ *  (`{campaign_name}_{campaign_id}`, `{ad_id}`), and long numbers in them are
+ *  ids, not phones. */
+export const UTM_PARAMS = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+] as const;
+
+/** Click ids of ad networks and search engines: the same list the platform
+ *  reads from a landing address. Their values go out exactly as they came. */
+export const CLICK_ID_PARAMS = [
+  "yclid",
+  "ysclid",
+  "gclid",
+  "gbraid",
+  "wbraid",
+  "fbclid",
+  "ttclid",
+  "msclkid",
+  "rb_clickid",
+] as const;
+
+const UTM_SET = new Set<string>(UTM_PARAMS);
+const CLICK_ID_SET = new Set<string>(CLICK_ID_PARAMS);
+/** What a click id is made of: letters, digits, `-`, `_`, `.`, `~`, at most
+ *  256 of them. A 20-digit `yclid` stays a string, never a number. */
+const CLICK_ID_VALUE = /^[A-Za-z0-9._~-]{1,256}$/;
+
+/** Which advertising field a key names, if any. PostHog's copies of the tags
+ *  (`$initial_utm_source`, `$initial_gclid`) count too. */
+function adField(key: string): "utm" | "click" | undefined {
+  const k = key
+    .replace(/^\$+/, "")
+    .toLowerCase()
+    .replace(/^initial_/, "");
+  if (UTM_SET.has(k)) return "utm";
+  if (CLICK_ID_SET.has(k)) return "click";
+  return undefined;
+}
+
+function luhn(digits: string): boolean {
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let d = digits.charCodeAt(digits.length - 1 - i) - 48;
+    if (i % 2 === 1) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    sum += d;
+  }
+  return sum % 10 === 0;
+}
+
+/** A run of digits, possibly with a leading `+` and phone or card separators
+ *  between the digits. */
+const NUMBER_RUN = /(?:\+\s*)?\d(?:[\d\s().-]*\d)?/g;
+
+/**
+ * Personal data inside a campaign tag. Ids of any length stay; what goes:
+ *
+ * - an `@` anywhere (an e-mail address);
+ * - a number written as a phone: with a leading `+` (9 to 15 digits), or in
+ *   groups split by spaces, dashes, dots or brackets with 9 to 19 digits in
+ *   all, where a bracket is present or no group is longer than 4 digits
+ *   (`8 (900) 123-45-67`, `4242 4242 4242 4242`);
+ * - a bare run of 16 to 19 digits that passes the card checksum;
+ * - a token: a piece of 20 or more letters and digits with at least two of
+ *   each, between `_`, `-`, `.`, `~`, `+` or spaces (a JWT, an API key).
+ *
+ * A bare run of digits shorter than 16 or longer than 19 (`716512542`, a
+ * 20-digit id) is an id and stays; outside the advertising fields the
+ * general filter still removes any 9 to 19 digits.
+ */
+export function adValuePersonal(v: string): boolean {
+  if (v.includes("@")) return true;
+  for (const m of v.match(NUMBER_RUN) ?? []) {
+    const groups = m.split(/\D+/).filter(Boolean);
+    const n = groups.join("").length;
+    if (m.startsWith("+")) {
+      if (n >= 9 && n <= 15) return true;
+      continue;
+    }
+    if (groups.length === 1) {
+      if (n >= 16 && n <= 19 && luhn(groups[0]!)) return true;
+      continue;
+    }
+    if (n >= 9 && n <= 19 && (/[()]/.test(m) || groups.every((g) => g.length <= 4))) return true;
+  }
+  return v
+    .split(/[\s_.~+-]+/)
+    .some((seg) => seg.length >= 20 && /\d.*\d/.test(seg) && /[A-Za-z].*[A-Za-z]/.test(seg));
+}
+
+/** The value of an advertising field fit to send, or `undefined` to drop it. */
+function adValue(kind: "utm" | "click", v: string): string | undefined {
+  if (kind === "click") return CLICK_ID_VALUE.test(v) ? v : undefined;
+  return adValuePersonal(v) ? undefined : v;
+}
+
 function idSegment(seg: string): string {
   let s = seg;
   try {
@@ -266,11 +372,23 @@ function idSegment(seg: string): string {
   return redactText(s) === s ? seg : PLACEHOLDER;
 }
 
+function decodeQueryPart(s: string): string {
+  try {
+    return decodeURIComponent(s.replace(/\+/g, " "));
+  } catch {
+    return s;
+  }
+}
+
 /**
  * A page address fit to send: UUIDs, numeric ids and long tokens in the
  * path become `:id`; query parameters that carry secrets or personal data
  * are dropped, ids among their values become `:id`; the fragment is dropped.
- * Campaign tags stay.
+ *
+ * Campaign tags (`utm_*`) and click ids (`yclid`, `gclid`, …) stay exactly as
+ * they were written, ids in them included, unless {@link adValuePersonal}
+ * finds an address, a phone, a card number or a token in a tag, or a click
+ * id has characters a click id never has; then that one parameter goes.
  */
 export function sanitizeUrl(raw: string): string {
   const absolute = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw);
@@ -285,14 +403,24 @@ export function sanitizeUrl(raw: string): string {
     .map((seg) => (seg ? idSegment(seg) : seg))
     .join("/");
   const query: string[] = [];
-  u.searchParams.forEach((value, key) => {
+  // Pair by pair on the address as written, so a kept parameter goes out
+  // byte for byte as it came.
+  for (const pair of u.search.replace(/^\?/, "").split("&")) {
+    if (!pair) continue;
+    const eq = pair.indexOf("=");
+    const rawKey = eq < 0 ? pair : pair.slice(0, eq);
+    const key = decodeQueryPart(rawKey);
+    const value = eq < 0 ? "" : decodeQueryPart(pair.slice(eq + 1));
+    const ad = adField(key);
+    if (ad) {
+      if (adValue(ad, value) !== undefined) query.push(pair);
+      continue;
+    }
     const k = words(key);
-    if (k.some((w) => SECRET_QUERY_WORDS.has(w)) || personalKey(key)) return;
-    if (redactText(value) !== value) return;
-    query.push(
-      `${encodeURIComponent(key)}=${isId(value) ? PLACEHOLDER : encodeURIComponent(value)}`,
-    );
-  });
+    if (k.some((w) => SECRET_QUERY_WORDS.has(w)) || personalKey(key)) continue;
+    if (redactText(value) !== value) continue;
+    query.push(isId(value) ? `${rawKey}=${PLACEHOLDER}` : pair);
+  }
   const search = query.length ? `?${query.join("&")}` : "";
   return (absolute ? `${u.protocol}//${u.host}` : "") + path + search;
 }
@@ -302,6 +430,9 @@ function cleanValue(key: string, v: unknown, depth: number): unknown {
   if (typeof v === "string") {
     // Money, and whole ids such as PostHog's session and device ids.
     if (MONEY_KEYS.has(key.toLowerCase()) || UUID_ONLY.test(v)) return v;
+    // Campaign tags and click ids, PostHog's own copies of them included.
+    const ad = adField(key);
+    if (ad) return adValue(ad, v);
     if (urlKey(key) || /^https?:\/\//i.test(v)) return sanitizeUrl(v);
     if (key === "$elements_chain") {
       return redactText(v).replace(

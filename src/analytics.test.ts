@@ -102,6 +102,95 @@ describe("sanitizeUrl", () => {
   });
 });
 
+describe("advertising fields", () => {
+  // Synthetic values throughout; the shapes are those an ad account fills in.
+  const YCLID = "12345678901234567890";
+  const SAMPLES = [
+    // Short and long ids with prefixes.
+    `https://example.com/?utm_source=yandex&utm_medium=cpc&utm_campaign=yd-123456789&utm_content=ad-8765432101-search&yclid=${YCLID}`,
+    // Eight-digit ids, the case that worked before.
+    `https://example.com/?utm_source=yandex&utm_medium=cpc&utm_campaign=yd-12345678&utm_content=ad-87654321&yclid=${YCLID}`,
+    // The agency template: {campaign_name_lat}_{campaign_id}, {ad_id}, {keyword}.
+    `https://example.com/landing?utm_source=yandex&utm_medium=cpc&utm_campaign=Brand_Search_rf_Card%20for%20things_C1_700000001&utm_content=17000000001&utm_term=virtual+card&yclid=${YCLID}`,
+    // A bare 9-, 10- and 15-digit id.
+    "https://example.com/?utm_campaign=700000001&utm_content=7000000001&utm_term=700000000000001",
+    // Text codes.
+    "https://example.com/?utm_source=telegram&utm_medium=post&utm_campaign=spring-promo&utm_content=banner.v2",
+    // Other click ids.
+    "https://example.com/?gclid=Cj0KCQiA_test-Value.1~x&fbclid=IwAR0synthetic_Value-1&msclkid=0123456789abcdef0123456789abcdef&rb_clickid=900000001-abc",
+  ];
+
+  it("keeps campaign tags and click ids byte for byte", () => {
+    for (const url of SAMPLES) expect(sanitizeUrl(url)).toBe(url);
+  });
+
+  it("drops an address, a phone, a token or a card number in a tag, and only that tag", () => {
+    const base = `https://example.com/?utm_source=yandex&utm_campaign=Brand_C1_700000001&yclid=${YCLID}`;
+    const smuggled = [
+      "utm_content=me%40example.invalid",
+      "utm_content=call-%2B7%20900%20000-00-00",
+      "utm_term=8%20(900)%20000-00-00",
+      "utm_term=900-000-00-00",
+      "utm_content=4242%204242%204242%204242",
+      "utm_content=card-4242424242424242",
+      "utm_content=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.c2lnbmF0dXJlLXRlc3Q",
+      "utm_term=key_sk3Tq9Lz7Xc2Vb8Nm4Kd6Fg1",
+    ];
+    for (const extra of smuggled) {
+      expect(sanitizeUrl(`${base}&${extra}`), extra).toBe(base);
+    }
+  });
+
+  it("still drops personal data in other parameters of the same address", () => {
+    const base = `https://example.com/?utm_source=yandex&utm_campaign=Brand_C1_700000001&utm_content=17000000001&yclid=${YCLID}`;
+    expect(
+      sanitizeUrl(
+        `${base}&ref=me%40example.invalid&q=%2B7%20900%20000-00-00&n=4242424242424242&token=abc&order=700000001&lang=ru`,
+      ),
+    ).toBe(`${base}&lang=ru`);
+    // A bare id outside the tags is still an id.
+    expect(sanitizeUrl("https://example.com/?page=12&yclid=1")).toBe(
+      "https://example.com/?page=:id&yclid=1",
+    );
+  });
+
+  it("drops a click id with characters no click id has", () => {
+    expect(sanitizeUrl("https://example.com/?gclid=me%40example.invalid&lang=ru")).toBe(
+      "https://example.com/?lang=ru",
+    );
+    expect(sanitizeUrl("https://example.com/?yclid=%2B7%20900%20000%2000%2000")).toBe(
+      "https://example.com/",
+    );
+  });
+
+  it("the page view reaches Metrica with the tags and the 20-digit yclid, and the touch carries the same address", async () => {
+    const url = SAMPLES[0]!;
+    await start({ zone: "public", initialPageview: false });
+    page(url);
+    const hit = ymCalls().find((c) => c[1] === "hit");
+    expect(hit?.[2]).toBe(url);
+    expect(new URL(hit?.[2] as string).searchParams.get("yclid")).toBe(YCLID);
+  });
+
+  it("PostHog's copies of the tags keep their ids, the filter still holds for the rest", () => {
+    expect(
+      sanitizeProperties({
+        utm_campaign: "Brand_C1_700000001",
+        $initial_utm_content: "17000000001",
+        $initial_gclid: "Cj0KCQiA_test",
+        yclid: YCLID,
+        utm_term: "+7 900 000-00-00",
+        order: "700000001",
+      }),
+    ).toEqual({
+      utm_campaign: "Brand_C1_700000001",
+      $initial_utm_content: "17000000001",
+      $initial_gclid: "Cj0KCQiA_test",
+      yclid: YCLID,
+    });
+  });
+});
+
 describe("sanitizeProperties", () => {
   it("drops personal keys, keeps money and company names", () => {
     const out = sanitizeProperties({
