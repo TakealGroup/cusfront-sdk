@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.3] — 2026-11-24
+
+### Fixed
+
+- The SDK reports its own version again. 0.8.2 was tagged with the version
+  constant still saying 0.8.1, so it was never published; 0.8.3 is the first
+  published build with everything listed under 0.8.2.
+
 ## [0.8.2] — 2026-11-24
 
 ### Added
