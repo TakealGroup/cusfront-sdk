@@ -6,6 +6,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.1] — 2026-11-23
+
+### Changed
+
+- `auth.linkEmail` is deprecated. On platform 0.8.1 and newer it always answers
+  409 `email_change_needs_code`: the first e-mail of an account made in the
+  Telegram Mini App is attached with a code, through `auth.requestEmailChange`
+  and `auth.confirmEmailChange`, the same two calls that change an address.
+- Password sign-in can answer 429 `too_many_attempts` after ten wrong
+  passwords for one address in an hour. Sign-in with an e-mail code keeps
+  working meanwhile.
+- `auth.verifyEmailCode` may return `credentials_reset: true`: the code
+  proved the mailbox of an account for the first time, and the password and
+  linked sign-ins set before that were removed.
+
 ### Fixed
 
 - Page views sent to Yandex Metrica and PostHog keep the ad tags as they

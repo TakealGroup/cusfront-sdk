@@ -255,6 +255,10 @@ export interface VerifyEmailCodeInput {
 export type EmailCodeSession = JwtIssued & {
   /** `true` when the address had no account and got one with this code. */
   account_created: boolean;
+  /** `true` when this code proved the mailbox of an existing account for
+   *  the first time and the password and linked sign-ins set before that
+   *  were removed. */
+  credentials_reset?: boolean;
   card_order?: CardOrder;
   card_order_error?: CardOrderError;
 };
@@ -573,10 +577,12 @@ export class AuthResource {
     return resp;
   }
 
-  /** Attach the first real email to a Telegram-made account (and clear
-   *  `email_pending`). 409 if taken. An account that already has a real
-   *  address gets 409 `email_change_needs_code`: change it with
-   *  {@link requestEmailChange} and {@link confirmEmailChange}. */
+  /** Always answers 409 `email_change_needs_code` on platform 0.8.1 and
+   *  newer: an address is attached only after a code sent to it comes back.
+   *  For the first real email of a Telegram-made account use
+   *  {@link requestEmailChange} and {@link confirmEmailChange}; they clear
+   *  `email_pending` too.
+   *  @deprecated Use {@link requestEmailChange} and {@link confirmEmailChange}. */
   async linkEmail(input: { email: string }): Promise<User> {
     return this.http.post<User>("/me/email", { body: { email: input.email } });
   }
