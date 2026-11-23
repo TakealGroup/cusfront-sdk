@@ -1114,7 +1114,8 @@ Identify users by the platform's user id (`session.user.id`), never by e-mail. P
 
 Every event goes through one filter, PostHog's autocapture included:
 
-- in page addresses, UUIDs, numeric ids and long tokens become `:id`, query parameters with secrets or personal data are dropped, and so is the fragment. Campaign tags stay;
+- in page addresses, UUIDs, numeric ids and long tokens become `:id`, query parameters with secrets or personal data are dropped, and so is the fragment;
+- campaign tags (`utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term`) and click ids (`yclid`, `gclid`, `fbclid`, `msclkid` and the like) stay exactly as they came, ids of any length included. A tag goes only when it holds an e-mail address, a phone number written as one (`+7 900 …`, `8 (900) 123-45-67`), a card number or a token; a click id goes when it has characters a click id never has;
 - properties named `email`, `phone`, `name`, `first_name` and the like are dropped, and so is any value that looks like an e-mail address, a phone number or a card number;
 - amounts and currencies pass.
 

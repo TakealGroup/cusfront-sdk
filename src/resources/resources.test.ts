@@ -2132,6 +2132,17 @@ describe("AttributionResource", () => {
     });
   });
 
+  it("touch sends an ad landing address as it is: tags with ids and a 20-digit yclid", async () => {
+    const url =
+      "https://site.test/?utm_source=yandex&utm_medium=cpc&utm_campaign=Brand_Search_C1_700000001" +
+      "&utm_content=17000000001&yclid=12345678901234567890";
+    const { captured, http } = rig({ recorded: true });
+    await new AttributionResource(http).touch({ anonymous_key: "k-12345678", url });
+    expect(String(captured[0]!.init.body)).toBe(
+      JSON.stringify({ anonymous_key: "k-12345678", url }),
+    );
+  });
+
   it("answerSurvey PUTs the answer and keeps other_text only when given", async () => {
     const { captured, http } = rig({ survey_pending: false, survey_answer: "skipped" });
     await new AttributionResource(http).answerSurvey("skipped");
