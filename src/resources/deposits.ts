@@ -68,6 +68,16 @@ export interface CreateQuoteInput {
   connectorSlug?: string;
   /** The way the user pays. Pass the same method to `initiate()`. */
   method?: DepositMethod;
+  /**
+   * A promo code for the top-up. Where the method's fee is in the rate
+   * (`fee_kind: "markup"`), the code's percentage discount lowers that fee,
+   * so the rate is priced with it and `promo_code` comes back on the quote.
+   * The top-up made from the quote uses the same code: pass it again to
+   * `initiate()` or leave it out. Without one, the code the user signed up
+   * with is used when it works here. A code that can't be used fails with
+   * 400 `promo_code_*` and the reason. Needs platform 0.8.4.
+   */
+  promo_code?: string;
 }
 
 /**
@@ -111,11 +121,18 @@ export interface FundingQuote {
   credited_amount: string;
   credited_currency: string;
   /**
-   * Provider rate before the fee, credited units per 1 source unit. The
-   * rate to show the user is `credited_amount / source_amount`, which has
-   * the fee in it; see the README for the rouble-per-dollar form.
+   * Provider rate before the fee, credited units per 1 source unit. Don't
+   * show it: the user's rate is `effective_rate`.
    */
   rate: string;
+  /**
+   * The rate the user gets, credited units per 1 source unit, with the fee
+   * and any discount of the user's plan or promo code in it. Show this one
+   * (or its inverse, see the README) rather than working a rate out from
+   * the method's `fee_bps`. Older platforms leave it out; there it is
+   * `credited_amount / source_amount`.
+   */
+  effective_rate?: string;
   /** The fee in basis points; the same figure as `fee_bps`, under its old name. */
   spread_bps: number;
   /** The fee in basis points (2000 = 20 %). */
@@ -127,6 +144,16 @@ export interface FundingQuote {
   method?: DepositMethod;
   /** The rate is locked until then; the deposit made with it waits for its payment as long. */
   expires_at: string;
+  /**
+   * Set when the user's plan or a promo code lowered the fee in the rate:
+   * the method's fee before that, in basis points. `fee_bps` is what the
+   * user pays.
+   */
+  list_fee_bps?: number;
+  /** What the lower fee adds to `credited_amount`, decimal string in `credited_currency`. */
+  fee_discount?: string;
+  /** The promo code the rate was priced with; the top-up made from this quote uses it. */
+  promo_code?: string;
   /**
    * What the user owes in card fees, in `credited_currency`, that this
    * top-up pays first: it comes off `credited_amount` and the rest is
@@ -285,6 +312,12 @@ export interface InitiateDepositInput {
    * arrive once the top-up is confirmed. A code that can't be used fails the
    * request with 400 `promo_code_*` and the reason. `client.codes.validate`
    * checks it first.
+   *
+   * Where the method's fee is in the rate, the discount lowers the rate, and
+   * only the quote prices the rate: send the code to `quote()`. A top-up
+   * from that quote uses the quote's `promo_code` without being told; another
+   * code here is refused (400 `validation`), and a code the quote was made
+   * without is refused with 400 `promo_code_not_applicable`.
    */
   promo_code?: string;
   /** The visitor's analytics ids for the payment's server-side conversions.

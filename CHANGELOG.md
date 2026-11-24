@@ -11,6 +11,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `UserSubscription.tier_icon_url`: the picture the operator gave the plan,
   WebP or SVG, or `null` when it has none. Needs platform 0.8.4; older
   platforms leave it out.
+- `deposits.quote()` takes `promo_code`. Where a method's fee is in the rate
+  (SBP, for one), the user's plan and a promo code with a percentage off the
+  top-up fee lower that fee, and the quote is priced with it. The quote says
+  so: `fee_bps` is the user's fee, `list_fee_bps` the method's before the
+  discounts, `fee_discount` what they add to `credited_amount`, and
+  `promo_code` the code the rate was priced with. The top-up made from the
+  quote uses that code by itself. Needs platform 0.8.4.
+- `FundingQuote.effective_rate`: the rate the user gets, fee and discounts
+  included. Show it instead of working a rate out from the method's terms.
 
 ## [0.8.3] — 2026-11-24
 
