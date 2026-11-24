@@ -2477,6 +2477,7 @@ describe("codes, referral, subscription", () => {
       id: "sub_1",
       tier_id: "tier_1",
       tier_name: "Plus",
+      tier_icon_url: "https://api.test/assets/subscription-plans/plus.svg",
       status: "active",
       kind: "gift",
       gift_until: null,

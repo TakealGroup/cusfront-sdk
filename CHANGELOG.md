@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `UserSubscription.tier_icon_url`: the picture the operator gave the plan,
+  WebP or SVG, or `null` when it has none. Needs platform 0.8.4; older
+  platforms leave it out.
+
 ## [0.8.3] — 2026-11-24
 
 ### Fixed
