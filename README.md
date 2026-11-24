@@ -851,6 +851,9 @@ const ref = await client.referral.get();
   with a sign-up link without the user typing it again.
 - `client.subscription.get()` shows a gift subscription as `kind: "gift"`;
   `gift_until: null` means it doesn't end.
+- `tier_icon_url` is the plan's own picture (WebP or SVG) that the operator
+  uploaded. When it is `null`, show your own generic one. Draw it with
+  `<img>`, not inline, so an SVG stays a picture.
 - Rewards and code bonuses are bonuses: a discount on our services, not
   money. Show friends without names; the API sends none.
 

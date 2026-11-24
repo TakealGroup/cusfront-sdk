@@ -15,6 +15,10 @@ export interface UserSubscription {
   id: string;
   tier_id: string;
   tier_name: string;
+  /** The plan's own picture, WebP or SVG, as an absolute URL. `null` when
+   *  the plan has none: show your generic one. Platforms before 0.8.4 leave
+   *  it out. */
+  tier_icon_url?: string | null;
   /** `active`, `tryout`, `grace`, `cancelled` or `expired`. */
   status: string;
   /** `billing` (charged monthly) or `gift` (never charged). */
