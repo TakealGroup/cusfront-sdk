@@ -42,10 +42,16 @@ if (result.stage === "jwt") {
 } else if (result.stage === "totp_required") {
   // Step-up required. Prompt the user for their TOTP code,
   // then call client.auth.verifyTotp({ challenge_token, code }).
+} else if (result.stage === "totp_setup_email_required") {
+  // A staff account has to connect an authenticator first, and the password
+  // alone is not enough: a code went to result.destination_hint. Ask for it
+  // and call client.auth.confirmTotpSetupEmail({ challenge_token, code });
+  // client.auth.resendTotpSetupEmail({ challenge_token }) sends a new one.
+  // The answer is the totp_setup_required stage below.
 } else if (result.stage === "totp_setup_required") {
-  // The account has to enrol an authenticator first. Show result.otpauth_url
-  // as a QR code, then call client.auth.completeTotpSetup({ challenge_token, code })
-  // and show the backup_codes it returns. They are never sent again.
+  // Show result.otpauth_url as a QR code, then call
+  // client.auth.completeTotpSetup({ challenge_token, code }) and show the
+  // backup_codes it returns. They are never sent again.
 }
 ```
 

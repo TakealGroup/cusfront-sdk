@@ -1712,6 +1712,98 @@ describe("AuthResource (register, totp setup, password)", () => {
     expect(await store.get()).toBe("jwt-new");
   });
 
+  it("login hands back the email step before an authenticator and stores nothing", async () => {
+    const { http } = rig({
+      stage: "totp_setup_email_required",
+      challenge_token: "chal-email",
+      challenge_expires_at: "2026-11-25T10:15:00Z",
+      destination_hint: "op***@example.com",
+      code_expires_at: "2026-11-25T10:05:00Z",
+    });
+    const store = inMemoryStore();
+    const out = await new AuthResource(http, store).login({
+      email: "op@example.com",
+      password: "Correct-Horse-9",
+    });
+    expect(out.stage).toBe("totp_setup_email_required");
+    if (out.stage === "totp_setup_email_required") {
+      expect(out.destination_hint).toBe("op***@example.com");
+    }
+    expect(await store.get()).toBeNull();
+  });
+
+  it("verifyTotp with a backup code answers the email step and stores nothing", async () => {
+    const { http } = rig({
+      stage: "totp_setup_email_required",
+      challenge_token: "chal-email",
+      challenge_expires_at: "x",
+      destination_hint: "op***@example.com",
+      code_expires_at: "y",
+    });
+    const store = inMemoryStore();
+    const out = await new AuthResource(http, store).verifyTotp({
+      challenge_token: "chal",
+      code: "ABCD-EFGH",
+    });
+    expect(out.stage).toBe("totp_setup_email_required");
+    expect(await store.get()).toBeNull();
+  });
+
+  it("confirmTotpSetupEmail POSTs the code and returns the authenticator to connect", async () => {
+    const { captured, http } = rig({
+      stage: "totp_setup_required",
+      challenge_token: "chal-setup",
+      challenge_expires_at: "x",
+      otpauth_url: "otpauth://totp/Takeal:op",
+      secret_base32: "JBSWY3DPEHPK3PXP",
+    });
+    const store = inMemoryStore();
+    const out = await new AuthResource(http, store).confirmTotpSetupEmail({
+      challenge_token: "chal-email",
+      code: "042913",
+    });
+    expect(out.stage).toBe("totp_setup_required");
+    expect(out.otpauth_url).toBe("otpauth://totp/Takeal:op");
+    expect(captured[0]!.url).toBe("https://api.test/v1/auth/login/totp-setup/email");
+    expect(captured[0]!.init.method).toBe("POST");
+    expect(headersOf(captured[0]!)["Authorization"]).toBeUndefined();
+    expect(bodyOf(captured[0]!)).toEqual({ challenge_token: "chal-email", code: "042913" });
+    expect(await store.get()).toBeNull();
+  });
+
+  it("confirmTotpSetupEmail surfaces a wrong code", async () => {
+    const { http } = rig({ code: "invalid_code", message: "the code is wrong" }, 401);
+    await expect(
+      new AuthResource(http, inMemoryStore()).confirmTotpSetupEmail({
+        challenge_token: "chal-email",
+        code: "000000",
+      }),
+    ).rejects.toMatchObject({ status: 401, code: "invalid_code" });
+  });
+
+  it("resendTotpSetupEmail POSTs the token and returns a fresh email step", async () => {
+    const { captured, http } = rig({
+      stage: "totp_setup_email_required",
+      challenge_token: "chal-email-2",
+      challenge_expires_at: "x",
+      destination_hint: "op***@example.com",
+      code_expires_at: "y",
+    });
+    const out = await new AuthResource(http, inMemoryStore()).resendTotpSetupEmail({
+      challenge_token: "chal-email",
+    });
+    expect(out.challenge_token).toBe("chal-email-2");
+    expect(captured[0]!.url).toBe("https://api.test/v1/auth/login/totp-setup/email/resend");
+    expect(bodyOf(captured[0]!)).toEqual({ challenge_token: "chal-email" });
+  });
+
+  it("resendTotpSetupEmail surfaces the hourly limit", async () => {
+    const { http } = rig({ code: "too_many_requests", message: "too many codes" }, 429);
+    await expect(
+      new AuthResource(http, inMemoryStore()).resendTotpSetupEmail({ challenge_token: "c" }),
+    ).rejects.toMatchObject({ status: 429, code: "too_many_requests" });
+  });
+
   it("changePassword POSTs /auth/password with the bearer token", async () => {
     const { captured, http } = rig({ revoked_sessions: 2 });
     const out = await new AuthResource(http, inMemoryStore()).changePassword({
