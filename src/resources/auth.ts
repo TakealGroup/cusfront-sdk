@@ -109,7 +109,7 @@ export interface LoginInput {
 }
 
 /** Discriminated union — `stage` is the discriminator. */
-export type LoginResponse = JwtIssued | TotpRequired | TotpSetupRequired;
+export type LoginResponse = JwtIssued | TotpRequired | TotpSetupEmailRequired | TotpSetupRequired;
 
 export interface JwtIssued {
   stage: "jwt";
@@ -134,6 +134,49 @@ export interface TotpRequired {
   expires_at: string;
   /** Alternate second factors. Pick one with `/2fa/switch`. */
   available_methods: AvailableMethod[];
+}
+
+/** A staff account is about to connect an authenticator: its first one, or
+ *  a new one after a backup code. The password alone is not enough, so a
+ *  six-digit code went to the account's e-mail first and no secret exists
+ *  yet. Send the code with {@link AuthResource.confirmTotpSetupEmail}; the
+ *  answer is `totp_setup_required` with the QR. Needs platform 0.8.4; older
+ *  servers answer `totp_setup_required` straight away. */
+export interface TotpSetupEmailRequired {
+  stage: "totp_setup_email_required";
+  challenge_token: string;
+  /** When the challenge ends; sign in again after that. */
+  challenge_expires_at: string;
+  /** Where the code went, partly hidden: `al***@example.com`. */
+  destination_hint: string;
+  /** When this code stops working. */
+  code_expires_at: string;
+}
+
+/** The `code` of an `ApiError` from the e-mail step before an
+ *  authenticator is connected (`login`, `verifyTotp` with a backup code,
+ *  `confirmTotpSetupEmail`, `resendTotpSetupEmail`):
+ *  - `email_required` (409): the account has no e-mail address; an
+ *    administrator has to add one;
+ *  - `too_many_requests` (429): five codes went out in the last hour;
+ *  - `delivery_failed` (503): the code could not be sent, try again;
+ *  - `invalid_code` (401): wrong, expired, used or replaced code;
+ *  - `sign_in_again` (409): the account changed while the code was on its
+ *    way (its address, or an authenticator was connected meanwhile);
+ *  - `too_many_attempts` (429): locked after too many wrong codes. */
+export type TotpSetupEmailErrorCode =
+  | "email_required"
+  | "too_many_requests"
+  | "delivery_failed"
+  | "invalid_code"
+  | "sign_in_again"
+  | "too_many_attempts";
+
+export interface TotpSetupEmailInput {
+  /** From the `totp_setup_email_required` answer. */
+  challenge_token: string;
+  /** The six digits from the e-mail. */
+  code: string;
 }
 
 export interface TotpSetupRequired {
@@ -416,12 +459,17 @@ export class AuthResource {
   }
 
   /** Verify a TOTP code (or XXXX-XXXX backup code) against a
-   *  `totp_required` challenge. On success the JWT is stored. */
-  async verifyTotp(input: TotpVerifyInput): Promise<JwtIssued> {
-    const resp = await this.http.post<JwtIssued>("/auth/login/totp", {
+   *  `totp_required` challenge. On success the JWT is stored. A backup code
+   *  signs nobody in: it is used up and the answer is
+   *  `totp_setup_email_required`, the start of connecting a new
+   *  authenticator ({@link confirmTotpSetupEmail}). Nothing is stored then.
+   *  Errors after a backup code: see {@link TotpSetupEmailErrorCode}. */
+  async verifyTotp(input: TotpVerifyInput): Promise<JwtIssued | TotpSetupEmailRequired> {
+    const resp = await this.http.post<JwtIssued | TotpSetupEmailRequired>("/auth/login/totp", {
       body: withRemember(input),
       skipAuth: true,
     });
+    if (resp.stage === "totp_setup_email_required") return resp;
     await this.keep(resp);
     return resp;
   }
@@ -497,6 +545,30 @@ export class AuthResource {
     });
     await this.keep(resp);
     return resp;
+  }
+
+  /** Send the code from the e-mail of a `totp_setup_email_required`
+   *  answer. A right code answers `totp_setup_required`: show its
+   *  `otpauth_url` as a QR, then finish with {@link completeTotpSetup}.
+   *  Each code works for 5 minutes and takes five tries; only the newest
+   *  one works. Nothing is stored. Errors: {@link TotpSetupEmailErrorCode}. */
+  async confirmTotpSetupEmail(input: TotpSetupEmailInput): Promise<TotpSetupRequired> {
+    return this.http.post<TotpSetupRequired>("/auth/login/totp-setup/email", {
+      body: { challenge_token: input.challenge_token, code: input.code },
+      skipAuth: true,
+    });
+  }
+
+  /** A new e-mail code for the same `totp_setup_email_required` sign-in;
+   *  the one before it stops working. Use the `challenge_token` of the
+   *  answer from now on. Five codes an hour at most.
+   *  Errors: {@link TotpSetupEmailErrorCode}; 401 means the sign-in is over,
+   *  so start again with {@link login}. */
+  async resendTotpSetupEmail(input: { challenge_token: string }): Promise<TotpSetupEmailRequired> {
+    return this.http.post<TotpSetupEmailRequired>("/auth/login/totp-setup/email/resend", {
+      body: { challenge_token: input.challenge_token },
+      skipAuth: true,
+    });
   }
 
   /** Finish a `totp_setup_required` login: send the first code from the

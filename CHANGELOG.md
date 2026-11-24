@@ -6,6 +6,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `auth.confirmTotpSetupEmail({ challenge_token, code })` and
+  `auth.resendTotpSetupEmail({ challenge_token })`, and the login stage
+  `totp_setup_email_required`. From platform 0.8.4 a staff account can't
+  connect an authenticator with its password alone: the first sign-in, and
+  the one after a backup code, first sends a six-digit code to the account's
+  e-mail. The right code answers `totp_setup_required` with the QR, as
+  before. `TotpSetupEmailErrorCode` lists the errors of this step.
+
+### Changed
+
+- `auth.verifyTotp` resolves to `JwtIssued | TotpSetupEmailRequired`. A
+  backup code never signed in: since platform 0.8.2 the server answers it
+  with the start of connecting a new authenticator, and the SDK stored that
+  answer as if it were a session. Now it stores nothing and hands the answer
+  back; check `stage` before using `access_token`.
+
 ## [0.8.3] — 2026-11-24
 
 ### Fixed
