@@ -99,7 +99,7 @@ export type paths = {
          * Check that every dependency is reachable
          * @description Runs every check and returns 200 when all of them pass, 503 when any
          *     fails. The body is the same in both cases: the overall status, each
-         *     check, the support channels and the platform version. No token is
+         *     check and the platform version. No token is
          *     needed. Signed-in console accounts get more detail about each check.
          */
         get: operations["ready"];
@@ -123,8 +123,9 @@ export type paths = {
         /**
          * Upload a brand image
          * @description Stores a logo or favicon in the deployment's file storage and returns
-         *     its public URL, for the Branding settings. Needs file storage on the
-         *     deployment.
+         *     its public URL, for the Branding settings. An SVG is stored without
+         *     scripts, event handlers or links to other files, and one that can't be
+         *     read as SVG is refused. Needs file storage on the deployment.
          */
         post: operations["upload_asset"];
         delete?: never;
@@ -883,6 +884,116 @@ export type paths = {
         get: operations["list_card_transactions_all"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cardholder-mail/held": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List held cardholder mail
+         * @description Mail to cardholders that wasn't passed on to the user because its sender
+         *     isn't on the allowed senders list or wasn't confirmed by the mail
+         *     server. Newest first.
+         */
+        get: operations["list_held"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cardholder-mail/held/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one held message
+         * @description The message as text, whether its sender is allowed now, and who a
+         *     release would go to.
+         */
+        get: operations["get_held"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cardholder-mail/held/{id}/allow-sender": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Allow this message's sender domain
+         * @description Adds the domain of the sender's address to `cardholder.inbox.allowed_senders`
+         *     for every connector, the same as changing the setting by hand, and
+         *     audited the same way. Only mail that arrives afterwards is checked
+         *     against it: release this message separately.
+         */
+        post: operations["allow_sender"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cardholder-mail/held/{id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard a held message
+         * @description Nobody is told about it and it leaves the queue; the message is kept for
+         *     the record until mail retention removes it. Discarding a message that
+         *     was already discarded changes nothing. Audited.
+         */
+        post: operations["discard_held"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cardholder-mail/held/{id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release a held message to its user
+         * @description The user gets the message and the usual notification about it, as if it
+         *     had come from an allowed sender. Releasing a message that was already
+         *     released changes nothing and returns it. Audited.
+         */
+        post: operations["release_held"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2189,12 +2300,20 @@ export type paths = {
         put?: never;
         /**
          * Settle a refund the provider never answered
-         * @description For a refund of a wallet top-up that is still `pending` because the
-         *     provider never said how it ended. Check the refund with the provider
-         *     first. `sent`: the payer got the money, so it stays off the wallet and
-         *     the refund is `succeeded`. `not_sent`: the money goes back on the wallet
-         *     and the refund is `failed`, so the holder can ask again. The task about
-         *     the refund in Failed tasks closes with it.
+         * @description For a refund of a top-up that is still `pending` because the provider
+         *     never said how it ended. Check the refund with the provider first.
+         *
+         *     A top-up to the wallet: `sent` means the payer got the money, so it
+         *     stays off the wallet and the refund is `succeeded`. `not_sent` puts the
+         *     money back on the wallet and the refund is `failed`, so the holder can
+         *     ask again.
+         *
+         *     A top-up paid onto a card: `sent` finishes the refund as the provider's
+         *     answer would. `not_sent` marks it `failed` and leaves the top-up as it
+         *     was before the refund: a top-up that never reached the card waits for an
+         *     operator again, one that is on the card stays there.
+         *
+         *     The task about the refund in Failed tasks closes with it.
          */
         post: operations["settle_refund"];
         delete?: never;
@@ -2217,9 +2336,10 @@ export type paths = {
          * @description Asks the card provider again to load a top-up that arrived but did not
          *     make it onto the card. The provider sees the same load id as the first
          *     time, so a card is never loaded twice. Allowed while the load is
-         *     `failed` and the money has not gone to the wallet. If it fails again the
-         *     deposit stays `failed` and the money keeps waiting: at that point the
-         *     case needs a person.
+         *     `failed` and its money is still held for the card: not moved to the
+         *     wallet, written off or sent back to the payer. If it fails
+         *     again the deposit stays `failed` and the money keeps waiting: at that
+         *     point the case needs a person.
          */
         post: operations["retry_card_load"];
         delete?: never;
@@ -3333,7 +3453,8 @@ export type paths = {
          * Your role and permissions
          * @description What the signed-in account may do, for a console to decide which
          *     sections to show and which controls to hide. The API still checks
-         *     every call on its own.
+         *     every call on its own. An account that can open the console also gets
+         *     the installation's support contacts.
          */
         get: operations["my_access"];
         put?: never;
@@ -4621,8 +4742,9 @@ export type paths = {
         /**
          * Close a settlement cycle
          * @description Freezes the period, computes the gross, fee and net amounts, and moves
-         *     the cycle to `posted`. No money is moved: the operator pays the merchant
-         *     and then calls mark-completed. Audited.
+         *     the cycle to `posted`. The net is the gross minus the fee, minus the
+         *     merchant's refunds that no earlier cycle took off. No money is moved: the
+         *     operator pays the merchant and then calls mark-completed. Audited.
          */
         post: operations["close_cycle"];
         delete?: never;
@@ -5013,6 +5135,32 @@ export type paths = {
          * @description Changes only the fields present in the body. Audited.
          */
         patch: operations["patch_tier"];
+        trace?: never;
+    };
+    "/v1/admin/subscriptions/tiers/{id}/icon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload a tier's picture
+         * @description Sets the picture users see next to the tier, replacing the one it had.
+         *     WebP or SVG; an SVG is stored without scripts, event handlers or links
+         *     to other files. Needs file storage on the deployment. Audited.
+         */
+        put: operations["set_tier_icon"];
+        post?: never;
+        /**
+         * Remove a tier's picture
+         * @description Users see the generic picture again. Audited.
+         */
+        delete: operations["remove_tier_icon"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/admin/support/profile": {
@@ -5657,7 +5805,8 @@ export type paths = {
         /**
          * Reset a user's two-factor authentication
          * @description Removes the user's authenticator enrolment so they set it up again on
-         *     their next login. Use it when someone has lost their phone. The user is
+         *     their next login, after a code sent to their email. Use it when someone
+         *     has lost their phone. The user is
          *     signed out everywhere, remembered sign-ins included. It also lifts a lock
          *     from too many wrong codes. Safe to call for a user who is not
          *     enrolled; the response then says `removed: false`. Always audited.
@@ -5857,9 +6006,13 @@ export type paths = {
          * Log in with email and password
          * @description The response is tagged by `stage`. End users get `jwt` with the session
          *     token right away. Accounts whose role has any operator permission must
-         *     pass a second factor: `totp_setup_required` on the first login (enrol an
-         *     authenticator, then call `POST /auth/login/totp-setup`) and
-         *     `totp_required` afterwards (call `POST /auth/login/totp`). A wrong
+         *     pass a second factor. With an authenticator connected the answer is
+         *     `totp_required` (call `POST /auth/login/totp`). Without one (the first
+         *     sign-in, or after an operator reset it) the password alone is not enough
+         *     to connect one: the answer is `totp_setup_email_required`, a code went to
+         *     the account's email, and `POST /auth/login/totp-setup/email` takes it and
+         *     returns the authenticator to connect. An account with no email address
+         *     can't connect an authenticator and gets 409 `email_required`. A wrong
          *     password and an unknown email return the same 401.
          *
          *     Wrong passwords are limited too. Ten attempts at one address in an hour
@@ -5940,10 +6093,12 @@ export type paths = {
          * @description Send the `challenge_token` from the `totp_required` response with the
          *     6-digit code. A backup code in `XXXX-XXXX` form is accepted instead:
          *     it is used up and the answer is not a session but `stage:
-         *     "totp_setup_required"`, as at the first login. The user connects a new
-         *     authenticator and sends its first code to `POST /auth/login/totp-setup`,
-         *     which signs in and returns new backup codes. Until then the old
-         *     authenticator stays on the account. Wrong codes count toward the lock
+         *     "totp_setup_email_required"`, as at the first login: a code goes to the
+         *     account's email, `POST /auth/login/totp-setup/email` takes it and returns
+         *     a new authenticator to connect, and its first code at
+         *     `POST /auth/login/totp-setup` signs in and returns new backup codes.
+         *     Until then the old authenticator stays on the account. An account with
+         *     no email address gets 409 `email_required` and keeps the backup code. Wrong codes count toward the lock
          *     described under `POST /auth/login`; the fifth one in a row returns 429.
          */
         post: operations["login_totp"];
@@ -5970,6 +6125,54 @@ export type paths = {
          *     to the user right away.
          */
         post: operations["login_totp_setup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/login/totp-setup/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enter the email code before connecting an authenticator
+         * @description Send the `challenge_token` from the `totp_setup_email_required` response
+         *     with the code from the email. A right code answers `stage:
+         *     "totp_setup_required"` with the authenticator secret: show it as a QR
+         *     code and send the first code from the app to
+         *     `POST /auth/login/totp-setup`. Each code works for 5 minutes and takes
+         *     five tries; only the newest code works. Wrong codes also count toward
+         *     the lock described under `POST /auth/login`.
+         */
+        post: operations["login_totp_setup_email"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/login/totp-setup/email/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the email code again
+         * @description A new code for the same sign-in; the one before it stops working. The
+         *     answer is a fresh `totp_setup_email_required` with a new
+         *     `challenge_token` to use from now on. Five codes an hour at most.
+         */
+        post: operations["login_totp_setup_email_resend"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8886,6 +9089,15 @@ export type components = {
              */
             user_id: string;
         };
+        /** @description What adding a sender's domain did. */
+        AllowSenderResult: {
+            /** @description False when the sender was already on the list for this holder. */
+            added: boolean;
+            /** @description The domain that was asked for. */
+            domain: string;
+            /** @description The list as it is now. */
+            value: string;
+        };
         /** @description An amount in one currency. */
         Amount: {
             /**
@@ -11113,7 +11325,7 @@ export type components = {
             };
             /** @description One of `card`, `crypto`, `bank_transfer`, `sbp`. */
             method: components["schemas"]["DepositMethod"];
-            /** @description A promo code for this top-up, to the wallet or to a card. Its discount comes off the commission; bonuses or a gift that come with the code arrive once the top-up is confirmed. With `issue_card`, a code that works on issuing a card lowers the card's price instead and is used up when the card is issued. A code that can't be used answers 400 `promo_code_*` with the reason. `POST /me/codes/validate` checks it first. */
+            /** @description A promo code for this top-up, to the wallet or to a card. Its discount comes off the commission; bonuses or a gift that come with the code arrive once the top-up is confirmed. Where the method's fee is in the exchange rate, a percentage discount lowers the rate instead, and only the quote prices the rate: send the code to `POST /me/deposits/quotes`. A top-up made from that quote uses the quote's code without being told; another code is refused. With `issue_card`, a code that works on issuing a card lowers the card's price instead and is used up when the card is issued. A code that can't be used answers 400 `promo_code_*` with the reason. `POST /me/codes/validate` checks it first. */
             promo_code?: string | null;
             /**
              * Format: uuid
@@ -11201,6 +11413,8 @@ export type components = {
             /** @description ISO 4217 code of the currency paid; must differ from the currency credited. */
             currency: string;
             method?: null | components["schemas"]["DepositMethod"];
+            /** @description A promo code for this top-up. Where the method's fee is in the rate, the code's percentage discount on the top-up fee lowers that fee, so the rate is priced with it: the top-up made from this quote uses the same code. Without one, the code you signed up with is used when it works here. A code that can't be used answers 400 `promo_code_*` with the reason. */
+            promo_code?: string | null;
             /** @description Quote into this currency instead of the wallet's: the currency of a card issued with the top-up (`issue_card`). Ignored when `card_id` is set. */
             target_currency?: string | null;
         };
@@ -11468,7 +11682,8 @@ export type components = {
              */
             merchant_id: string;
             /**
-             * @description What the merchant receives: gross minus fee, decimal string.
+             * @description What the merchant receives: gross minus fee, minus the merchant's
+             *     refunds that no earlier cycle took off, decimal string.
              * @example 975.00
              */
             net_amount: string;
@@ -12199,6 +12414,16 @@ export type components = {
             min_currency?: string | null;
             on: components["schemas"]["RewardEvent"];
         };
+        EmailCodeBody: {
+            /** @description The `challenge_token` from the `totp_setup_email_required` response. */
+            challenge_token: string;
+            /** @description The six digits from the email; surrounding whitespace is ignored. */
+            code: string;
+        };
+        EmailCodeResendBody: {
+            /** @description The `challenge_token` from the `totp_setup_email_required` response. */
+            challenge_token: string;
+        };
         /** @description A finished email. */
         EmailParts: {
             /** @description The HTML part. */
@@ -12651,6 +12876,98 @@ export type components = {
             /** @description Always `ok`. */
             status: string;
         };
+        /** @description The holder a message was sent to. */
+        HeldHolder: {
+            /** @description The card connector the holder is registered with. */
+            connector_slug: string;
+            /** @description The holder's mailbox the message came to. */
+            email: string;
+            first_name: string;
+            /** Format: uuid */
+            id: string;
+            /** @description `personal` or `pool`. */
+            kind: string;
+            last_name: string;
+            user_email?: string | null;
+            /**
+             * Format: uuid
+             * @description The user of a personal holder; null for a pool holder.
+             */
+            user_id?: string | null;
+        };
+        /** @description A message held back from its user. */
+        HeldMail: {
+            /**
+             * Format: uuid
+             * @description The card it was about, when it names one.
+             */
+            card_id?: string | null;
+            card_last4?: string | null;
+            cardholder: components["schemas"]["HeldHolder"];
+            /**
+             * Format: date-time
+             * @description When the platform picked it up.
+             */
+            created_at: string;
+            /** Format: date-time */
+            discarded_at?: string | null;
+            discarded_by_email?: string | null;
+            from_address: string;
+            from_name?: string | null;
+            /** Format: uuid */
+            id: string;
+            reason: components["schemas"]["HeldReason"];
+            /**
+             * Format: date-time
+             * @description When the sender says it was sent.
+             */
+            received_at: string;
+            /** Format: date-time */
+            released_at?: string | null;
+            released_by_email?: string | null;
+            status: components["schemas"]["HeldStatus"];
+            subject: string;
+            user_email?: string | null;
+            /**
+             * Format: uuid
+             * @description The user it was released to.
+             */
+            user_id?: string | null;
+        };
+        /** @description One held message with its text and what releasing it would do. */
+        HeldMailDetail: components["schemas"]["HeldMail"] & {
+            /**
+             * @description The message as plain text. Formatting, links and images are not
+             *     kept: show it as text.
+             */
+            body_text: string;
+            /** @description Everyone with a card on the holder. */
+            holder_users: components["schemas"]["HolderUser"][];
+            recipient?: null | components["schemas"]["Recipient"];
+            /** @description The domain of the sender's address, when it has one. */
+            sender_domain?: string | null;
+            /**
+             * @description Whether the sender is on the allowed senders list for this holder
+             *     now. A message is only checked when it arrives: adding the sender
+             *     later doesn't release this one.
+             */
+            sender_listed: boolean;
+        };
+        HeldMailPage: {
+            items: components["schemas"]["HeldMail"][];
+            /** Format: int64 */
+            total: number;
+        };
+        /**
+         * @description Why a message was held.
+         * @enum {string}
+         */
+        HeldReason: "not_allowed" | "not_authenticated" | "unknown";
+        /**
+         * @description Where a held message stands.
+         * @enum {string}
+         */
+        HeldStatus: "open" | "released" | "discarded";
         /** @description The card an entry is about. */
         HistoryCard: {
             /** Format: uuid */
@@ -12711,6 +13028,14 @@ export type components = {
             holder_source: string;
             /** @description Every holder of the pool, retired ones last. */
             holders: components["schemas"]["PoolHolderView"][];
+        };
+        /** @description A user with a card on the holder. */
+        HolderUser: {
+            /** @description Last four digits of their cards on this holder. */
+            card_last4: string[];
+            email?: string | null;
+            /** Format: uuid */
+            user_id: string;
         };
         IdentityBody: {
             /** @description How the identity was checked (the document, the call), for the audit log. At least 3 characters. */
@@ -13238,6 +13563,23 @@ export type components = {
         } | {
             /**
              * Format: date-time
+             * @description When the challenge expires, UTC. Sign in again after that.
+             */
+            challenge_expires_at: string;
+            /** @description Token to send back with the code. */
+            challenge_token: string;
+            /**
+             * Format: date-time
+             * @description When this code stops working, UTC.
+             */
+            code_expires_at: string;
+            /** @description Where the code went, partly hidden, e.g. `al***@example.com`. */
+            destination_hint: string;
+            /** @enum {string} */
+            stage: "totp_setup_email_required";
+        } | {
+            /**
+             * Format: date-time
              * @description When the challenge expires, UTC.
              */
             challenge_expires_at: string;
@@ -13696,6 +14038,7 @@ export type components = {
             permissions: string[];
             /** @description Role name. */
             role: string;
+            support?: null | components["schemas"]["SupportContacts"];
         };
         MyAttribution: {
             /** @description The answer given, `skipped`, or null when not answered yet. */
@@ -14087,6 +14430,8 @@ export type components = {
              * @description When the deposit stops waiting for its payment; null for a deposit without a term.
              */
             expires_at?: string | null;
+            /** @description Why the payment did not go through, in the same words for every provider: `cancelled_by_user` (the payer called it off), `declined` (the provider or the payer's bank refused it), `cancelled` (the provider cancelled it without saying who did), `expired` (nobody paid in time) or `unrecognised` (the provider gave a reason its connector does not know; see `provider_reason_code`). Null when the connector did not say, and for deposits that did not fail. */
+            failure_kind?: string | null;
             failure_reason?: string | null;
             /** @description The funding connector's mode when the deposit was made: `wallet`, `the connector` or `mixed`. Decides what a failed card load does. */
             funder_mode?: string | null;
@@ -14106,7 +14451,11 @@ export type components = {
             /** @description The card was issued with this top-up. */
             issues_card: boolean;
             method: string;
+            /** @description The provider's own code for why the payment failed, as it came. */
+            provider_reason_code?: string | null;
             provider_reference?: string | null;
+            /** @description The provider's own status of the failed payment, as it came. */
+            provider_status?: string | null;
             /**
              * Format: date-time
              * @description Set when a failed card load sent the money to the wallet instead.
@@ -14185,10 +14534,6 @@ export type components = {
         OpsInfoView: {
             /** @description The platform version: the one consoles and SDKs check their supported range against. */
             platform_version: string;
-            /** @description Support email address, when the deployment has one. */
-            support_email?: string | null;
-            /** @description Support page URL, when the deployment has one. */
-            support_url?: string | null;
         };
         OrderBatchBody: {
             /**
@@ -15495,6 +15840,11 @@ export type components = {
              */
             debt_withheld: string;
             /**
+             * @description The rate you get, the fee included: credited units per 1 source unit. Show this one rather than working it out from `rate`.
+             * @example 0.011595
+             */
+            effective_rate: string;
+            /**
              * Format: date-time
              * @description When the quote stops being valid, UTC.
              */
@@ -15504,6 +15854,11 @@ export type components = {
              * @description The fee in basis points (2000 = 20 %).
              */
             fee_bps: number;
+            /**
+             * @description What the lower fee adds to `credited_amount`, in `credited_currency`. Present with `list_fee_bps`.
+             * @example 0.48
+             */
+            fee_discount?: string | null;
             /** @description How the fee was taken: `spread` (off the credited amount), `markup` (in the rate shown: `rate` is the provider's, the user's rate is worse by the fee) or `commission` (the rate is the provider's; a commission is charged on the credited amount separately). */
             fee_kind: string;
             /**
@@ -15511,7 +15866,14 @@ export type components = {
              * @description Quote id; pass it as `quote_id` when creating the deposit.
              */
             id: string;
+            /**
+             * Format: int64
+             * @description When your plan or a promo code lowered the fee in the rate: the method's fee before that, in basis points. `fee_bps` is the fee you pay.
+             */
+            list_fee_bps?: number | null;
             method?: null | components["schemas"]["DepositMethod"];
+            /** @description The promo code the rate was priced with. The top-up made from this quote uses it; send the same code or none. */
+            promo_code?: string | null;
             /** @description Name of the rate source. */
             provider: string;
             /**
@@ -15559,7 +15921,7 @@ export type components = {
         Readiness: {
             /** @description Result of each check. */
             checks: components["schemas"]["ReadinessChecks"];
-            /** @description Support channels and the platform version. */
+            /** @description The platform version. */
             ops: components["schemas"]["OpsInfoView"];
             /** @description `ready` when every check passed, `degraded` otherwise; the HTTP status is 200 or 503 to match. */
             status: string;
@@ -15600,6 +15962,18 @@ export type components = {
              * @description The deposit, card top-up or card the payment was for.
              */
             ref_id: string;
+        };
+        /** @description Who a release would go to. */
+        Recipient: {
+            /**
+             * Format: uuid
+             * @description The card the message names, if it names one.
+             */
+            card_id?: string | null;
+            card_last4?: string | null;
+            email?: string | null;
+            /** Format: uuid */
+            user_id: string;
         };
         /** @description What became of an uploaded recipient list. */
         RecipientUpload: {
@@ -15846,6 +16220,15 @@ export type components = {
          * @enum {string}
          */
         Rejection: "unknown" | "disabled" | "not_started" | "expired" | "not_applicable" | "exhausted" | "already_used" | "not_first_operation" | "below_minimum" | "currency_mismatch" | "own_code" | "already_registered";
+        ReleaseBody: {
+            /**
+             * Format: uuid
+             * @description The user to give it to. Needed only when the message names no card
+             *     of one user and the holder has several; must have a card on the
+             *     holder.
+             */
+            user_id?: string | null;
+        };
         ReloadBody: {
             /**
              * @description Amount to add, decimal string.
@@ -16748,6 +17131,11 @@ export type components = {
              * @description Days after a missed payment before the subscription lapses.
              */
             grace_window_days: number;
+            /**
+             * @description The plan's own picture (WebP or SVG), an absolute URL; null when the
+             *     operator hasn't uploaded one.
+             */
+            icon_url?: string | null;
             /** Format: uuid */
             id: string;
             /**
@@ -16806,6 +17194,12 @@ export type components = {
             connector_events: number;
             /**
              * Format: int64
+             * @description Mail for cardholders held back from the user because of its sender,
+             *     not released or discarded yet (`/admin/cardholder-mail/held`).
+             */
+            held_mail: number;
+            /**
+             * Format: int64
              * @description Mail for cardholders the inbox worker gave up on.
              */
             holder_mail: number;
@@ -16849,6 +17243,13 @@ export type components = {
              * @description Size in bytes.
              */
             size: number;
+        };
+        /** @description The installation's support contacts for its console team. */
+        SupportContacts: {
+            /** @description Support email address, when the installation has one. */
+            email?: string | null;
+            /** @description Support page, when the installation has one. */
+            url?: string | null;
         };
         /** @description The conversation, or a page of its older part. */
         SupportConversation: {
@@ -17229,6 +17630,21 @@ export type components = {
         TestBody: {
             /** @description `transactional` or `broadcast`. */
             lane: components["schemas"]["Lane"];
+        };
+        /**
+         * @example {
+         *       "content_type": "image/svg+xml",
+         *       "data_base64": "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=",
+         *       "filename": "gold.svg"
+         *     }
+         */
+        TierIconBody: {
+            /** @description `image/webp` or `image/svg+xml`. */
+            content_type: string;
+            /** @description The picture, base64 (a `data:` URL is accepted too). Up to 1 MiB. A square picture works best. */
+            data_base64: string;
+            /** @description Original file name, kept for the audit trail only. */
+            filename?: string | null;
         };
         /** @description A picture for the tile. */
         TileImageBody: {
@@ -17821,6 +18237,11 @@ export type components = {
             started_at: string;
             /** @description Subscription status. */
             status: string;
+            /**
+             * @description The plan's picture (WebP or SVG), an absolute URL; null when it has
+             *     none and a generic one should be shown.
+             */
+            tier_icon_url?: string | null;
             /** Format: uuid */
             tier_id: string;
             /** @description Display name of the plan. */
@@ -19948,6 +20369,222 @@ export interface operations {
             };
             /** @description Missing the cards.read permission */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_held: {
+        parameters: {
+            query?: {
+                /** @description `open` (default), `released`, `discarded` or `all`. */
+                state?: "open" | "released" | "discarded" | "all";
+                /** @description 1 to 200. Default 50. */
+                limit?: number;
+                /** @description Rows to skip. Default 0. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeldMailPage"];
+                };
+            };
+            /** @description limit out of range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_held: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Message id from the list */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeldMailDetail"];
+                };
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No held message with that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    allow_sender: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Message id from the list */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllowSenderResult"];
+                };
+            };
+            /** @description `no_sender_domain`: the sender's address has no domain */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No held message with that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    discard_held: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Message id from the list */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeldMail"];
+                };
+            };
+            /** @description Missing the settings.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No held message with that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `already_released` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    release_held: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Message id from the list */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeldMail"];
+                };
+            };
+            /** @description `not_on_holder`: that user has no card on this holder */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No held message with that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `already_discarded`, or `recipient_unknown`: choose the user */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -22951,7 +23588,7 @@ export interface operations {
                     "application/json": components["schemas"]["Refund"];
                 };
             };
-            /** @description No note, or the refund is not of a top-up to the wallet */
+            /** @description No note, the refund is not of a top-up, or it belongs to a closed card's close request */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -23016,7 +23653,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description `not_retryable`: not a top-up onto a card, not settled, already loaded, moved to the wallet, or an attempt is running */
+            /** @description `not_retryable`: not a top-up onto a card, not settled, already loaded, moved to the wallet, written off, sent back to the payer, or an attempt is running */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -28199,6 +28836,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description `refunds_exceed_payout`: the merchant's refunds are more than this cycle would pay. Nothing is paid out and the cycle stays open */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     mark_completed: {
@@ -28961,6 +29605,96 @@ export interface operations {
             };
         };
     };
+    set_tier_icon: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tier UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TierIconBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionTier"];
+                };
+            };
+            /** @description Not a WebP or SVG picture, or too large (`unsupported_image`, `image_too_large`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the subscriptions.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such tier */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No file storage on this deployment (`object_store_not_configured`) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    remove_tier_icon: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tier UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionTier"];
+                };
+            };
+            /** @description Missing the subscriptions.write permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such tier */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     profile: {
         parameters: {
             query?: {
@@ -29572,7 +30306,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description `no_debt`: nothing is owed in the card's currency. `card_empty`: the card holds nothing. `issuer_refused`: the issuer would not let the money be taken. `issuer_pending`: the issuer has not moved the money yet; send the same request again in a minute */
+            /** @description `no_debt`: nothing is owed in the card's currency. `organization_card`: the card was given to the user by their organization and its money is the organization's. `card_empty`: the card holds nothing. `issuer_refused`: the issuer would not let the money be taken. `issuer_pending`: the issuer has not moved the money yet; send the same request again in a minute */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -30524,8 +31258,22 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Too many wrong passwords or, for staff, too many wrong codes (`too_many_attempts`); the message says when to try again */
+            /** @description Staff account with no authenticator and no email address to send the code to (`email_required`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many wrong passwords or, for staff, too many wrong codes (`too_many_attempts`), or too many email codes in the last hour (`too_many_requests`); the message says when to try again */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The email code could not be sent (`delivery_failed`) */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -30628,7 +31376,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Signed in, returns the session token and user; after a backup code, `stage: "totp_setup_required"` with a new authenticator secret instead */
+            /** @description Signed in, returns the session token and user; after a backup code, `stage: "totp_setup_email_required"` instead */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -30644,8 +31392,22 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Locked after too many wrong codes; the message says when to try again */
+            /** @description A backup code on an account with no email address (`email_required`); the backup code is not used up */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Locked after too many wrong codes; the message says when to try again. After a backup code, also too many email codes in the last hour (`too_many_requests`) */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description After a backup code: the email code could not be sent (`delivery_failed`) */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -30684,6 +31446,117 @@ export interface operations {
             };
             /** @description Locked after too many wrong codes; the message says when to try again */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    login_totp_setup_email: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailCodeBody"];
+            };
+        };
+        responses: {
+            /** @description The authenticator to connect: `stage: "totp_setup_required"` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Wrong, expired or used code (`invalid_code`), or an expired challenge */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Account is disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The account changed meanwhile, for example an authenticator was connected or the email address changed (`sign_in_again`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Locked after too many wrong codes; the message says when to try again */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    login_totp_setup_email_resend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailCodeResendBody"];
+            };
+        };
+        responses: {
+            /** @description A new code went out: `stage: "totp_setup_email_required"` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Expired challenge or finished sign-in: sign in again */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Account is disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The account has no email address (`email_required`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many codes in the last hour (`too_many_requests`), or locked after too many wrong codes (`too_many_attempts`) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The code could not be sent (`delivery_failed`) */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -33091,7 +33964,7 @@ export interface operations {
                     "application/json": components["schemas"]["QuoteView"];
                 };
             };
-            /** @description Invalid amount or currency, or the currency is already the wallet currency */
+            /** @description Invalid amount or currency, or the currency is already the wallet currency. `promo_code_*`: the promo code can't be used here, with the reason */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -33743,7 +34616,7 @@ export interface operations {
                     "application/json": components["schemas"]["PushSubscriptionView"];
                 };
             };
-            /** @description Endpoint is not an https URL or the keys are not URL-safe base64 */
+            /** @description Endpoint is not a browser push service or the keys are not URL-safe base64 */
             400: {
                 headers: {
                     [name: string]: unknown;
