@@ -401,25 +401,33 @@ const sbp = funder.method_terms.find((m) => m.method === "sbp")!;
 // sbp.source_currency → "RUB"; sbp.fee_kind → "markup"; sbp.fee_bps → 2000;
 // sbp.quote_ttl_seconds → 300; sbp.min_amount, sbp.max_amount, sbp.daily_limit_per_user
 
-// 2. The user types roubles. The quote locks the rate for quote_ttl_seconds.
+// 2. The user types roubles (and a promo code, if they have one). The quote
+//    locks the rate for quote_ttl_seconds.
 const quote = await client.deposits.quote({
   amount: "1000",
   currency: "RUB",
   connectorSlug: funder.slug,
   method: "sbp",
+  promo_code: promoCode, // optional
 });
 // quote.credited_amount → "10.41" USD at a bank rate of 80 ₽ and a 20 % markup.
+// The user's plan and a promo code with a percentage off the top-up fee lower
+// the markup: with 5 % off it is 19 %, quote.fee_bps → 1900,
+// quote.list_fee_bps → 2000, quote.credited_amount → "10.50", and
+// quote.promo_code names the code the rate was priced with. Don't take the fee
+// from `sbp.fee_bps`: the quote has the user's own.
 
 // 3. What to show. With `fee_kind === "markup"` the fee sits in the rate: show
 //    the rate and the amount credited, no fee line. The rate in the form
 //    people know, roubles per unit of the wallet currency:
-const perUnit = Number(quote.source_amount) / Number(quote.credited_amount); // 96.06 ₽ per $
+const perUnit = 1 / Number(quote.effective_rate); // 96.00 ₽ per $
 show(`${quote.credited_amount} ${quote.credited_currency} at ${perUnit.toFixed(2)} ₽/$, until ${quote.expires_at}`);
 // If the user types the wallet amount instead, work the roubles out on the
 // client from the same rate and quote that: roubles = wanted × perUnit,
 // rounded up to the kopeck, then `quote()` again with that amount.
-// With `fee_kind === "commission"` show the fee as its own line:
-// commission = credited × fee_bps / 10000.
+// With `fee_kind === "commission"` the rate is the bank's and the fee is a
+// line of its own, taken off what is credited when the top-up settles; a
+// plan's or a promo code's discount comes off that line.
 
 // 4. Pay. The deposit is a redirect: send the user to the bank's page.
 const deposit = await client.deposits.initiate({
