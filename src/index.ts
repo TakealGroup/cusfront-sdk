@@ -123,6 +123,7 @@ export type {
   CardOrderError,
   CardOrderQuoteInput,
   CardOrderQuote,
+  CardOrderRate,
   PromoCodeQuote,
   PromoCodeStatus,
   CardTariff,
