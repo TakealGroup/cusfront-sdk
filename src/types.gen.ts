@@ -10145,7 +10145,7 @@ export type components = {
              * @description The card product, from `GET /card-products` or `GET /me/card-products`.
              */
             product_id: string;
-            /** @description A promo code for the order. One that works on issuing a card lowers the card's price; one that works on top-ups lowers the commission of the payment. `POST /me/card-orders/quote` shows what it does to the amount before the order is placed. */
+            /** @description A promo code for the order. One that works on issuing a card lowers the card's price. One that works on top-ups lowers the fee on the payment: its commission, or, for a way of paying that has its fee in the exchange rate, the rate itself, and then the amount to pay. A code with a minimum amount is checked against the money that goes onto the card, without the card's price; below it the order is refused with 400 `promo_code_below_minimum`. `POST /me/card-orders/quote` shows what the code does to the amount before the order is placed. */
             promo_code?: string | null;
             /** @description Pay part of the card's price with bonuses. On by default whenever there are bonuses. */
             use_bonus?: boolean | null;
@@ -10164,13 +10164,14 @@ export type components = {
             currency: string;
             /** @description What the person owes in card fees, decimal string, in `card_currency`, included in `card_amount`. Always zero before sign-in. */
             debt_withheld: string;
-            /** @description What the promo code takes off, decimal string, in `currency`: `price` less `amount`. Zero without a code, or with one that doesn't lower the price. */
+            /** @description What the promo code takes off, decimal string, in `currency`: `price` less `amount`. A code on the card's price lowers the price; a code on top-ups, for a way of paying with its fee in the exchange rate, lowers the rate. Zero without a code, or with one that doesn't lower the amount. */
             discount: string;
             /** @description True when the amount can still change after sign-in, because the promo code has a condition that is only checked for a signed-in person (`promo_code.status` is `conditional`). Show the amount as provisional. */
             preliminary: boolean;
             /** @description What the same order costs without the promo code, decimal string, in `currency`. */
             price: string;
             promo_code?: null | components["schemas"]["PromoCodeQuote"];
+            rate?: null | components["schemas"]["OrderRate"];
         };
         /**
          * @description A card order to price: the product, how it is paid and the promo code.
@@ -10218,6 +10219,7 @@ export type components = {
             debt_withheld: string;
             /** @description The top-up that issues the card. With `status: redirect_required`, send the user to `redirect_url`; the card is issued once the payment is confirmed. */
             deposit: Record<string, never>;
+            rate?: null | components["schemas"]["OrderRate"];
         };
         /** @description A card the user can issue. */
         CardProductView: {
@@ -14546,6 +14548,28 @@ export type components = {
         OrderBody: {
             /** @description Product ids in the order buyers should see them, first to last. Products left out keep their relative order after the listed ones. */
             ids: string[];
+        };
+        /** @description The exchange rate of a card order. */
+        OrderRate: {
+            /**
+             * @description The rate the person gets, the fee included: units of `card_currency` per 1 unit of `currency`. Show this one.
+             * @example 0.01050420
+             */
+            effective_rate: string;
+            /**
+             * Format: int64
+             * @description The fee in basis points (1900 = 19 %), as the order was priced.
+             */
+            fee_bps: number;
+            /** @description How the fee is taken: `markup` (in the rate), `spread` (off what the payment brings) or `commission` (charged separately; `effective_rate` is then the rate before it). */
+            fee_kind: string;
+            /**
+             * Format: int64
+             * @description When the person's plan or a promo code lowered the fee in the rate: the fee before that, in basis points. `fee_bps` is the fee they pay.
+             */
+            list_fee_bps?: number | null;
+            /** @description The promo code the rate was priced with. */
+            promo_code?: string | null;
         };
         /** @description A card issued by this organization. */
         OrgCardView: {
@@ -32642,7 +32666,7 @@ export interface operations {
                     "application/json": components["schemas"]["CardOrderView"];
                 };
             };
-            /** @description Unknown product, a way of paying no funding connector takes for cards, or the amount outside the method's limits */
+            /** @description Unknown product, a way of paying no funding connector takes for cards, or the amount outside the method's limits. `promo_code_*`: the promo code can't be used with this order, and the message says why. `promo_code_below_minimum`: the money that goes onto the card is below the code's minimum; the card's price doesn't count towards it */
             400: {
                 headers: {
                     [name: string]: unknown;

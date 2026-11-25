@@ -441,7 +441,15 @@ export interface CardOrderInput {
   currency?: string;
   /** Money to put on the card on top of its price, decimal string in the card's currency. Sent as `extra_load`. */
   extraLoad?: string;
-  /** A promo code for the payment. Sent as `promo_code`. */
+  /**
+   * A promo code for the order. A code for cards lowers the card's price.
+   * A code for top-ups lowers the fee on the payment: for a way of paying
+   * with its fee in the exchange rate it lowers the rate, and the amount
+   * with it (see `rate` of the order and of the quote). A minimum amount of
+   * such a code is checked against the money that goes onto the card, not
+   * against the card's price; below it the order is refused with
+   * `promo_code_below_minimum` and a sentence to show. Sent as `promo_code`.
+   */
   promoCode?: string;
   /** Pay part of the price with bonuses; on by default. Sent as `use_bonus`. */
   useBonus?: boolean;
@@ -516,14 +524,37 @@ export interface PromoCodeQuote {
   message: string | null;
   /**
    * The discount and what it comes off: `card_issuance` (the card's price,
-   * in `discount` of the quote) or `funding_commission` (the payment's
-   * commission: the amount stays the same and more goes onto the card).
+   * in `discount` of the quote) or `funding_commission` (the fee on the
+   * payment). A fee in the exchange rate gets lower and the amount with it,
+   * so it is in `discount` of the quote too; a separate commission gets
+   * lower while the amount stays the same, and more goes onto the card.
    */
   discount: CodeDiscount | null;
   /** What else the code gives, once the card is issued. */
   effects: CodeEffect[];
   /** The code the user signed up with, applied without being typed. */
   from_sign_up: boolean;
+}
+
+/**
+ * The exchange rate a card order was priced at, when the payment is in
+ * another currency than the card's.
+ */
+export interface CardOrderRate {
+  /**
+   * The rate the user gets, the fee included: units of `card_currency` per
+   * 1 unit of `currency`, decimal string. Show this one; `1 / effective_rate`
+   * is the price of one unit of the card's currency.
+   */
+  effective_rate: string;
+  /** The fee in basis points (1900 = 19 %), as the order was priced. */
+  fee_bps: number;
+  /** `markup` (the fee is in the rate), `spread` or `commission`. */
+  fee_kind: string;
+  /** When the user's plan or a promo code lowered the fee in the rate: the fee before that. */
+  list_fee_bps?: number | null;
+  /** The promo code the rate was priced with. */
+  promo_code?: string | null;
 }
 
 /** What a card order would cost now, from {@link CardsResource.quote} or {@link CardsResource.quotePublic}. */
@@ -547,6 +578,12 @@ export interface CardOrderQuote {
   preliminary: boolean;
   /** Null when no code was typed and none applies by itself. */
   promo_code: PromoCodeQuote | null;
+  /**
+   * The rate the amount was worked out at, with the promo code's share
+   * taken off the fee. Null when the payment is in the card's currency;
+   * older platforms leave it out.
+   */
+  rate?: CardOrderRate | null;
 }
 
 /** What {@link CardsResource.order} returns: the top-up to pay and its price. */
@@ -565,6 +602,11 @@ export interface CardOrder {
    * it before the payment. Older platforms leave it out.
    */
   debt_withheld?: string;
+  /**
+   * The rate the order was priced at. Null when the payment is in the
+   * card's currency; older platforms leave it out.
+   */
+  rate?: CardOrderRate | null;
 }
 
 /** Why a card ordered with the sign-up was not placed. The account exists all the same. */

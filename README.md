@@ -358,6 +358,22 @@ if (q.preliminary) {
 A quote reserves nothing. Drop a `rejected` code from the order: an order
 that keeps it is refused.
 
+A promo code for top-ups works on an order too. Where the way of paying has
+its fee in the exchange rate (SBP usually does), the code lowers that fee,
+after the user's plan, and the amount to pay gets smaller:
+
+```ts
+// q.rate.fee_bps 1900, q.rate.list_fee_bps 2000, q.rate.promo_code "FRIENDS"
+const perUnit = 1 / Number(q.rate!.effective_rate); // roubles per unit of the card's currency
+```
+
+`rate` is null when the payment is in the card's currency. Show the rate from
+`rate.effective_rate` and don't work it out from the method's fee. The order
+answers with the same `rate`. If such a code has a minimum amount, it is
+compared with the money that goes onto the card, not with the card's price:
+below it the quote comes back with the code `rejected`
+(`reason: "below_minimum"`) and a `message` with both figures to show.
+
 Send the amount the user saw with the order. If the order comes to something
 else (the code was for first cards only and this user has one, or the rate
 moved), no payment is opened and the new quote comes back:
