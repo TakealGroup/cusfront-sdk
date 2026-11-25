@@ -4,6 +4,24 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.5] — 2026-11-25
+
+### Added
+
+- A card order takes a promo code for top-ups. Where the way of paying has its
+  fee in the exchange rate (SBP usually does), the code lowers that fee, after
+  the user's plan. `CardOrder.rate` and `CardOrderQuote.rate` (type
+  `CardOrderRate`) say what the order was priced with: `effective_rate`,
+  `fee_bps`, `list_fee_bps`, `fee_kind` and `promo_code`. `rate` is `null` when
+  the payment is in the card's currency. A code whose minimum is above the
+  money that goes onto the card comes back `rejected` with
+  `reason: "below_minimum"` and a `message` to show. Needs platform 0.8.5;
+  older platforms leave `rate` out.
+
+### Changed
+
+- Types regenerated from platform 0.8.5.
+
 ## [0.8.4] — 2026-11-25
 
 ### Added

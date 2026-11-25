@@ -1833,8 +1833,10 @@ export type paths = {
         /**
          * Get a card connector's provider balances
          * @description Returns the balances of the accounts the platform holds with the card
-         *     provider. Empty for providers that have no account balance concept.
-         *     Operator-only.
+         *     provider: what is available on each and, where the provider reports it,
+         *     what is on its way. Empty for providers that have no account balance
+         *     concept. The provider is asked at most once every 15 seconds per
+         *     connector, so the numbers can be up to 15 seconds old. Operator-only.
          */
         get: operations["connector_balances"];
         put?: never;
@@ -3472,6 +3474,69 @@ export type paths = {
          *     `GET /admin/me`.
          */
         patch: operations["update_my_profile"];
+        trace?: never;
+    };
+    "/v1/admin/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your console settings
+         * @description Everything you have saved for the console's look: the home page layout
+         *     (`dashboard.home`), the menu (`nav`) and the bottom ticker
+         *     (`ticker.bottom`). A setting you never saved is not in the list; the
+         *     console uses its default for it.
+         */
+        get: operations["list_preferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/me/preferences/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One console setting
+         * @description The saved setting and its `revision`. Send that revision back when you
+         *     save it.
+         */
+        get: operations["get_preference"];
+        /**
+         * Save a console setting
+         * @description Replaces the whole setting. Send the `revision` you started from, or `0`
+         *     when nothing was saved yet. If the setting changed since then, in
+         *     another tab or on another device, nothing is saved and the answer is 409
+         *     `revision_conflict` with the saved version in `current`: show it and let
+         *     the person pick one, then save again with its revision.
+         *
+         *     The setting is a JSON object with a `schema` number, at most 64 KB. For
+         *     `dashboard.home`, `items` holds at most 60 widgets, each with whole
+         *     numbers `x`, `y`, `w` and `h` that keep it inside the 12 columns of the
+         *     grid. For `nav`, `hidden` and `folded` are lists of strings; for
+         *     `ticker.bottom`, so is `items`.
+         */
+        put: operations["put_preference"];
+        post?: never;
+        /**
+         * Reset a console setting
+         * @description Drops the saved setting, so the console goes back to its default. Fine
+         *     to call when nothing is saved.
+         */
+        delete: operations["delete_preference"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/admin/merchants": {
@@ -5163,6 +5228,27 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/support/panel/sign-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign out of the support panel
+         * @description Ends the panel session the token belongs to. Only a panel token is
+         *     accepted here; a the operator console session is ended in the operator console.
+         */
+        post: operations["sign_out"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/support/profile": {
         parameters: {
             query?: never;
@@ -5174,7 +5260,8 @@ export type paths = {
          * Look up a support contact
          * @description For the operator panel inside the support platform: the account behind a
          *     contact, found by its identifier (our user id, or the id of a Telegram
-         *     conversation with no account) or by e-mail. Read-only. Every look is
+         *     conversation with no account) or by e-mail. The identifier is tried
+         *     first. Read-only: cards show their last four digits only. Every look is
          *     written to the audit log under the operator's name.
          */
         get: operations["profile"];
@@ -9315,12 +9402,21 @@ export type components = {
             /** @description Account id on the provider's side. */
             account: string;
             /**
-             * @description Current balance, decimal string.
+             * @description Available balance, decimal string.
              * @example 168.30
              */
             amount: string;
             /** @description ISO 4217 code. */
             currency: string;
+            /**
+             * @description Money on its way on this account, decimal string in `currency`: the
+             *     provider has taken it out of the available balance and it has not
+             *     arrived yet, for example a card load still being processed. Not
+             *     included in `amount`. The field is left out when the provider does
+             *     not report such a sum, so a missing `held` does not mean zero.
+             * @example 25.00
+             */
+            held?: string | null;
             /** @description Human-readable account name. */
             label: string;
         };
@@ -9819,14 +9915,14 @@ export type components = {
             external_id?: string | null;
             /**
              * Format: int64
-             * @description Users whose first or last touch before sign-up carried this code.
+             * @description People whose first or last visit before sign-up led to this campaign, each counted once.
              */
             signups: number;
             /** @description The spend source the campaign belongs to; null until it has one. */
             source?: string | null;
             /**
              * Format: int64
-             * @description Visits recorded with this code.
+             * @description Visits that led to this campaign: through a link with its code, or an ad click whose link carried the campaign's id in its source's ad account.
              */
             touches: number;
         };
@@ -10489,6 +10585,12 @@ export type components = {
             merchant_mcc?: string | null;
             /** @description Merchant name as reported by the card network. */
             merchant_name?: string | null;
+            /**
+             * @description The merchant's id as the card provider reports it, when it reports
+             *     one. This is the value a line starting with `id:` in the risk rule on
+             *     listed merchants is compared with.
+             */
+            merchant_ref?: string | null;
             /**
              * Format: date-time
              * @description Cleared time if available, else authorised time. Used for ordering.
@@ -14864,6 +14966,13 @@ export type components = {
             deposits: components["schemas"]["PanelDeposit"][];
             /** @description The account's address; empty while it is a Telegram placeholder. */
             email: string;
+            /**
+             * @description What the contact was matched by: `identifier` (the user's id),
+             *     `conversation` (a conversation that has since been linked to this
+             *     account) or `email`. An e-mail match says only that the contact
+             *     carries the account's address, not that its owner is the one writing.
+             */
+            found_by: string;
             /** Format: uuid */
             id: string;
             locale?: string | null;
@@ -15397,6 +15506,27 @@ export type components = {
             SuppressSending?: boolean | null;
             SuppressionReason?: string | null;
         };
+        /** @description One stored setting. */
+        Preference: {
+            /**
+             * @description `dashboard.home`, `nav` or `ticker.bottom`.
+             * @example nav
+             */
+            key: string;
+            /**
+             * Format: int64
+             * @description Grows by one on every save. Send it back with the next save.
+             * @example 3
+             */
+            revision: number;
+            /**
+             * Format: date-time
+             * @description When it was last saved.
+             */
+            updated_at: string;
+            /** @description The setting itself, as the console saved it. Always an object with a `schema` number. */
+            value: Record<string, never>;
+        };
         PreferencesBody: {
             /** @description Replaces the switches. `security` and `money` keep at least one outward channel whatever is sent. */
             categories?: Record<string, never> | null;
@@ -15828,6 +15958,17 @@ export type components = {
             variables: {
                 [key: string]: string;
             };
+        };
+        /** @description A save on `PUT /admin/me/preferences/{key}`. */
+        PutPreferenceBody: {
+            /**
+             * Format: int64
+             * @description The revision you started editing from: the one `GET` gave you, or `0` (or leave it out) when nothing was saved yet.
+             * @example 3
+             */
+            revision?: number;
+            /** @description The whole setting. An object with a positive whole `schema` number, at most 64 KB as compact JSON. */
+            value: Record<string, never>;
         };
         PutPricingBody: {
             /** @description Card type the price applies to: `credit`, `prepaid` or `gift`. */
@@ -16452,6 +16593,17 @@ export type components = {
              *     is true.
              */
             value?: string | null;
+        };
+        /** @description The answer to a save from a stale revision. */
+        RevisionConflict: {
+            /**
+             * @description Always `revision_conflict`.
+             * @example revision_conflict
+             */
+            code: string;
+            current?: null | components["schemas"]["Preference"];
+            /** @description What happened, in words. */
+            message: string;
         };
         /**
          * @description The invited person's event a referrer is rewarded for.
@@ -26104,6 +26256,188 @@ export interface operations {
             };
         };
     };
+    list_preferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preference"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The account can't open the console */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_preference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description `dashboard.home`, `nav` or `ticker.bottom` */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preference"];
+                };
+            };
+            /** @description Unknown setting (`validation`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The account can't open the console */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Nothing saved yet; use the default (`not_found`) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    put_preference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description `dashboard.home`, `nav` or `ticker.bottom` */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutPreferenceBody"];
+            };
+        };
+        responses: {
+            /** @description Saved, with the new revision */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preference"];
+                };
+            };
+            /** @description Unknown setting, or the setting has the wrong shape or is too big (`validation`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The account can't open the console */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `revision_conflict`: the setting changed since your revision; nothing was saved */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevisionConflict"];
+                };
+            };
+        };
+    };
+    delete_preference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description `dashboard.home`, `nav` or `ticker.bottom` */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reset */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown setting (`validation`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The account can't open the console */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_merchants: {
         parameters: {
             query?: never;
@@ -29712,6 +30046,31 @@ export interface operations {
             };
             /** @description No such tier */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    sign_out: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The panel session is over */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a live panel session */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
