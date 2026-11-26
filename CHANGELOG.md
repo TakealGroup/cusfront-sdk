@@ -4,6 +4,33 @@ All notable changes to `@takeal/cusfront-sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-11-26
+
+### Added
+
+- Session recording on public pages. With `posthog.sessionRecording: true`
+  PostHog now records the site too, and a visit from the home page through
+  sign-up into the cabinet is one recording. On public pages every input is
+  masked and the page text is kept; in the cabinet and the Mini App all text
+  and every input stay masked. A zone change switches the masking without
+  stopping the recording. If the SDK can't tell which zone the page is in, it
+  masks everything.
+- `ZONE_ATTRIBUTE` (`data-analytics-zone`): put it on the cabinet layout's
+  root and text inside it is masked from the first render, even if
+  `setAnalyticsZone` comes late. `MASK_TEXT_CLASS` (`ph-mask`) masks an
+  element's text on every page, for a header that shows the user's e-mail or
+  balance.
+- `setAnalyticsConsent(granted)`: a refusal in an open tab stops the
+  recording, opts PostHog out and silences Metrica; agreeing again resumes
+  them. `initAnalytics({ consent: false })` loads nothing until then.
+
+### Changed
+
+- Call `setAnalyticsZone("cabinet")` before the cabinet renders. Text the
+  recorder already saw on a public page stays readable in the recording, so
+  mark anything personal that stays on screen across the move with
+  `ph-mask` or `ph-no-capture`.
+
 ## [0.8.5] — 2026-11-25
 
 ### Added
