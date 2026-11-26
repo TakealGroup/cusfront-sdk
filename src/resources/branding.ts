@@ -29,6 +29,12 @@ export interface Branding {
   secondary_color: string;
   /** Accent colour as `#rrggbb`. Empty → client default palette. */
   accent_color: string;
+  /**
+   * Address of the deployment's public status page, when it has one. Show a
+   * "Status" link only when this is set. Platforms before 0.9.0 don't send
+   * the field.
+   */
+  status_url?: string | null;
 }
 
 export class BrandingResource {

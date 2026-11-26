@@ -17,7 +17,8 @@ export type paths = {
         /**
          * Get the public brand configuration
          * @description No authentication needed; clients call this before login to render the
-         *     platform name, logo, favicon, wallet label and brand colours.
+         *     platform name, logo, favicon, wallet label and brand colours, and a link
+         *     to the status page when the deployment has one.
          */
         get: operations["get_branding"];
         put?: never;
@@ -103,6 +104,28 @@ export type paths = {
          *     needed. Signed-in console accounts get more detail about each check.
          */
         get: operations["ready"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/api-tokens/{id}/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What an API token did
+         * @description The calls any operator's token made in the last 90 days, newest first,
+         *     the same list its owner sees. For looking into what a script or an agent
+         *     did with somebody's token.
+         */
+        get: operations["token_calls"];
         put?: never;
         post?: never;
         delete?: never;
@@ -548,6 +571,8 @@ export type paths = {
          *     in its currency; a fee paid with a top-up goes back with the rest. A
          *     basis changed after money went back pays the difference the same way;
          *     what already went back is never taken back. Audited.
+         *
+         *     Takes a person signed in to the console; an API token gets 403 `person_required`.
          */
         patch: operations["set_card_close_basis"];
         trace?: never;
@@ -590,6 +615,8 @@ export type paths = {
          *     identity was checked. Until this is recorded, the money stays owed to
          *     the holder on the books and the request's deadline runs. A payout that
          *     covers everything due finishes the request. The holder is told. Audited.
+         *
+         *     Takes a person signed in to the console; an API token gets 403 `person_required`.
          */
         post: operations["record_card_close_payout"];
         delete?: never;
@@ -612,6 +639,8 @@ export type paths = {
          * @description Sends whatever is due and not on its way yet, at once rather than at the
          *     next pass of the watch: after the official rate or a connector was
          *     unavailable, for instance. Changes nothing when nothing is due. Audited.
+         *
+         *     Takes a person signed in to the console; an API token gets 403 `person_required`.
          */
         post: operations["retry_card_close_request"];
         delete?: never;
@@ -1111,7 +1140,8 @@ export type paths = {
          *     issuer and leaves the books alone; `books` posts the movement on the
          *     platform's books and leaves the issuer alone. The other side is never
          *     touched, so the gap closes instead of moving. A reason is required and
-         *     audited. The next reconciliation reading confirms the result.
+         *     audited. The next reconciliation reading confirms the result. Takes a
+         *     person signed in to the console; an API token gets 403 `person_required`.
          */
         post: operations["adjust_card"];
         delete?: never;
@@ -1157,7 +1187,11 @@ export type paths = {
          * @description Reduces the card's limit by `amount`, the reverse of a reload. Only works
          *     on shared-funding cards, where the provider decides; other cards return
          *     501. No wallet balance changes, since shared cards spend from the
-         *     provider's pooled funds. Audited.
+         *     provider's pooled funds. A repeat call with the same `idempotency_key`
+         *     does not debit twice. Audited.
+         *
+         *     Called with an API token, the debit counts against the token's limits for
+         *     refunds and transfers.
          */
         post: operations["debit_card"];
         delete?: never;
@@ -1316,7 +1350,8 @@ export type paths = {
          * Reconcile an orphaned card
          * @description Resolves a card that failed on our side but exists at the provider. `close`
          *     terminates it at the provider; `adopt` charges the user for the load that
-         *     was never taken and activates the card. Audited.
+         *     was never taken and activates the card. Audited. Takes a person signed in
+         *     to the console; an API token gets 403 `person_required`.
          */
         post: operations["reconcile_card"];
         delete?: never;
@@ -1413,7 +1448,11 @@ export type paths = {
          * Reload a prepaid card
          * @description Adds funds to an active prepaid card. Many providers do not support direct
          *     reloads and return 501. The amount must be positive and in the card's
-         *     currency. Audited.
+         *     currency. A repeat call with the same `reload_id` does not reload twice.
+         *     Audited.
+         *
+         *     Called with an API token, the reload counts against the token's credit
+         *     limits.
          */
         post: operations["reload_card"];
         delete?: never;
@@ -2195,7 +2234,7 @@ export type paths = {
          * List deposits
          * @description Top-ups across all users, newest first, with the user's email and, for a
          *     top-up onto a card, the card and how far its load got. Filter by
-         *     `card_load_status=failed` to find the ones waiting for an operator.
+         *     `failed_task=true` to find the failed loads still waiting for an operator.
          */
         get: operations["list_deposits"];
         put?: never;
@@ -2283,6 +2322,12 @@ export type paths = {
          *     the bonuses held for its price go back; bonuses credited for the top-up
          *     are taken back. The money waits on the card's transit account until the
          *     connector confirms; if it refuses, the load is `stalled` again.
+         *
+         *     Called with an API token, the refund also has to fit the token's limits
+         *     for refunds and transfers. It is counted at the most it can be (the
+         *     amount asked, or what goes back with the whole payment) until the
+         *     provider answers, then at what went back; a refund the provider refused
+         *     is not counted. A retry with the same key is not counted twice.
          */
         post: operations["refund_deposit"];
         delete?: never;
@@ -2342,6 +2387,9 @@ export type paths = {
          *     wallet, written off or sent back to the payer. If it fails
          *     again the deposit stays `failed` and the money keeps waiting: at that
          *     point the case needs a person.
+         *
+         *     Called with an API token, the load counts against the token's limits for
+         *     refunds and transfers; an attempt that failed is not counted.
          */
         post: operations["retry_card_load"];
         delete?: never;
@@ -2776,6 +2824,113 @@ export type paths = {
          *     Audited.
          */
         post: operations["retry_connector_event"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/failed-tasks/deletions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete failed tasks for good
+         * @description Removes the tasks from the database, dismissed or not, once their last
+         *     attempt is more than seven days old. Only for kinds where the record is
+         *     the task itself: `notification`, `webhook`, `connector_event`,
+         *     `announcement` and `holder_mail`. Top-ups, cards, compensations, held mail
+         *     and messages to support are kept; dismiss those instead.
+         *
+         *     All or nothing: if one task doesn't exist, isn't a failed one or is too
+         *     recent, nothing is deleted and the error names it. Each deletion is
+         *     audited with a short description of what was deleted.
+         */
+        post: operations["delete_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/failed-tasks/deletions/stale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete every failed task older than seven days
+         * @description Deletes for good every task of the kind whose last attempt is more than
+         *     seven days old, dismissed ones included, up to 1000 per request; the
+         *     answer says how many are left. With `dry_run` it only counts them. Same
+         *     kinds as deleting one by one. Each deletion is audited.
+         */
+        post: operations["delete_stale_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/failed-tasks/dismissals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List dismissed tasks
+         * @description Tasks of one kind that someone dismissed, with the note, who and when,
+         *     the latest dismissal first. Each one can be brought back.
+         */
+        get: operations["list_dismissed_handler"];
+        put?: never;
+        /**
+         * Dismiss failed tasks
+         * @description The tasks leave their list and the counters, and nothing retries them
+         *     any more, neither an operator nor the platform. The record stays: it is
+         *     listed under the dismissed ones with the note, and the dismissal can be
+         *     undone. Dismissing moves no money and settles nothing: where money stands
+         *     behind a task, it stays where it is and someone still has to deal with it,
+         *     so a note is required there.
+         *
+         *     All or nothing: if one task doesn't exist, isn't failed any more or is
+         *     already dismissed, nothing is dismissed and the error names it. Each
+         *     dismissal is audited.
+         */
+        post: operations["dismiss_handler"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/failed-tasks/dismissals/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring dismissed tasks back
+         * @description Undoes the dismissal: a task that is still failed is back in its list and
+         *     its counter, and can be retried again. All or nothing: if one of them
+         *     isn't dismissed, nothing changes and the error names it. Audited.
+         */
+        post: operations["undo_handler"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3397,6 +3552,8 @@ export type paths = {
          * @description Spend between two days, thirty by default: entries made by hand that
          *     touch the range, and what each campaign of an ad account cost inside it,
          *     with totals per currency. Spend no campaign claims has a null campaign.
+         *     The days are in the time zone of the marketing reports, which the answer
+         *     names.
          */
         get: operations["list_spend"];
         put?: never;
@@ -3476,6 +3633,118 @@ export type paths = {
         patch: operations["update_my_profile"];
         trace?: never;
     };
+    "/v1/admin/me/api-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List your API tokens
+         * @description Every token you have issued, newest first, with what it may do, when it
+         *     expires and when it was last used. Revoked and expired tokens stay on the
+         *     list. A token's value is never part of the answer: it is shown once, when
+         *     the token is created.
+         */
+        get: operations["list_my_tokens"];
+        put?: never;
+        /**
+         * Create an API token
+         * @description Issues a token that acts as you with the permissions you list, for a
+         *     script or an agent. Send it as `Authorization: Bearer <token>` to the
+         *     operator API. On every call the token can do what is both on its list and
+         *     still in your role, so it never does more than you can, and a permission
+         *     taken from your role is gone from the token at once.
+         *
+         *     A token moves money only within its `limits`: per operation and per any
+         *     24 hours, separately for refunds and transfers and for credits, in the
+         *     currency the options name. A limit of zero keeps the token from money of
+         *     that kind, whatever its permissions. A limit is kept only when the token
+         *     has a permission of its kind, and none may be above this installation's
+         *     ceilings. If the ceilings are lowered later, the lower number binds the
+         *     token too.
+         *
+         *     The token's value is in this response and nowhere else. If it is lost,
+         *     revoke the token and create a new one. Creating a token needs the current
+         *     code from your authenticator app. Audited.
+         */
+        post: operations["create_my_token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/me/api-tokens/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a new API token can carry
+         * @description The permissions you can put into a token, the ones you hold that no token
+         *     may carry and why, how long a token can live and how many calls a minute
+         *     it may make, and under `money` the currency, suggested numbers and
+         *     ceilings of its money limits with the permissions each kind of limit is
+         *     for. A console builds the form for a new token from this.
+         */
+        get: operations["token_options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/me/api-tokens/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke one of your API tokens
+         * @description The token stops working with its next call and stays on your list as
+         *     revoked. Revoking a token that is already revoked changes nothing.
+         *     Audited.
+         */
+        delete: operations["revoke_my_token"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/me/api-tokens/{id}/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What your API token did
+         * @description Every call made with one of your tokens in the last 90 days, newest
+         *     first: when, which endpoint or agent tool, what it was asked with, how it
+         *     went and how long it took. Reads are here too. Passwords, codes, keys,
+         *     card numbers and message texts are cut out of the parameters.
+         */
+        get: operations["my_token_calls"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/me/preferences": {
         parameters: {
             query?: never;
@@ -3486,8 +3755,8 @@ export type paths = {
         /**
          * Your console settings
          * @description Everything you have saved for the console's look: the home page layout
-         *     (`dashboard.home`), the menu (`nav`) and the bottom ticker
-         *     (`ticker.bottom`). A setting you never saved is not in the list; the
+         *     (`dashboard.home`), the menu (`nav`), the bottom ticker
+         *     (`ticker.bottom`) and the time zone times are shown in (`time`). A setting you never saved is not in the list; the
          *     console uses its default for it.
          */
         get: operations["list_preferences"];
@@ -3524,7 +3793,8 @@ export type paths = {
          *     `dashboard.home`, `items` holds at most 60 widgets, each with whole
          *     numbers `x`, `y`, `w` and `h` that keep it inside the 12 columns of the
          *     grid. For `nav`, `hidden` and `folded` are lists of strings; for
-         *     `ticker.bottom`, so is `items`.
+         *     `ticker.bottom`, so is `items`. For `time`, `zone` is a time zone name
+         *     such as `Europe/Berlin`, or `device` to follow the device's own zone.
          */
         put: operations["put_preference"];
         post?: never;
@@ -4397,7 +4667,13 @@ export type paths = {
         /**
          * Top up an organization's prepaid balance
          * @description Credits the organization's prepaid balance by hand, for money received
-         *     outside the platform. Returns the organization with the new balance. Audited.
+         *     outside the platform. Returns the organization with the new balance.
+         *     Audited.
+         *
+         *     The `Idempotency-Key` header is required: the same key with the same
+         *     body credits nothing again and answers with the organization as it is,
+         *     the same key with another body is a 409. Called with an API token, the
+         *     top-up also has to fit the token's credit limits.
          */
         post: operations["topup"];
         delete?: never;
@@ -5342,6 +5618,48 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/users/{id}/api-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a user's API tokens
+         * @description The API tokens an operator has issued, newest first, the same way the
+         *     operator sees them. The values of the tokens are not part of the answer.
+         */
+        get: operations["list_user_tokens"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/api-tokens/{token_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a user's API token
+         * @description Stops one of an operator's tokens, for when the operator can't do it
+         *     themself. It stops working with its next call. Audited under your name.
+         */
+        delete: operations["revoke_user_token"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/users/{id}/attribution": {
         parameters: {
             query?: never;
@@ -5397,6 +5715,14 @@ export type paths = {
          * @description Credits or debits the user's wallet directly, bypassing risk checks. A
          *     positive amount credits, a negative one debits. The note is required and
          *     goes into the audit log. Use this only to correct mistakes.
+         *
+         *     The `Idempotency-Key` header is required: the same key with the same
+         *     body answers as the first time and moves nothing again, the same key with
+         *     another body is a 409. Send a new key for each adjustment you mean.
+         *
+         *     Called with an API token, the adjustment also has to fit the token's
+         *     money limits: a credit counts against its credit limits, a debit against
+         *     its limits for refunds and transfers.
          */
         post: operations["adjust_balance"];
         delete?: never;
@@ -5462,6 +5788,11 @@ export type paths = {
          *     negative one takes bonuses back, from the credits the spend order would
          *     use first. The note is required and goes into the audit log. A credit
          *     also sends the user a `bonus_credited` notification.
+         *
+         *     Called with an API token, `request_id` is required and the change also
+         *     has to fit the token's money limits, one bonus counting as one unit of
+         *     the bonus currency: a credit counts against its credit limits, taking
+         *     bonuses back against its limits for refunds and transfers.
          */
         post: operations["admin_bonus_adjust"];
         delete?: never;
@@ -5548,7 +5879,10 @@ export type paths = {
          * @description Takes money off one of the user's cards at the issuer and pays the debt
          *     in the card's currency with it, oldest debt first. The user is told. The
          *     same `idempotency_key` repeats nothing, so a request that timed out can
-         *     be sent again as it was.
+         *     be sent again as it was. The same key with a different body is refused.
+         *
+         *     Called with an API token, the payment also has to fit the token's
+         *     limits for refunds and transfers.
          */
         post: operations["admin_settle_debt"];
         delete?: never;
@@ -5964,6 +6298,8 @@ export type paths = {
          *     currency at the current rate plus spread. The conversion is atomic and
          *     audited, and a repeat call for the same balance does not convert twice.
          *     If no rate is available the migration is refused rather than estimated.
+         *     Takes a person signed in to the console; an API token gets 403
+         *     `person_required`.
          */
         post: operations["migrate_wallet_balance"];
         delete?: never;
@@ -8914,6 +9250,7 @@ export type components = {
             /** @description Why the adjustment is made, at least 3 characters. Stored in the audit log. */
             note: string;
         };
+        /** @description What a manual balance adjustment did. */
         AdjustBalanceResult: {
             /** @description Amount applied, decimal string, signed as in the request. */
             amount: string;
@@ -9273,6 +9610,75 @@ export type components = {
             /** @description `active` or `revoked`. */
             status: string;
         };
+        /** @description What the form for a new token needs to know. */
+        ApiTokenOptions: {
+            /**
+             * Format: int64
+             * @description Calls a token may make in a minute.
+             * @example 60
+             */
+            calls_per_minute: number;
+            /** @description Whether your tokens can connect an agent to this installation's MCP server. */
+            can_connect_agents: boolean;
+            /**
+             * Format: int64
+             * @description Days a token works when none are named.
+             * @example 30
+             */
+            default_days: number;
+            /** @description Permissions your role has that no token may carry. */
+            forbidden: components["schemas"]["ForbiddenPermission"][];
+            /** @description The permissions you can put into a token: the ones your role has, minus the forbidden ones. */
+            grantable: string[];
+            /**
+             * Format: int64
+             * @description The longest a token can work, in days.
+             * @example 90
+             */
+            max_days: number;
+            /** @description What the form needs for the token's money limits. */
+            money: components["schemas"]["MoneyOptions"];
+        };
+        /**
+         * @description An API token as it is listed. The token's value is not here and cannot be
+         *     read back from anywhere.
+         */
+        ApiTokenView: {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: date-time
+             * @description When it last made a call, to the minute. Empty until the first call.
+             */
+            last_used_at?: string | null;
+            /** @description The token's money ceilings. All zero means it moves no money. */
+            limits: components["schemas"]["TokenLimits"];
+            /**
+             * @description The name its owner gave it.
+             * @example Nightly report
+             */
+            name: string;
+            /** @description The permissions the token was issued with. */
+            permissions: string[];
+            /**
+             * @description How the token starts, enough to tell two tokens apart.
+             * @example tkl_op_1a2b3c4d5e6f
+             */
+            prefix: string;
+            /** Format: date-time */
+            revoked_at?: string | null;
+            /**
+             * @description `active`, `expired` or `revoked`.
+             * @example active
+             */
+            status: string;
+            /** @description The ones of them that work right now. A permission the owner's role no longer has is missing here. */
+            usable_permissions: string[];
+        };
         AssignAcquirerBody: {
             /** @description Slug of a registered payment connector. */
             connector_slug: string;
@@ -9563,7 +9969,7 @@ export type components = {
             note: string;
             /**
              * Format: uuid
-             * @description Makes a retried request land once: send the same value to repeat a click safely. A new one is made up when it is left out.
+             * @description Makes a retried request land once: send the same value to repeat a click safely, and a new one for each change you mean. The same value with another body is a 409. A new one is made up when it is left out; an API token must send it.
              */
             request_id?: string | null;
         };
@@ -9661,6 +10067,8 @@ export type components = {
             primary_color: string;
             /** @description Secondary brand colour as `#rrggbb`. Empty means the client uses its bundled palette. */
             secondary_color: string;
+            /** @description The deployment's status page, e.g. `https://status.example`, for a "Status" link. Null when there is none. */
+            status_url?: string | null;
             /** @description Display name for the end user's balance, e.g. "Wallet" or "Acme Wallet". Display only; JSON field names never change. Default "Wallet". */
             wallet_label: string;
         };
@@ -10507,6 +10915,9 @@ export type components = {
              *     than the platform waits; the money is held on the card's transit
              *     account for an operator), `returned` (an operator sent a stalled
              *     top-up back to the wallet) or `written_off` (an operator gave it up).
+             *     Inside the platform a row is also `created` (the wallet has not paid
+             *     yet) or `settling` (one settlement is posting its money); both read
+             *     `pending` from outside.
              */
             status: string;
             /** Format: date-time */
@@ -11319,6 +11730,41 @@ export type components = {
             /** @description Whether this changed the stored choice; the same answer twice records nothing. */
             recorded: boolean;
         };
+        Count: {
+            /**
+             * Format: int64
+             * @description How many tasks the request changed.
+             */
+            count: number;
+        };
+        /** @description What a new token is made from. */
+        CreateApiTokenBody: {
+            /**
+             * Format: int64
+             * @description How many days the token works, 1 to 90. 30 when left out.
+             * @example 30
+             */
+            expires_in_days?: number | null;
+            limits?: null | components["schemas"]["TokenLimits"];
+            /**
+             * @description A name to recognise the token by, one line of up to 80 characters.
+             * @example Nightly report
+             */
+            name: string;
+            /**
+             * @description The permissions to put into the token. Each must be one your role has, and none may be on the list `GET /admin/me/api-tokens/options` returns as `forbidden`.
+             * @example [
+             *       "users.read",
+             *       "cards.read"
+             *     ]
+             */
+            permissions: string[];
+            /**
+             * @description The current code from your authenticator app.
+             * @example 123456
+             */
+            totp_code: string;
+        };
         /**
          * @example {
          *       "currency": "USD",
@@ -11557,6 +12003,14 @@ export type components = {
             label: string;
             /** @description URL that will receive the events. */
             url: string;
+        };
+        /** @description A token that was just created. This is the only time its value is shown. */
+        CreatedApiToken: components["schemas"]["ApiTokenView"] & {
+            /**
+             * @description The token itself. Send it as `Authorization: Bearer <token>`. Save it now: it can't be shown again.
+             * @example tkl_op_1a2b3c4d5e6f_…
+             */
+            token: string;
         };
         /**
          * @example {
@@ -11863,6 +12317,11 @@ export type components = {
             attempts: number;
             /** @description `email`, `push`, `telegram`, `sms` or `inbox`. */
             channel?: string | null;
+            /**
+             * @description It was dismissed from Failed tasks. A dismissed notification is not
+             *     sent again until the dismissal is undone.
+             */
+            dismissed: boolean;
             /** @description Notification type, e.g. `card_created`. */
             event_type?: string | null;
             /** Format: date-time */
@@ -11893,7 +12352,7 @@ export type components = {
             items: components["schemas"]["DeadLetter"][];
             /**
              * Format: int64
-             * @description Rows nobody has retried yet, whatever `state` asked for.
+             * @description Rows nobody has retried or dismissed yet, whatever `state` asked for.
              */
             open: number;
             /**
@@ -12241,6 +12700,54 @@ export type components = {
             currency?: string | null;
             /** @description `percent` or `fixed`. */
             kind: string;
+        };
+        DismissBody: {
+            /** @description Ids of the tasks, as the list gives them. 1 to 200. */
+            ids: string[];
+            /** @description Which list the tasks are in. */
+            kind: components["schemas"]["TaskKind"];
+            /**
+             * @description Why they are no longer needed, up to 2000 characters. Required for
+             *     `card_load`, `orphan_card`, `card_drift`, `compensation` and
+             *     `connector_event`, where money may stand behind the task.
+             */
+            note?: string | null;
+        };
+        DismissedPage: {
+            items: components["schemas"]["DismissedTask"][];
+            /** Format: int64 */
+            total: number;
+        };
+        /** @description A dismissed task. */
+        DismissedTask: {
+            /** @description It may be deleted for good right now. */
+            deletable: boolean;
+            /** Format: date-time */
+            dismissed_at: string;
+            /** Format: uuid */
+            dismissed_by?: string | null;
+            dismissed_by_email?: string | null;
+            kind: components["schemas"]["TaskKind"];
+            /**
+             * Format: date-time
+             * @description When the task was last tried or last failed.
+             */
+            last_attempt_at?: string | null;
+            /** @description Why it is no longer needed. */
+            note?: string | null;
+            /**
+             * @description What the task was when it was dismissed. The fields depend on the
+             *     kind; nothing secret, no message bodies.
+             */
+            snapshot: Record<string, never>;
+            /**
+             * @description False when the task stopped failing after it was dismissed (an
+             *     operator dealt with it some other way, or a connector's resend went
+             *     through). Bringing it back then doesn't list it again.
+             */
+            still_failed: boolean;
+            /** Format: uuid */
+            task_id: string;
         };
         /** @description A document as staff see it in the console: every status, every level. */
         Document: {
@@ -12709,6 +13216,12 @@ export type components = {
             failed_at?: string | null;
             /** Format: uuid */
             id: string;
+            /**
+             * Format: date-time
+             * @description When it last came in, ran or failed: the seven days after which it
+             *     may be deleted count from here.
+             */
+            last_attempt_at: string;
             /** @description What the last run said. Empty when the run never reported back. */
             last_error?: string | null;
             /** @description Why not, when `retryable` is false. */
@@ -12739,6 +13252,12 @@ export type components = {
             /** Format: uuid */
             id: string;
             last_error: string;
+            /**
+             * Format: date-time
+             * @description The last failed attempt: the seven days after which it may be
+             *     deleted count from here.
+             */
+            last_failed_at: string;
             message_id?: string | null;
             subject?: string | null;
             /** Format: int64 */
@@ -12825,6 +13344,16 @@ export type components = {
             /** Format: int32 */
             position?: number | null;
             title?: string | null;
+        };
+        /** @description A permission that can't be put into a token, and why. */
+        ForbiddenPermission: {
+            /** @example settings.write */
+            permission: string;
+            /**
+             * @description `grants_access`: it hands out roles and permissions. `touches_secrets`: it reads or changes provider keys and connector credentials. `not_for_tokens`: it can't be undone and has no amount to cap (closing every card of a connector, sending to every subscriber, erasing a user), or it only straightens the books.
+             * @example touches_secrets
+             */
+            reason: string;
         };
         ForceSyncBody: {
             /** @description Optional note for the audit log. */
@@ -13470,6 +13999,11 @@ export type components = {
             window_days: number;
         };
         /**
+         * @description The two kinds of money operation a token's limits are counted in.
+         * @enum {string}
+         */
+        Kind: "transfer" | "credit";
+        /**
          * @description Whose fault a decline text is.
          * @example {
          *       "category": "user_fault",
@@ -13622,6 +14156,36 @@ export type components = {
         LifecycleReasonBody: {
             /** @description Free-text reason, kept in the audit log. */
             reason?: string | null;
+        };
+        /**
+         * @description A money operation refused because of the token's limits. Answers 403
+         *     with the usual `code` and `message` and says which limit fired and what
+         *     is left.
+         */
+        LimitRefusal: {
+            /**
+             * @description `token_limit_zero`, `token_limit_per_operation`, `token_limit_per_day` or `token_limit_no_rate`.
+             * @example token_limit_per_day
+             */
+            code: string;
+            /**
+             * @description The currency of `limit` and `remaining_today`.
+             * @example USD
+             */
+            currency: string;
+            /**
+             * @description The limit that fired: per operation for `token_limit_per_operation` and `token_limit_no_rate`, per day otherwise.
+             * @example 300
+             */
+            limit: string;
+            /** @description `transfer` or `credit`. */
+            limit_kind: components["schemas"]["Kind"];
+            message: string;
+            /**
+             * @description What is left of the day's limit.
+             * @example 20
+             */
+            remaining_today: string;
         };
         ListReport: {
             meta: components["schemas"]["ReportMeta"];
@@ -13866,6 +14430,16 @@ export type components = {
         MarkedCount: {
             /** Format: int64 */
             marked: number;
+        };
+        /** @description Where agents connect, for an account that may connect them. */
+        McpAccess: {
+            /** @description Whether the installation has agent connections switched on. */
+            enabled: boolean;
+            /**
+             * @description The address an agent connects to, when the installation knows its own public address. Otherwise it is the API address followed by `/mcp`.
+             * @example https://api.example.com/mcp
+             */
+            url?: string | null;
         };
         /**
          * @example {
@@ -14126,6 +14700,22 @@ export type components = {
         ModerationState: {
             moderation?: null | components["schemas"]["CardModeration"];
         };
+        /** @description The money side of the form for a new token. */
+        MoneyOptions: {
+            /** @description The most a token may be given. A token above them is refused. */
+            ceilings: components["schemas"]["TokenLimits"];
+            /** @description Ticking any of these shows the limits for credits: money is created at the user. */
+            credit_permissions: string[];
+            /**
+             * @description The currency of every limit, ISO 4217.
+             * @example USD
+             */
+            currency: string;
+            /** @description What the form suggests once a money permission is ticked. */
+            defaults: components["schemas"]["TokenLimits"];
+            /** @description Ticking any of these shows the limits for refunds and transfers: money that already exists moves. */
+            transfer_permissions: string[];
+        };
         /** @description An amount with its currency, as decimal string and ISO 4217 code. */
         MoneyView: {
             amount: string;
@@ -14133,16 +14723,33 @@ export type components = {
         };
         /** @description The signed-in operator's role and what it grants. */
         MyAccess: {
+            api_token?: null | components["schemas"]["MyApiToken"];
             email: string;
             /** @description Language picked for the console and notifications: `en`, `ru`, `de`, `es`, `fr`, `pt-BR` or `zh-Hans`. `null` means automatic, which follows the browser. */
             locale?: string | null;
+            mcp?: null | components["schemas"]["McpAccess"];
             /** @description Your name as you entered it, or `null` when you haven't given one. */
             name?: string | null;
-            /** @description Every permission key the role grants, `*` for all of them. Empty for an end-user account. */
+            /** @description Every permission key the role grants, `*` for all of them. Empty for an end-user account. When the call is made with an API token, this is what the token may do right now: the keys on its list that the role still has. */
             permissions: string[];
             /** @description Role name. */
             role: string;
             support?: null | components["schemas"]["SupportContacts"];
+        };
+        /** @description The API token a call was made with. */
+        MyApiToken: {
+            /**
+             * Format: date-time
+             * @description When it stops working.
+             */
+            expires_at: string;
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description The name its owner gave it.
+             * @example Nightly report
+             */
+            name: string;
         };
         MyAttribution: {
             /** @description The answer given, `skipped`, or null when not answered yet. */
@@ -14498,7 +15105,7 @@ export type components = {
             card_load_attempts: number;
             /** @description What the card provider answered when the load failed. */
             card_load_error?: string | null;
-            /** @description `pending`, `waiting` (the issuer accepted the load and has not done it), `stalled` (the issuer has had it too long; an operator decides), `succeeded`, `failed`, `refunding` (the payment is on its way back to the payer) or `refunded` (it went back); null for wallet top-ups. */
+            /** @description `pending`, `waiting` (the issuer accepted the load and has not done it), `stalled` (the issuer has had it too long; an operator decides), `succeeded`, `failed`, `refunding` (the payment is on its way back to the payer) or `refunded` (it went back); null for wallet top-ups and for card top-ups that were never paid. */
             card_load_status?: string | null;
             /**
              * Format: date-time
@@ -14516,6 +15123,8 @@ export type components = {
             card_refund_top_up?: string | null;
             /** @description What goes back with the whole payment, in the deposit's currency. */
             card_refund_whole?: string | null;
+            /** @description The card this top-up was for is no longer held for it: it was closed, went back to the stock, or went to another order or another person when the order expired unpaid. Its load can't be retried; the payment goes back to the payer whole, or the money goes to the person's wallet. */
+            card_released: boolean;
             /** @description The card's status, for a top-up onto a card. */
             card_status?: string | null;
             confirmed_amount?: string | null;
@@ -16406,6 +17015,8 @@ export type components = {
             metadata?: {
                 [key: string]: string;
             };
+            /** @description Why the card is reloaded, for the audit log. Kept here and never sent to the provider. */
+            note?: string | null;
             /**
              * Format: uuid
              * @description UUID chosen by the caller. A repeat call with the same id does not reload twice.
@@ -17085,6 +17696,12 @@ export type components = {
             /** Format: date */
             from: string;
             items: components["schemas"]["SpendItem"][];
+            /**
+             * @description The time zone the days are in: the marketing reports' own, an IANA
+             *     name such as `Europe/Berlin`.
+             * @example Europe/Berlin
+             */
+            timezone: string;
             /** Format: date */
             to: string;
             /** @description Days inside the range only, per currency. */
@@ -17128,6 +17745,26 @@ export type components = {
              * @description Null when nothing in scope says (clicks of spend entered by hand).
              */
             value?: number | null;
+        };
+        StaleBody: {
+            /** @description Only count what would be deleted. */
+            dry_run?: boolean;
+            /** @description Which list. */
+            kind: components["schemas"]["TaskKind"];
+        };
+        /** @description What a "delete everything older" request did. */
+        StaleOutcome: {
+            /**
+             * Format: int64
+             * @description Tasks deleted by this request. Zero on a dry run.
+             */
+            deleted: number;
+            /**
+             * Format: int64
+             * @description Tasks older than the limit still there: on a dry run, how many the
+             *     request would delete; otherwise the ones past this request's batch.
+             */
+            remaining: number;
         };
         StatBucket: {
             /**
@@ -17354,7 +17991,8 @@ export type components = {
             card_drift: number;
             /**
              * Format: int64
-             * @description Card top-ups whose money didn't reach the card.
+             * @description Card top-ups that were paid and didn't reach the card, and whose money
+             *     nobody has returned to the wallet, written off or sent back yet.
              */
             card_loads: number;
             /**
@@ -17632,6 +18270,17 @@ export type components = {
             count: number;
             tag: string;
         };
+        TaskIdsBody: {
+            /** @description Ids of the tasks. 1 to 200. */
+            ids: string[];
+            /** @description Which list the tasks are in. */
+            kind: components["schemas"]["TaskKind"];
+        };
+        /**
+         * @description Which list of the Failed tasks page a task belongs to.
+         * @enum {string}
+         */
+        TaskKind: "notification" | "webhook" | "connector_event" | "card_load" | "orphan_card" | "card_drift" | "announcement" | "holder_mail" | "held_mail" | "compensation" | "support_message";
         /**
          * @example {
          *       "init_data": "query_id=AAH...&user=%7B%22id%22%3A777000%2C%22first_name%22%3A%22Alice%22%7D&auth_date=1700000000&hash=abcdef..."
@@ -17830,6 +18479,75 @@ export type components = {
             data_base64: string;
             /** @description Original file name, kept for the audit trail only. */
             filename?: string | null;
+        };
+        /** @description One call a token made. */
+        TokenCall: {
+            /** Format: date-time */
+            at: string;
+            /**
+             * Format: int32
+             * @description How long the answer took.
+             * @example 12
+             */
+            duration_ms: number;
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description The endpoint, or `tool:` and the tool's name.
+             * @example GET /v1/admin/users/{id}
+             */
+            operation: string;
+            /**
+             * @description `ok`, `refused` (turned away, any 4xx) or `error` (failed on our side).
+             * @example ok
+             */
+            outcome: string;
+            /**
+             * @description What the call was made with: the path and the query string, or the
+             *     tool's arguments. Passwords, codes, keys, card numbers and message
+             *     texts are cut out and show as `[redacted]`.
+             */
+            params?: Record<string, never> | null;
+            /**
+             * Format: int32
+             * @description The HTTP status of the answer.
+             * @example 200
+             */
+            status: number;
+            /**
+             * @description `api` for a call of the operator API, `mcp` for a tool an agent called.
+             * @example api
+             */
+            surface: string;
+        };
+        /** @description A page of a token's journal, newest first. */
+        TokenCallPage: {
+            items: components["schemas"]["TokenCall"][];
+            /** @description Pass as `cursor` for the next page; null on the last one. */
+            next_cursor?: string | null;
+        };
+        /** @description A token's four money ceilings, in the platform's reporting currency. */
+        TokenLimits: {
+            /**
+             * @description Most credits may add up to in any 24 hours.
+             * @example 50
+             */
+            credit_per_day?: string;
+            /**
+             * @description Most one credit may be.
+             * @example 20
+             */
+            credit_per_operation?: string;
+            /**
+             * @description Most refunds and transfers may add up to in any 24 hours.
+             * @example 300
+             */
+            transfer_per_day?: string;
+            /**
+             * @description Most one refund or transfer may be.
+             * @example 100
+             */
+            transfer_per_operation?: string;
         };
         TopupBody: {
             /** @description Amount to add, decimal string, e.g. "500.00". Must be positive. */
@@ -18825,6 +19543,54 @@ export interface operations {
             };
         };
     };
+    token_calls: {
+        parameters: {
+            query?: {
+                /** @description Calls on a page, 1 to 200. 50 when left out. */
+                limit?: number | null;
+                /** @description `next_cursor` of the previous page. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description Token id, as the audit log and the user's token list show it */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenCallPage"];
+                };
+            };
+            /** @description A cursor that did not come from this list */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing `audit.read`, or called with an API token (`person_required`) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such token */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     upload_asset: {
         parameters: {
             query?: never;
@@ -19109,6 +19875,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["BroadcastResult"];
                 };
+            };
+            /** @description Not permitted, or called with an API token (`person_required`) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description This version was already sent on this channel */
             409: {
@@ -19477,7 +20250,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing the broadcasts.send permission */
+            /** @description Missing the broadcasts.send permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -19756,7 +20529,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing the cards.close_requests.manage permission */
+            /** @description Missing the cards.close_requests.manage permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -19859,7 +20632,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing the cards.close_requests.manage permission */
+            /** @description Missing the cards.close_requests.manage permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -19910,7 +20683,7 @@ export interface operations {
                     "application/json": components["schemas"]["AdminCloseRequestView"];
                 };
             };
-            /** @description Missing the cards.close_requests.manage permission */
+            /** @description Missing the cards.close_requests.manage permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -20396,7 +21169,7 @@ export interface operations {
                     "application/json": components["schemas"]["CardTopup"];
                 };
             };
-            /** @description Missing cards.reconcile permission */
+            /** @description Missing cards.reconcile permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -20444,7 +21217,7 @@ export interface operations {
                     "application/json": components["schemas"]["CardTopup"];
                 };
             };
-            /** @description Missing cards.reconcile permission */
+            /** @description Missing cards.reconcile permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -20492,7 +21265,7 @@ export interface operations {
                     "application/json": components["schemas"]["CardTopup"];
                 };
             };
-            /** @description Missing cards.reconcile permission */
+            /** @description Missing cards.reconcile permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -21002,7 +21775,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing the cards.recharge permission */
+            /** @description Missing the cards.recharge permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -21062,7 +21835,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing the cards.reconcile permission */
+            /** @description Missing the cards.reconcile permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -21117,12 +21890,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing the cards.recharge permission */
+            /** @description Missing the cards.recharge permission, or over the API token's money limit (`token_limit_zero`, `token_limit_per_operation`, `token_limit_per_day`, `token_limit_no_rate`; the body says which limit and what is left) */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LimitRefusal"];
+                };
             };
             /** @description No such card */
             404: {
@@ -21202,7 +21977,7 @@ export interface operations {
                     "application/json": components["schemas"]["ForceSyncResult"];
                 };
             };
-            /** @description Missing the cards.reconcile permission */
+            /** @description Missing the cards.reconcile permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -21464,7 +22239,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing the cards.lifecycle permission */
+            /** @description Missing the cards.lifecycle permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -21556,7 +22331,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing the cards.reconcile permission */
+            /** @description Missing the cards.reconcile permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -21669,12 +22444,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Not an operator */
+            /** @description Missing the cards.recharge permission, or over the API token's money limit (`token_limit_zero`, `token_limit_per_operation`, `token_limit_per_day`, `token_limit_no_rate`; the body says which limit and what is left) */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LimitRefusal"];
+                };
             };
             /** @description No such card */
             404: {
@@ -22494,7 +23271,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing cards.mass_terminate permission */
+            /** @description Missing cards.mass_terminate permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -22876,7 +23653,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing cards.mass_terminate permission */
+            /** @description Missing cards.mass_terminate permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -23539,6 +24316,19 @@ export interface operations {
                 card_id?: string | null;
                 /** @description Slug of the funding connector. */
                 connector_slug?: string | null;
+                /**
+                 * @description `false` leaves out top-ups whose failed card load was dismissed from
+                 *     Failed tasks, `true` lists only those. Not set: both.
+                 */
+                dismissed?: boolean | null;
+                /**
+                 * @description `true` lists only the top-ups the Failed tasks page lists as card
+                 *     top-ups waiting for an operator: paid, the card load failed, and since
+                 *     then nobody returned the money to the wallet, wrote it off, sent the
+                 *     payment back or dismissed the task. `card_load_status=failed` alone
+                 *     also lists failed loads that were already dealt with.
+                 */
+                failed_task?: boolean | null;
             };
             header?: never;
             path?: never;
@@ -23620,7 +24410,7 @@ export interface operations {
                     "application/json": components["schemas"]["OperatorDepositRow"];
                 };
             };
-            /** @description Missing cards.reconcile permission */
+            /** @description Missing cards.reconcile permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -23714,12 +24504,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing deposits.refund permission */
+            /** @description Missing deposits.refund permission, or over the API token's money limit (`token_limit_zero`, `token_limit_per_operation`, `token_limit_per_day`, `token_limit_no_rate`; the body says which limit and what is left) */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LimitRefusal"];
+                };
             };
             /** @description No such deposit */
             404: {
@@ -23815,12 +24607,14 @@ export interface operations {
                     "application/json": components["schemas"]["OperatorDepositRow"];
                 };
             };
-            /** @description Missing cards.recharge permission */
+            /** @description Missing cards.recharge permission, or over the API token's money limit (`token_limit_zero`, `token_limit_per_operation`, `token_limit_per_day`, `token_limit_no_rate`; the body says which limit and what is left) */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LimitRefusal"];
+                };
             };
             /** @description No such deposit */
             404: {
@@ -23829,7 +24623,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description `not_retryable`: not a top-up onto a card, not settled, already loaded, moved to the wallet, written off, sent back to the payer, or an attempt is running */
+            /** @description `not_retryable`: not a top-up onto a card, not settled, already loaded, moved to the wallet, written off, sent back to the payer, or an attempt is running. `order_card_released`: the card the top-up was for is no longer held for it (it was closed, went back to the stock, or went to another order or person when the order expired unpaid); nothing was loaded and no money moved */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -23863,7 +24657,7 @@ export interface operations {
                     "application/json": components["schemas"]["OperatorDepositRow"];
                 };
             };
-            /** @description Missing cards.reconcile permission */
+            /** @description Missing cards.reconcile permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -23911,7 +24705,7 @@ export interface operations {
                     "application/json": components["schemas"]["OperatorDepositRow"];
                 };
             };
-            /** @description Missing cards.reconcile permission */
+            /** @description Missing cards.reconcile permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -24400,7 +25194,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Not permitted */
+            /** @description Not permitted, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -24777,7 +25571,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Already handled, being handled right now, or can't be run again (`not_retryable`) */
+            /** @description Already handled, being handled right now, or can't be run again (`not_retryable`), or dismissed (`dismissed`) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -24786,6 +25580,232 @@ export interface operations {
             };
             /** @description Handling failed again (`handler_failed`); the message says why */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskIdsBody"];
+            };
+        };
+        responses: {
+            /** @description All of them deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Count"];
+                };
+            };
+            /** @description No ids or too many */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the failed_tasks.delete permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description One of the tasks doesn't exist (`not_found`) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description This kind is never deleted (`not_deletable`), one task isn't a failed one (`not_failed`), or was last tried less than seven days ago (`too_recent`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_stale_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaleBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaleOutcome"];
+                };
+            };
+            /** @description Missing the failed_tasks.delete permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description This kind is never deleted (`not_deletable`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_dismissed_handler: {
+        parameters: {
+            query: {
+                /** @description Which list. */
+                kind: "notification" | "webhook" | "connector_event" | "card_load" | "orphan_card" | "card_drift" | "announcement" | "holder_mail" | "held_mail" | "compensation" | "support_message";
+                /** @description 1 to 200. Default 50. */
+                limit?: number;
+                /** @description Rows to skip. Default 0. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DismissedPage"];
+                };
+            };
+            /** @description Unknown kind, or limit out of range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the settings.read permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    dismiss_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DismissBody"];
+            };
+        };
+        responses: {
+            /** @description All of them dismissed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Count"];
+                };
+            };
+            /** @description No ids or too many (`validation`), or no note where one is required (`note_required`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the failed_tasks.dismiss permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description One of the tasks doesn't exist (`not_found`) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description One of the tasks isn't failed any more (`not_failed`) or is dismissed already (`already_dismissed`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    undo_handler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskIdsBody"];
+            };
+        };
+        responses: {
+            /** @description All of them back */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Count"];
+                };
+            };
+            /** @description No ids or too many */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the failed_tasks.dismiss permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description One of them isn't dismissed (`not_dismissed`) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -24974,6 +25994,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The message was dismissed (`dismissed`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     list_webhooks: {
@@ -25047,7 +26074,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The endpoint is no longer active (`endpoint_inactive`) */
+            /** @description The endpoint is no longer active (`endpoint_inactive`), or the webhook was dismissed (`dismissed`) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -26256,6 +27283,202 @@ export interface operations {
             };
         };
     };
+    list_my_tokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiTokenView"][];
+                };
+            };
+            /** @description Called with an API token (`person_required`), or the account can't open the console */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_my_token: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApiTokenBody"];
+            };
+        };
+        responses: {
+            /** @description Created. `token` is shown only here */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedApiToken"];
+                };
+            };
+            /** @description `validation`: no name, a lifetime outside 1 to 90 days, no permissions or an unknown one, a negative limit, or a per-operation limit above the per-day one. `limit_above_ceiling`: a limit above this installation's ceiling; the message names it. `permission_not_for_tokens`: a permission no token may carry */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `totp_required`: the code is missing or wrong. `totp_not_set_up`: the account has no authenticator yet */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `permission_ceiling`: a permission your role does not have. `person_required`: called with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `too_many_tokens`: 50 working tokens already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many wrong codes; the second factor is locked for a while */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    token_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiTokenOptions"];
+                };
+            };
+            /** @description Called with an API token (`person_required`), or the account can't open the console */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revoke_my_token: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Token id from the list */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The token, now revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiTokenView"];
+                };
+            };
+            /** @description Called with an API token (`person_required`) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description You have no such token */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    my_token_calls: {
+        parameters: {
+            query?: {
+                /** @description Calls on a page, 1 to 200. 50 when left out. */
+                limit?: number | null;
+                /** @description `next_cursor` of the previous page. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description Token id from your list */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenCallPage"];
+                };
+            };
+            /** @description A cursor that did not come from this list */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Called with an API token (`person_required`), or the account can't open the console */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description You have no such token */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_preferences: {
         parameters: {
             query?: never;
@@ -26294,7 +27517,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description `dashboard.home`, `nav` or `ticker.bottom` */
+                /** @description `dashboard.home`, `nav`, `ticker.bottom` or `time` */
                 key: string;
             };
             cookie?: never;
@@ -26344,7 +27567,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description `dashboard.home`, `nav` or `ticker.bottom` */
+                /** @description `dashboard.home`, `nav`, `ticker.bottom` or `time` */
                 key: string;
             };
             cookie?: never;
@@ -26401,7 +27624,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description `dashboard.home`, `nav` or `ticker.bottom` */
+                /** @description `dashboard.home`, `nav`, `ticker.bottom` or `time` */
                 key: string;
             };
             cookie?: never;
@@ -27941,7 +29164,7 @@ export interface operations {
     list_dead_letters: {
         parameters: {
             query?: {
-                /** @description `open` (not retried yet, the default), `retried` or `all`. */
+                /** @description `open` (not retried or dismissed yet, the default), `retried` or `all`. */
                 state?: string;
                 /** @description 1 to 200. Default 50. */
                 limit?: number;
@@ -28010,7 +29233,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description This notification can't be sent again */
+            /** @description This notification can't be sent again, or it was dismissed (`dismissed`) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -28273,7 +29496,10 @@ export interface operations {
     topup: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description Required. One per top-up; send the same one again to retry it safely. */
+                "Idempotency-Key": string;
+            };
             path: {
                 /** @description Organization UUID */
                 id: string;
@@ -28294,8 +29520,24 @@ export interface operations {
                     "application/json": components["schemas"]["OrgView"];
                 };
             };
-            /** @description Amount is not positive or the currency is invalid */
+            /** @description Amount is not positive, the currency is invalid, or no Idempotency-Key */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing the organizations.write permission, or over the API token's money limit (`token_limit_zero`, `token_limit_per_operation`, `token_limit_per_day`, `token_limit_no_rate`; the body says which limit and what is left) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LimitRefusal"];
+                };
+            };
+            /** @description `conflict`: the Idempotency-Key was used with another body */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -30300,6 +31542,81 @@ export interface operations {
             };
         };
     };
+    list_user_tokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiTokenView"][];
+                };
+            };
+            /** @description Missing `users.write`, or called with an API token (`person_required`) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revoke_user_token: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID */
+                id: string;
+                /** @description Token id from the user's list */
+                token_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The token, now revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiTokenView"];
+                };
+            };
+            /** @description Missing `users.write`, or called with an API token (`person_required`) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The user has no such token */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     user_attribution: {
         parameters: {
             query?: never;
@@ -30385,7 +31702,10 @@ export interface operations {
     adjust_balance: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description Required. One per adjustment; send the same one again to retry it safely. */
+                "Idempotency-Key": string;
+            };
             path: {
                 /** @description User UUID */
                 id: string;
@@ -30406,22 +31726,38 @@ export interface operations {
                     "application/json": components["schemas"]["AdjustBalanceResult"];
                 };
             };
-            /** @description Zero amount, invalid currency, or note too short */
+            /** @description Zero amount, invalid currency, a note that is too short, or no Idempotency-Key */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Not an operator */
-            403: {
+            /** @description `insufficient_funds`: the balance is lower than the debit */
+            402: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            /** @description Missing the users.balance.adjust permission, or over the API token's money limit (`token_limit_zero`, `token_limit_per_operation`, `token_limit_per_day`, `token_limit_no_rate`; the body says which limit and what is left) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LimitRefusal"];
+                };
+            };
             /** @description User not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `conflict`: the Idempotency-Key was used with another body */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -30512,19 +31848,21 @@ export interface operations {
                     "application/json": components["schemas"]["BonusSnapshot"];
                 };
             };
-            /** @description Zero amount, more than two decimal places, a note that is too short, or an end date in the past */
+            /** @description Zero amount, more than two decimal places, a note that is too short, an end date in the past, or an API token's request without `request_id` (`missing_idempotency_key`) */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Missing the users.bonus.adjust permission */
+            /** @description Missing the users.bonus.adjust permission, or over the API token's money limit (`token_limit_zero`, `token_limit_per_operation`, `token_limit_per_day`, `token_limit_no_rate`; the body says which limit and what is left) */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LimitRefusal"];
+                };
             };
             /** @description User not found */
             404: {
@@ -30533,7 +31871,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description `not_enough_bonuses`: the user holds fewer than the amount taken back */
+            /** @description `not_enough_bonuses`: the user holds fewer than the amount taken back. `conflict`: the `request_id` was used with another body */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -30675,12 +32013,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing the users.debt.settle permission */
+            /** @description Missing the users.debt.settle permission, or over the API token's money limit (`token_limit_zero`, `token_limit_per_operation`, `token_limit_per_day`, `token_limit_no_rate`; the body says which limit and what is left) */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LimitRefusal"];
+                };
             };
             /** @description The card is not this user's */
             404: {
@@ -30689,7 +32029,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description `no_debt`: nothing is owed in the card's currency. `organization_card`: the card was given to the user by their organization and its money is the organization's. `card_empty`: the card holds nothing. `issuer_refused`: the issuer would not let the money be taken. `issuer_pending`: the issuer has not moved the money yet; send the same request again in a minute */
+            /** @description `no_debt`: nothing is owed in the card's currency. `organization_card`: the card was given to the user by their organization and its money is the organization's. `card_empty`: the card holds nothing. `issuer_refused`: the issuer would not let the money be taken. `issuer_pending`: the issuer has not moved the money yet; send the same request again in a minute. `conflict`: this `idempotency_key` was already used with a different body */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -30820,7 +32160,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing the users.erase permission */
+            /** @description Missing the users.erase permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -31437,7 +32777,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Not an operator */
+            /** @description Missing the users.balance.adjust permission, or called with an API token (`person_required`) */
             403: {
                 headers: {
                     [name: string]: unknown;

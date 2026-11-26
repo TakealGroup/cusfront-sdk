@@ -211,7 +211,8 @@ export interface Deposit {
   /**
    * For a top-up onto a card: `pending` until the card provider has loaded
    * the card, then `succeeded` or `failed`. Show the top-up as done only
-   * once it is `succeeded`, or once `returned_to_wallet_at` is set.
+   * once it is `succeeded`, or once `returned_to_wallet_at` is set. Empty
+   * for a top-up that was never paid: nothing was there to load.
    */
   card_load_status?: CardLoadStatus | null;
   /** Why the card could not take it, when `card_load_status` is `failed`. */

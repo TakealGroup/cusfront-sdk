@@ -20,6 +20,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `setAnalyticsZone` comes late. `MASK_TEXT_CLASS` (`ph-mask`) masks an
   element's text on every page, for a header that shows the user's e-mail or
   balance.
+- `Branding.status_url`: the address of the deployment's status page, when
+  it has one (platform 0.9.0 and later). Show a "Status" link only when it is
+  set.
 - `setAnalyticsConsent(granted)`: a refusal in an open tab stops the
   recording, opts PostHog out and silences Metrica; agreeing again resumes
   them. `initAnalytics({ consent: false })` loads nothing until then.
