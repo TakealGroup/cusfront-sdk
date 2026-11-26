@@ -122,9 +122,27 @@ export function readyInfo(raw: ReadyBody, healthy: boolean): ReadyInfo {
 }
 
 /**
- * `GET /ready` (public, unversioned). A 503 still carries the body, so a
- * degraded platform answers with `healthy: false` instead of throwing.
- * Network failures and other statuses throw as usual.
+ * A body the platform's own `/ready` wrote: always a `status` and a `checks`
+ * or `ops` block. The edge proxy's "temporarily unavailable" answer
+ * (`{"code":"service_unavailable",…}`, also a 503) is not one.
+ */
+function isReadyBody(body: unknown): body is ReadyBody {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return false;
+  const b = body as Record<string, unknown>;
+  const block = (v: unknown) => typeof v === "object" && v !== null;
+  return (
+    b.code !== "service_unavailable" &&
+    typeof b.status === "string" &&
+    (block(b.checks) || block(b.ops))
+  );
+}
+
+/**
+ * `GET /ready` (public, unversioned). A 503 from the platform still carries
+ * its body, so a degraded platform answers with `healthy: false` instead of
+ * throwing. A 503 from the edge proxy while the platform is down throws, as
+ * network failures and other statuses do; its `retryAfterSeconds` says when
+ * to look again.
  */
 export async function fetchReady(
   http: HttpClient,
@@ -134,8 +152,8 @@ export async function fetchReady(
     const body = await http.get<ReadyBody>("/ready", { skipAuth: true, signal: opts.signal });
     return readyInfo(body ?? {}, true);
   } catch (e) {
-    if (isApiError(e) && e.status === 503 && typeof e.body === "object" && e.body !== null) {
-      return readyInfo(e.body as ReadyBody, false);
+    if (isApiError(e) && e.status === 503 && isReadyBody(e.body)) {
+      return readyInfo(e.body, false);
     }
     throw e;
   }

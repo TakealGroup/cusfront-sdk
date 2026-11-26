@@ -24,6 +24,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   recording, opts PostHog out and silences Metrica; agreeing again resumes
   them. `initAnalytics({ consent: false })` loads nothing until then.
 
+### Fixed
+
+- `client.ready()` throws again while the platform is down. The edge in
+  front of it now answers such requests with a 503 of its own instead of a
+  502, and the SDK took that answer for a degraded platform with an unknown
+  version. The platform's own degraded answer is read as before.
+- `ApiError.retryAfterSeconds`: how long the server asked to wait before
+  trying again, when it said so. The SDK doesn't retry by itself.
+
 ### Changed
 
 - Call `setAnalyticsZone("cabinet")` before the cabinet renders. Text the

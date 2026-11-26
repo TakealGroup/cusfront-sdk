@@ -43,12 +43,12 @@ describe("satisfies", () => {
 });
 
 describe("client.ready()", () => {
-  function clientAnswering(status: number, body: unknown) {
+  function clientAnswering(status: number, body: unknown, headers: Record<string, string> = {}) {
     const fetch = vi.fn(
       async (_url: string | URL | Request, _init?: RequestInit) =>
         new Response(JSON.stringify(body), {
           status,
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...headers },
         }),
     );
     const client = createClient({
@@ -120,6 +120,49 @@ describe("client.ready()", () => {
     });
     const r = await client.ready();
     expect(r).toMatchObject({ compatible: true, healthy: false, status: "degraded" });
+  });
+
+  it("parses the platform's own degraded answer, with its checks", async () => {
+    const { client } = clientAnswering(503, {
+      status: "degraded",
+      checks: {
+        database: { ok: true },
+        cache: { ok: false },
+        ledger: { ok: true },
+        queue: { ok: true },
+      },
+      ops: { platform_version: "0.9.0" },
+    });
+    const r = await client.ready();
+    expect(r).toMatchObject({
+      compatible: true,
+      healthy: false,
+      status: "degraded",
+      platformVersion: "0.9.0",
+    });
+  });
+
+  it("throws on the edge proxy's 503 while the platform is down, with Retry-After", async () => {
+    const { client } = clientAnswering(
+      503,
+      {
+        code: "service_unavailable",
+        message: "the service is temporarily unavailable, try again shortly",
+        retry_after: 30,
+      },
+      { "Retry-After": "30" },
+    );
+    await expect(client.ready()).rejects.toMatchObject({
+      isApiError: true,
+      status: 503,
+      code: "service_unavailable",
+      retryAfterSeconds: 30,
+    });
+  });
+
+  it("throws on a 503 whose body isn't a readiness answer", async () => {
+    const { client } = clientAnswering(503, { message: "upstream gone" });
+    await expect(client.ready()).rejects.toMatchObject({ isApiError: true, status: 503 });
   });
 
   it("still throws on other failures", async () => {

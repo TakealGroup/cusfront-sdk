@@ -201,7 +201,18 @@ async function parseResponse<T>(resp: Response): Promise<T> {
       errBody.code ?? `http_${resp.status}`,
       errBody.message ?? resp.statusText ?? "request failed",
       body,
+      retryAfter(resp.headers?.get("Retry-After")),
     );
   }
   return body as T;
+}
+
+/** `Retry-After` in seconds: a number of seconds or an HTTP date. */
+export function retryAfter(v: string | null | undefined, now = Date.now()): number | undefined {
+  if (!v) return undefined;
+  const t = v.trim();
+  if (/^\d+$/.test(t)) return Number(t);
+  const at = Date.parse(t);
+  if (Number.isNaN(at)) return undefined;
+  return Math.max(0, Math.ceil((at - now) / 1000));
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HttpClient } from "./http.js";
+import { HttpClient, retryAfter } from "./http.js";
 import { inMemoryStore } from "./token-store.js";
 import { ApiError, NetworkError } from "./error.js";
 import { createClient, SDK_VERSION } from "./index.js";
@@ -190,5 +190,16 @@ describe("error guards", () => {
   it("NetworkError carries isNetworkError=true", () => {
     const e = new NetworkError("offline");
     expect(e.isNetworkError).toBe(true);
+  });
+});
+
+describe("retryAfter", () => {
+  it("reads seconds and HTTP dates, ignores the rest", () => {
+    const now = Date.parse("2026-11-26T12:00:00Z");
+    expect(retryAfter("30", now)).toBe(30);
+    expect(retryAfter("Thu, 26 Nov 2026 12:01:00 GMT", now)).toBe(60);
+    expect(retryAfter("Thu, 26 Nov 2026 11:00:00 GMT", now)).toBe(0);
+    expect(retryAfter("soon", now)).toBeUndefined();
+    expect(retryAfter(null, now)).toBeUndefined();
   });
 });

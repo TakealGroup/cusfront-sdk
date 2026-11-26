@@ -22,6 +22,10 @@ export class ApiError extends Error {
     /** Full parsed response body when available. Carries field-level
      *  validation details for `code = "validation"`. */
     public readonly body?: unknown,
+    /** Seconds the server asked to wait before trying again (its
+     *  `Retry-After` header), when it sent one. The SDK never retries by
+     *  itself. */
+    public readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = "ApiError";
