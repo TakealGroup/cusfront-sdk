@@ -1097,8 +1097,8 @@ Every page belongs to a zone, and the zone decides what is collected:
 |---|---|---|
 | PostHog autocapture | on, with element texts | on, without texts or attributes |
 | Heatmaps | on | off |
-| Masking | inputs | every input and all text |
-| Session recording | off | off; `sessionRecording: true` turns it on, masked |
+| Masking in recordings | every input | every input and all text |
+| Session recording | off; `sessionRecording: true` turns it on | off; `sessionRecording: true` turns it on |
 | Yandex Metrica | yes, without Webvisor | never |
 
 ### Public pages
@@ -1108,7 +1108,7 @@ import { initAnalytics, track, identify, posthogDistinctId } from "@takeal/cusfr
 
 initAnalytics({
   zone: "public",
-  posthog: { key: "phc_…", host: "https://example.com/ingest" },
+  posthog: { key: "phc_…", host: "https://example.com/ingest", sessionRecording: true },
   metrika: { counterId: 12345678 },
 });
 
@@ -1150,6 +1150,31 @@ Put card details, balances and the operations history inside `NO_CAPTURE_CLASS` 
 
 Turn on `sessionRecording: true` last, after you have watched one of your own cabinet sessions in PostHog and seen no values in it at all: no card number, balance, amount or e-mail.
 
+### Session recording
+
+With `sessionRecording: true` PostHog records the visit in every zone, and a walk from the home page through sign-up into the cabinet is one recording. Without the flag nothing is recorded anywhere.
+
+On public pages every input is masked and the page text is kept. In the cabinet and the Mini App every text and every input is masked. Blocks with `NO_CAPTURE_CLASS` are left out of recordings everywhere. `setAnalyticsZone` switches the masking at once and leaves the recording running.
+
+The masking is decided when the recorder first sees a piece of text, and nothing goes back over what it has already recorded. Text recorded on a public page stays readable in the recording; text that first appears in the cabinet is masked. So:
+
+- Call `setAnalyticsZone("cabinet")` before the cabinet renders: in the router's before-navigation hook, not after it. Going back to the site, calling it after the page has changed is fine, the masking just lasts a moment longer.
+- Put `data-analytics-zone="cabinet"` (`ZONE_ATTRIBUTE`) on the root element of the cabinet's layout, and `"miniapp"` on the Mini App's. Text inside it is masked from the first render even if the zone call comes late.
+- Anything that shows personal data outside that root and stays on screen across the move, such as a header with the user's e-mail or balance after sign-in, gets `MASK_TEXT_CLASS` (`ph-mask`, text masked on every page) or `NO_CAPTURE_CLASS` (not recorded at all). Otherwise the header the recorder saw on the public page, already holding the e-mail, stays readable.
+
+When the SDK can't tell where the page is (before `initAnalytics`, an unknown zone), recordings mask everything.
+
+### Consent
+
+Call `initAnalytics` once the visitor has agreed to analytics cookies, or call it early with `consent: false`: then nothing loads until they agree. When the answer changes in an open tab, tell the SDK:
+
+```ts
+setAnalyticsConsent(false); // recording stops, PostHog opts out, Metrica falls silent
+setAnalyticsConsent(true);  // PostHog opts back in, the recording resumes when it is on
+```
+
+Deleting the analytics cookies and the kept ids on a refusal stays with the app (`forgetAnalyticsIds()` and the cookie banner's own cleanup).
+
 ### Telegram Mini App
 
 The same as the cabinet, with `zone: "miniapp"`.
@@ -1158,7 +1183,7 @@ The same as the cabinet, with `zone: "miniapp"`.
 
 Metrica never loads in the cabinet or in the Mini App, even when `metrika` is passed. From the browser it gets page views and two goals, `signup_started` and `signup_completed`. Deposits, cards and subscriptions reach Metrica from the server with their amount in roubles, so the browser doesn't send them. Webvisor, the click map and link tracking are off: Metrica sees only what the SDK sends it.
 
-When the site and the cabinet are one app, call `setAnalyticsZone("cabinet")` as the user enters the cabinet. PostHog switches to masking, and Metrica stops receiving anything. A full page load into the cabinet is safer, because then Metrica isn't on the page at all. If `initAnalytics` finds Metrica on a cabinet page, it warns in the console.
+When the site and the cabinet are one app, call `setAnalyticsZone("cabinet")` as the user enters the cabinet, before its page renders. PostHog switches to masking, and Metrica stops receiving anything. A full page load into the cabinet is safer, because then Metrica isn't on the page at all. If `initAnalytics` finds Metrica on a cabinet page, it warns in the console.
 
 ### Events and page views
 
@@ -1521,7 +1546,7 @@ Available now:
 - `@takeal/cusfront-sdk/webhooks` — HMAC-SHA256 signature verifier (no network, isomorphic).
 - `@takeal/cusfront-sdk/react` — optional React hooks layer (`ClientProvider` + `useMe` / `useDeposits` / `useCards` / `useCardProducts` / `useBalance` / `useNotifications` / `useUnreadCount`). React is a `peerDependency`, never bundled.
 - `@takeal/cusfront-sdk/telegram` — Telegram Mini App `initData` → authenticated client bridge.
-- `@takeal/cusfront-sdk/analytics` — `initAnalytics`, `track`, `page`, `identify`, `resetAnalytics`, `posthogDistinctId` (PostHog and Yandex Metrica behind one call; see [Analytics](#analytics)).
+- `@takeal/cusfront-sdk/analytics` — `initAnalytics`, `setAnalyticsZone`, `setAnalyticsConsent`, `track`, `page`, `identify`, `resetAnalytics`, `posthogDistinctId` (PostHog and Yandex Metrica behind one call; see [Analytics](#analytics)).
 
 ### Verifying webhooks
 

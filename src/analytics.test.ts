@@ -4,11 +4,13 @@ import {
   _resetAnalyticsForTests,
   identify,
   initAnalytics,
+  maskRecordedText,
   page,
   posthogDistinctId,
   resetAnalytics,
   sanitizeProperties,
   sanitizeUrl,
+  setAnalyticsConsent,
   setAnalyticsZone,
   track,
   type AnalyticsOptions,
@@ -37,6 +39,8 @@ function fakePostHog(): Fake {
     set_config: vi.fn(),
     startSessionRecording: vi.fn(),
     stopSessionRecording: vi.fn(),
+    opt_in_capturing: vi.fn(),
+    opt_out_capturing: vi.fn(),
   };
 }
 
@@ -64,6 +68,27 @@ async function start(
 
 function initConfig(ph: Fake): Record<string, unknown> {
   return ph.init.mock.calls[0]![1] as Record<string, unknown>;
+}
+
+type MaskTextFn = (text: string, element?: Element | null) => string;
+
+/** The `maskTextFn` handed to rrweb at init. */
+function maskText(ph: Fake): MaskTextFn {
+  const rec = initConfig(ph).session_recording as { maskTextFn: MaskTextFn };
+  return rec.maskTextFn;
+}
+
+function recording(sessionRecording: boolean | undefined, ph: Fake) {
+  return {
+    key: "k",
+    sessionRecording,
+    load: async () => ph as unknown as PostHogLike,
+  };
+}
+
+/** Every config a zone change handed to posthog-js. */
+function zoneChanges(ph: Fake): Record<string, unknown>[] {
+  return ph.set_config.mock.calls.map((c) => c[0] as Record<string, unknown>);
 }
 
 afterEach(() => {
@@ -303,6 +328,7 @@ describe("zones", () => {
           blockClass: "ph-no-capture",
         },
       });
+      expect(maskText(ph)("4242 balance 10")).toBe("**** ******* **");
     },
   );
 
@@ -524,5 +550,185 @@ describe("PostHog from its script", () => {
     document.querySelector("script")!.dispatchEvent(new Event("error"));
     track("signup_started");
     expect(await posthogDistinctId(50)).toBeUndefined();
+  });
+});
+
+describe("session recording", () => {
+  const ZONES = ["public", "cabinet", "miniapp"] as const;
+
+  it.each(ZONES)(
+    "%s with the flag: recording on, inputs masked, ph-no-capture blocked",
+    async (zone) => {
+      const ph = fakePostHog();
+      await start({ zone, posthog: recording(true, ph) });
+      expect(initConfig(ph)).toMatchObject({
+        disable_session_recording: false,
+        session_recording: {
+          maskAllInputs: true,
+          maskTextSelector: "*",
+          blockClass: "ph-no-capture",
+        },
+      });
+      const text = maskText(ph)("Balance 120.50 USD", document.body);
+      expect(text).toBe(zone === "public" ? "Balance 120.50 USD" : "******* ****** ***");
+    },
+  );
+
+  it.each(ZONES)("%s without the flag: never recording", async (zone) => {
+    const ph = fakePostHog();
+    await start({ zone, posthog: recording(undefined, ph) });
+    expect(initConfig(ph).disable_session_recording).toBe(true);
+    for (const next of ["public", "cabinet", "miniapp", "public"] as const) setAnalyticsZone(next);
+    await flush();
+    expect(ph.startSessionRecording).not.toHaveBeenCalled();
+    for (const cfg of zoneChanges(ph)) expect(cfg.disable_session_recording).toBeUndefined();
+  });
+
+  it("public -> cabinet -> public keeps one recording and flips the masking", async () => {
+    const ph = fakePostHog();
+    await start({ zone: "public", posthog: recording(true, ph) });
+    const mask = maskText(ph);
+    expect(mask("Sign up", document.body)).toBe("Sign up");
+
+    setAnalyticsZone("cabinet");
+    // Masked at once, before PostHog has even seen the zone change.
+    expect(mask("a@b.io", document.body)).toBe("******");
+    await flush();
+
+    setAnalyticsZone("public");
+    expect(mask("Pricing", document.body)).toBe("Pricing");
+    await flush();
+
+    expect(ph.startSessionRecording).not.toHaveBeenCalled();
+    expect(ph.stopSessionRecording).not.toHaveBeenCalled();
+    expect(zoneChanges(ph)).toHaveLength(2);
+    for (const cfg of zoneChanges(ph)) {
+      // Nothing that would make posthog-js stop or restart the recorder.
+      expect(cfg).not.toHaveProperty("disable_session_recording");
+      expect(cfg).not.toHaveProperty("session_recording");
+    }
+    expect(ph.register.mock.calls.map((c) => c[0])).toEqual([
+      { zone: "public" },
+      { zone: "cabinet" },
+      { zone: "public" },
+    ]);
+  });
+
+  it("masks by default: before initAnalytics, after it is gone, and in an unknown zone", async () => {
+    expect(maskRecordedText("Card 4242")).toBe("**** ****");
+    const ph = fakePostHog();
+    await start({ zone: "public", posthog: recording(true, ph) });
+    expect(maskRecordedText("Card 4242")).toBe("Card 4242");
+    setAnalyticsZone("somewhere" as never);
+    expect(maskRecordedText("Card 4242")).toBe("**** ****");
+    _resetAnalyticsForTests();
+    expect(maskText(ph)("Card 4242")).toBe("**** ****");
+  });
+
+  it("on a public page, masks inside ph-mask and inside a cabinet layout root", async () => {
+    const ph = fakePostHog();
+    await start({ zone: "public", posthog: recording(true, ph) });
+    document.body.innerHTML = `
+      <header><span class="ph-mask"><b id="email">a@b.io</b></span><span id="logo">Brand</span></header>
+      <main data-analytics-zone="cabinet"><p id="balance">120.50</p></main>
+      <section data-analytics-zone="public"><p id="promo">Free card</p></section>`;
+    const el = (id: string) => document.getElementById(id);
+    const mask = maskText(ph);
+    expect(mask("a@b.io", el("email"))).toBe("******");
+    expect(mask("120.50", el("balance"))).toBe("******");
+    expect(mask("Brand", el("logo"))).toBe("Brand");
+    expect(mask("Free card", el("promo"))).toBe("Free card");
+    document.body.innerHTML = "";
+  });
+
+  it("masks when the element cannot be checked", async () => {
+    const ph = fakePostHog();
+    await start({ zone: "public", posthog: recording(true, ph) });
+    const broken = {
+      closest: () => {
+        throw new Error("detached");
+      },
+    } as unknown as Element;
+    expect(maskText(ph)("a@b.io", broken)).toBe("******");
+  });
+});
+
+describe("consent", () => {
+  it("without consent nothing is loaded and nothing records", async () => {
+    const ph = fakePostHog();
+    const load = vi.fn(async () => ph as unknown as PostHogLike);
+    initAnalytics({
+      zone: "public",
+      consent: false,
+      posthog: { key: "k", sessionRecording: true, load },
+      metrika: { counterId: 12345678 },
+    });
+    track("signup_started");
+    page("/pricing");
+    identify(UUID);
+    setAnalyticsZone("cabinet");
+    setAnalyticsZone("public");
+    await flush();
+    expect(load).not.toHaveBeenCalled();
+    expect(w.ym).toBeUndefined();
+    expect(scripts()).toEqual([]);
+    expect(await posthogDistinctId(10)).toBeUndefined();
+  });
+
+  it("consent given later loads PostHog with recording, sends the page view and the user", async () => {
+    const ph = fakePostHog();
+    initAnalytics({ zone: "public", consent: false, posthog: recording(true, ph) });
+    identify(UUID);
+    setAnalyticsConsent(true);
+    await flush();
+    expect(initConfig(ph).disable_session_recording).toBe(false);
+    expect(ph.identify).toHaveBeenCalledWith(UUID);
+    expect(ph.capture).toHaveBeenCalledWith(
+      "$pageview",
+      expect.objectContaining({ $current_url: expect.any(String) }),
+    );
+  });
+
+  it("withdrawn in an open tab: recording stops, PostHog opts out, Metrica falls silent", async () => {
+    const ph = fakePostHog();
+    await start({ zone: "public", posthog: recording(true, ph), metrika: { counterId: 12345678 } });
+    setAnalyticsConsent(false);
+    const before = ymCalls().length;
+    track("signup_started");
+    page("/after-withdrawal");
+    await flush();
+    expect(ph.stopSessionRecording).toHaveBeenCalledOnce();
+    expect(ph.opt_out_capturing).toHaveBeenCalledOnce();
+    expect(ph.capture).not.toHaveBeenCalledWith("signup_started", expect.anything());
+    expect(ymCalls().length).toBe(before);
+  });
+
+  it("given again: PostHog opts back in and the recording resumes, in any zone", async () => {
+    const ph = fakePostHog();
+    await start({ zone: "public", posthog: recording(true, ph), metrika: { counterId: 12345678 } });
+    setAnalyticsConsent(false);
+    setAnalyticsConsent(true);
+    await flush();
+    expect(ph.opt_in_capturing).toHaveBeenCalledOnce();
+    expect(ph.startSessionRecording).toHaveBeenCalledOnce();
+    expect(ph.init).toHaveBeenCalledOnce();
+    track("signup_started");
+    await flush();
+    expect(ph.capture).toHaveBeenCalledWith("signup_started", {});
+    expect(ymCalls().some((c) => c[1] === "reachGoal")).toBe(true);
+  });
+
+  it("given again without the flag: opts in, never starts a recording", async () => {
+    const ph = fakePostHog();
+    await start({ zone: "cabinet", posthog: recording(false, ph) });
+    setAnalyticsConsent(false);
+    setAnalyticsConsent(true);
+    await flush();
+    expect(ph.opt_in_capturing).toHaveBeenCalledOnce();
+    expect(ph.startSessionRecording).not.toHaveBeenCalled();
+  });
+
+  it("does nothing before initAnalytics", () => {
+    expect(() => setAnalyticsConsent(false)).not.toThrow();
   });
 });

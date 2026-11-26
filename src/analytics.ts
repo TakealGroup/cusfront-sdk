@@ -67,6 +67,21 @@ export type AnalyticsProperties = Record<string, Primitive | Primitive[]>;
  */
 export const NO_CAPTURE_CLASS = "ph-no-capture";
 
+/**
+ * Mark an element whose text must be masked in recordings in every zone,
+ * public pages included: a header that shows the user's e-mail or balance on
+ * every page. The block is still recorded, its text as `*`. PostHog's own
+ * name for this class.
+ */
+export const MASK_TEXT_CLASS = "ph-mask";
+
+/**
+ * Put `data-analytics-zone="cabinet"` (or `"miniapp"`) on the root element of
+ * the cabinet's layout. Recordings mask every text inside it from the first
+ * render, even when {@link setAnalyticsZone} comes a moment late.
+ */
+export const ZONE_ATTRIBUTE = "data-analytics-zone";
+
 /** The subset of the `posthog-js` instance the layer uses. */
 export interface PostHogLike {
   init(key: string, config: Record<string, unknown>): unknown;
@@ -78,6 +93,8 @@ export interface PostHogLike {
   set_config(config: Record<string, unknown>): unknown;
   startSessionRecording?(): unknown;
   stopSessionRecording?(): unknown;
+  opt_in_capturing?(): unknown;
+  opt_out_capturing?(): unknown;
 }
 
 export interface PostHogOptions {
@@ -95,9 +112,14 @@ export interface PostHogOptions {
    *  `() => import("posthog-js").then((m) => m.default)` (1.187 or later).
    *  Without it the script is loaded from `assetsHost`. */
   load?: () => Promise<PostHogLike>;
-  /** Record sessions in the cabinet and the Mini App, masked. Off by
-   *  default; turn it on only after checking a recording shows no values.
-   *  Never recorded on public pages. */
+  /** Record sessions (PostHog Session Replay). Off by default; without it
+   *  nothing is recorded in any zone. With it, one recording follows the
+   *  visitor from the site into the cabinet and back: on public pages every
+   *  input is masked and the page text is not; in the cabinet and the Mini App
+   *  every text and every input is masked. Blocks with {@link NO_CAPTURE_CLASS}
+   *  are never recorded. A zone change switches the masking without
+   *  restarting the recording. Turn it on only after checking a cabinet
+   *  recording shows no values. */
   sessionRecording?: boolean;
 }
 
@@ -115,6 +137,10 @@ export interface AnalyticsOptions {
   /** Send the first page view right away. Default `true`; after that call
    *  {@link page} on every route change. */
   initialPageview?: boolean;
+  /** Whether the visitor agreed to analytics cookies. Default `true`:
+   *  calling `initAnalytics` says they did. With `false` nothing is loaded
+   *  and nothing is recorded until {@link setAnalyticsConsent} says `true`. */
+  consent?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -496,6 +522,7 @@ interface Sink {
   identify(userId: string): void;
   reset(): void;
   setZone(zone: AnalyticsZone): void;
+  setConsent(granted: boolean): void;
 }
 
 interface Win {
@@ -530,19 +557,62 @@ function posthogConfig(zone: AnalyticsZone, o: PostHogOptions): Record<string, u
     capture_pageview: false,
     capture_pageleave: true,
     before_send: beforeSend,
+    // Set once. A zone change never touches these: posthog-js hands the
+    // recording options to rrweb when the recorder starts, and changing
+    // `disable_session_recording` stops or restarts it.
+    disable_session_recording: !o.sessionRecording,
+    session_recording: recordingOptions(),
   };
-  return { ...base, ...zoneConfig(zone, o) };
+  return { ...base, ...zoneConfig(zone) };
 }
 
-/** What changes with the zone. Applied at init and on `setAnalyticsZone`. */
-function zoneConfig(zone: AnalyticsZone, o: PostHogOptions): Record<string, unknown> {
+/**
+ * Recording masking that follows the zone without restarting the recorder.
+ *
+ * posthog-js passes `session_recording` to rrweb once, when the recorder
+ * starts; a later `set_config` does not reach it. What rrweb does evaluate
+ * on every text it serializes (full snapshots and each text change) is the
+ * mask decision: `maskTextSelector: "*"` marks every text for masking and
+ * rrweb then calls `maskTextFn(text, parentElement)` for it. That callback
+ * reads the zone at that moment, so the switch is immediate. If a posthog-js
+ * build ignored `maskTextFn`, rrweb would mask every text with `*`: closed.
+ */
+function recordingOptions(): Record<string, unknown> {
+  return {
+    maskAllInputs: true,
+    maskTextSelector: "*",
+    maskTextFn: maskRecordedText,
+    blockClass: NO_CAPTURE_CLASS,
+  };
+}
+
+const PRIVATE_BLOCK = `.${MASK_TEXT_CLASS}, [${ZONE_ATTRIBUTE}]:not([${ZONE_ATTRIBUTE}="public"])`;
+
+/**
+ * The text a recording keeps: as it is on a public page, all `*` anywhere
+ * else. Anything short of a known public page masks: no analytics state yet,
+ * an unknown zone, an element inside {@link MASK_TEXT_CLASS} or inside a
+ * {@link ZONE_ATTRIBUTE} root that is not `public`, or an error here.
+ */
+export function maskRecordedText(text: string, element?: Element | null): string {
+  try {
+    if (state()?.zone === "public" && !element?.closest(PRIVATE_BLOCK)) return text;
+  } catch {
+    // Mask below.
+  }
+  return text.replace(/\S/g, "*");
+}
+
+/** What changes with the zone in autocapture and heatmaps. Applied at init
+ *  and on `setAnalyticsZone`. Recording masking follows the zone by itself
+ *  ({@link maskRecordedText}). Anything but `public` gets the masked set. */
+function zoneConfig(zone: AnalyticsZone): Record<string, unknown> {
   if (zone === "public") {
     return {
       autocapture: true,
       mask_all_text: false,
       mask_all_element_attributes: false,
       enable_heatmaps: true,
-      disable_session_recording: true,
     };
   }
   return {
@@ -551,12 +621,6 @@ function zoneConfig(zone: AnalyticsZone, o: PostHogOptions): Record<string, unkn
     mask_all_text: true,
     mask_all_element_attributes: true,
     enable_heatmaps: false,
-    disable_session_recording: !o.sessionRecording,
-    session_recording: {
-      maskAllInputs: true,
-      maskTextSelector: "*",
-      blockClass: NO_CAPTURE_CLASS,
-    },
   };
 }
 
@@ -635,11 +699,24 @@ class PostHogSink implements Sink {
     this.with((ph) => ph.reset());
   }
   setZone(zone: AnalyticsZone): void {
+    // The recording goes on: no stop, no start, and nothing in this config
+    // that would make posthog-js restart it.
     this.with((ph) => {
-      ph.set_config(zoneConfig(zone, this.o));
+      ph.set_config(zoneConfig(zone));
       ph.register({ zone });
-      if (zone === "public" || !this.o.sessionRecording) ph.stopSessionRecording?.();
-      else ph.startSessionRecording?.();
+    });
+  }
+  setConsent(granted: boolean): void {
+    this.with((ph) => {
+      if (granted) {
+        ph.opt_in_capturing?.();
+        if (this.o.sessionRecording) ph.startSessionRecording?.();
+      } else {
+        // posthog-js keeps rrweb running after an opt-out, it only stops
+        // sending; stop the recorder itself.
+        ph.stopSessionRecording?.();
+        ph.opt_out_capturing?.();
+      }
     });
   }
 }
@@ -649,6 +726,7 @@ class PostHogSink implements Sink {
  *  sends, and falls silent when the zone leaves `public`. */
 class MetrikaSink implements Sink {
   private live = true;
+  private consented = true;
   private readonly id: number;
 
   constructor(o: MetrikaOptions) {
@@ -677,7 +755,7 @@ class MetrikaSink implements Sink {
   }
 
   private ym(...args: unknown[]): void {
-    if (this.live) win().ym?.(this.id, ...args);
+    if (this.live && this.consented) win().ym?.(this.id, ...args);
   }
 
   capture(event: AnalyticsEvent, props: AnalyticsProperties): void {
@@ -694,6 +772,9 @@ class MetrikaSink implements Sink {
   setZone(zone: AnalyticsZone): void {
     this.live = zone === "public";
   }
+  setConsent(granted: boolean): void {
+    this.consented = granted;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -704,6 +785,7 @@ class MetrikaSink implements Sink {
 interface State {
   options: AnalyticsOptions;
   zone: AnalyticsZone;
+  consent: boolean;
   posthog?: PostHogSink;
   metrika?: MetrikaSink;
   lastPage?: string;
@@ -714,13 +796,25 @@ const KEY = Symbol.for("takeal.cusfront-sdk.analytics");
 const holder = globalThis as unknown as Record<symbol, State | undefined>;
 const state = (): State | undefined => holder[KEY];
 
+/** The systems already loaded, whatever the consent. */
+function loaded(s: State): (PostHogSink | MetrikaSink)[] {
+  return [s.posthog, s.metrika].filter((x): x is PostHogSink | MetrikaSink => !!x);
+}
+
+/** The systems that may receive something now. Nothing loads before the
+ *  visitor agreed. */
 function sinks(s: State): Sink[] {
+  if (!s.consent) return [];
+  if (s.options.posthog?.key && !s.posthog) {
+    s.posthog = new PostHogSink(s.options.posthog, s.zone);
+    if (s.userId) s.posthog.identify(s.userId);
+  }
   // Metrica loads the first time the page is public, and never before.
   if (s.zone === "public" && s.options.metrika && !s.metrika) {
     s.metrika = new MetrikaSink(s.options.metrika);
     if (s.userId) s.metrika.identify(s.userId);
   }
-  return [s.posthog, s.metrika].filter((x): x is PostHogSink | MetrikaSink => !!x);
+  return loaded(s);
 }
 
 /**
@@ -735,11 +829,29 @@ export function initAnalytics(options: AnalyticsOptions): void {
       "[analytics] Yandex Metrica is on a page outside the public zone; it must not be.",
     );
   }
-  const s: State = { options, zone: options.zone };
+  const s: State = { options, zone: options.zone, consent: options.consent !== false };
   holder[KEY] = s;
-  if (options.posthog?.key) s.posthog = new PostHogSink(options.posthog, options.zone);
   sinks(s);
   if (options.initialPageview !== false) page();
+}
+
+/**
+ * The visitor's answer on analytics cookies changed in an open tab. `false`
+ * stops the recording, opts PostHog out and silences Metrica; `true` opts
+ * back in and resumes the recording when `sessionRecording` is on, or loads
+ * the systems for the first time after `initAnalytics({ consent: false })`.
+ * Before `initAnalytics` it does nothing.
+ */
+export function setAnalyticsConsent(granted: boolean): void {
+  const s = state();
+  if (!s || s.consent === granted) return;
+  s.consent = granted;
+  const before = loaded(s);
+  for (const sink of before) sink.setConsent(granted);
+  if (granted) {
+    sinks(s);
+    if (s.lastPage === undefined && s.options.initialPageview !== false) page();
+  }
 }
 
 /**
@@ -751,8 +863,10 @@ export function initAnalytics(options: AnalyticsOptions): void {
 export function setAnalyticsZone(zone: AnalyticsZone): void {
   const s = state();
   if (!s || s.zone === zone) return;
+  // Synchronous: recording masking reads this before the next render.
   s.zone = zone;
-  for (const sink of sinks(s)) sink.setZone(zone);
+  sinks(s);
+  for (const sink of loaded(s)) sink.setZone(zone);
 }
 
 /** Record an event. The name must be one of {@link ANALYTICS_EVENTS}. */
@@ -769,7 +883,7 @@ export function page(url?: string): void {
   const s = state();
   const w = win();
   const raw = url ?? w.location?.href;
-  if (!s || !raw) return;
+  if (!s || !s.consent || !raw) return;
   const clean = sanitizeUrl(raw);
   if (clean === s.lastPage) return;
   const referrer =
@@ -793,7 +907,7 @@ export function resetAnalytics(): void {
   const s = state();
   if (!s) return;
   s.userId = undefined;
-  for (const sink of sinks(s)) sink.reset();
+  for (const sink of loaded(s)) sink.reset();
 }
 
 /** PostHog's id for this browser, for `auth.register({ attribution: {
